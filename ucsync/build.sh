@@ -48,7 +48,7 @@ prepare_git() {
     https://chromium.googlesource.com/chromium/src.git)
 
   echo "[ucsync] gclient sync (third_party y toolchains: clang, rust)"
-  (cd "$WORK" && gclient sync -D --with_submodules -j "$JOBS")
+  (cd "$WORK" && gclient sync -D -j "$JOBS")
 }
 
 prepare_tarball() {
@@ -65,6 +65,8 @@ prepare_patches() {
   python3 "$ROOT/utils/patches.py" apply "$SRC" "$ROOT/patches"
 
   echo "[ucsync] Sustitución de dominios"
+  # `domain_substitution.py` falla si la caché ya existe: se regenera en cada preparación.
+  rm -f "$WORK/build/domsubcache.tar.gz"
   python3 "$ROOT/utils/domain_substitution.py" apply -r "$ROOT/domain_regex.list" \
     -f "$ROOT/domain_substitution.list" -c "$WORK/build/domsubcache.tar.gz" "$SRC"
 }
