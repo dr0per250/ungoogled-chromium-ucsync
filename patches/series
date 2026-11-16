@@ -108,3 +108,5 @@ extra/ungoogled-chromium/disable-fedcm-by-default.patch
 extra/ungoogled-chromium/bundle-hyphenation-patterns.patch
 extra/ungoogled-chromium/add-flag-for-disabling-jit.patch
 extra/ungoogled-chromium/add-flag-to-hide-window-buttons.patch
+extra/ucsync/0001-history-api-visit-time.patch
+extra/ucsync/0002-history-api-addurls-bulk.patch

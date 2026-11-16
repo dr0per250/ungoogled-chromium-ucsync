@@ -1,0 +1,124 @@
+diff --git a/chrome/browser/extensions/api/history/history_api.cc b/chrome/browser/extensions/api/history/history_api.cc
+index 8e3c8c9..b61fd93 100644
+--- a/chrome/browser/extensions/api/history/history_api.cc
++++ b/chrome/browser/extensions/api/history/history_api.cc
+@@ -347,6 +347,20 @@ void HistorySearchFunction::SearchComplete(history::QueryResults results) {
+   Release();  // Balanced in Run().
+ }
+ 
++// UC-Sync: `addUrl` can record a visit that happened in the past. Upstream only
++// ever passes `base::Time::Now()` below, but `HistoryService::AddPage()` accepts
++// any time, so the API restriction is the only thing keeping a synchronized
++// visit from keeping its real timestamp in `chrome://history`.
++bool ParseVisitTime(double ms_from_epoch, base::Time* visit_time, std::string* error) {
++  base::Time time = base::Time::FromMillisecondsSinceUnixEpoch(ms_from_epoch);
++  if (time.is_null() || time > base::Time::Now()) {
++    *error = "visitTime must be a valid time that is not in the future.";
++    return false;
++  }
++  *visit_time = time;
++  return true;
++}
++
+ ExtensionFunction::ResponseAction HistoryAddUrlFunction::Run() {
+   std::optional<AddUrl::Params> params = AddUrl::Params::Create(args());
+   EXTENSION_FUNCTION_VALIDATE(params);
+@@ -357,9 +371,17 @@ ExtensionFunction::ResponseAction HistoryAddUrlFunction::Run() {
+     return RespondNow(Error(std::move(error)));
+   }
+ 
++  // Sin `visitTime` se mantiene el comportamiento de arriba: la visita es de ahora.
++  base::Time visit_time = base::Time::Now();
++  if (params->details.visit_time) {
++    if (!ParseVisitTime(*params->details.visit_time, &visit_time, &error)) {
++      return RespondNow(Error(std::move(error)));
++    }
++  }
++
+   history::HistoryService* hs = HistoryServiceFactory::GetForProfile(
+       GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
+-  hs->AddPage(url, base::Time::Now(), history::SOURCE_EXTENSION);
++  hs->AddPage(url, visit_time, history::SOURCE_EXTENSION);
+ 
+   return RespondNow(NoArguments());
+ }
+diff --git a/chrome/browser/extensions/api/history/history_apitest.cc b/chrome/browser/extensions/api/history/history_apitest.cc
+index 13b2b33..2aaabbf 100644
+--- a/chrome/browser/extensions/api/history/history_apitest.cc
++++ b/chrome/browser/extensions/api/history/history_apitest.cc
+@@ -347,6 +347,52 @@ IN_PROC_BROWSER_TEST_F(HistoryApiTest, SearchAfterAdd) {
+   ASSERT_TRUE(RunExtensionTest("history/regular/search_after_add")) << message_;
+ }
+ 
++// UC-Sync: `addUrl` with `visitTime` records the visit at that time, which is
++// what importing a synchronized history needs (upstream stamps "now").
++IN_PROC_BROWSER_TEST_F(HistoryApiTest, AddUrl_WithVisitTime) {
++  static constexpr char kManifest[] =
++      R"({
++        "name": "chrome.history",
++        "version": "0.1",
++        "manifest_version": 3,
++        "permissions": ["history"],
++        "background": {
++          "service_worker": "add_url_visit_time.js"
++        }
++      })";
++  static constexpr char kBackgroundJs[] =
++      R"(chrome.test.runTests([
++        function addVisitInThePast() {
++          const visitTime = Date.now() - 7 * 24 * 60 * 60 * 1000;
++          const url = 'https://example.com/past-visit';
++          chrome.history.addUrl({url, visitTime}, function() {
++            chrome.test.assertNoError();
++            chrome.history.getVisits({url}, function(visits) {
++              chrome.test.assertEq(1, visits.length);
++              chrome.test.assertEq(visitTime, visits[0].visitTime);
++              chrome.test.succeed();
++            });
++          });
++        },
++        function rejectVisitTimeInTheFuture() {
++          const url = 'https://example.com/future-visit';
++          chrome.history.addUrl({url, visitTime: Date.now() + 60000}, function() {
++            chrome.test.assertLastError(
++                'visitTime must be a valid time that is not in the future.');
++            chrome.history.getVisits({url}, function(visits) {
++              chrome.test.assertEq(0, visits.length);
++              chrome.test.succeed();
++            });
++          });
++        },
++      ]);)";
++  TestExtensionDir test_dir;
++  test_dir.WriteManifest(kManifest);
++  test_dir.WriteFile(FILE_PATH_LITERAL("add_url_visit_time.js"), kBackgroundJs);
++
++  ASSERT_TRUE(RunExtensionTest(test_dir.UnpackedPath(), {}, {})) << message_;
++}
++
+ // Test when History API is used from incognito mode, it has access to the
+ // regular mode history and actual incognito navigation has no effect on it.
+ IN_PROC_BROWSER_TEST_F(HistoryApiTest, Incognito) {
+diff --git a/chrome/common/extensions/api/history.json b/chrome/common/extensions/api/history.json
+index 94633dd..30d2081 100644
+--- a/chrome/common/extensions/api/history.json
++++ b/chrome/common/extensions/api/history.json
+@@ -79,7 +79,8 @@
+         "id": "UrlDetails",
+         "type": "object",
+         "properties": {
+-          "url": {"type": "string", "description": "The URL for the operation. It must be in the format as returned from a call to <code>history.search()</code>."}
++          "url": {"type": "string", "description": "The URL for the operation. It must be in the format as returned from a call to <code>history.search()</code>."},
++          "visitTime": {"type": "number", "optional": true, "description": "When the visit occurred, represented in milliseconds since the epoch. Only honoured by <code>addUrl</code>, which records the visit at the current time when it is omitted. It must not be in the future. A visit added this way is recorded as coming from elsewhere, i.e. $(ref:history.VisitItem).isLocal is false, exactly like a synchronized visit."}
+         }
+       }
+     ],
+@@ -127,7 +128,7 @@
+       {
+         "name": "addUrl",
+         "type": "function",
+-        "description": "Adds a URL to the history at the current time with a <a href='#transition_types'>transition type</a> of \"link\".",
++        "description": "Adds a URL to the history with a <a href='#transition_types'>transition type</a> of \"link\", at the current time, or at $(ref:history.UrlDetails.visitTime) when that is given.",
+         "parameters": [
+           {
+             "name": "details",

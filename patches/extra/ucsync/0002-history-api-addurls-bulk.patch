@@ -1,0 +1,222 @@
+diff --git a/chrome/browser/extensions/api/history/history_api.cc b/chrome/browser/extensions/api/history/history_api.cc
+index b61fd93..507b4a7 100644
+--- a/chrome/browser/extensions/api/history/history_api.cc
++++ b/chrome/browser/extensions/api/history/history_api.cc
+@@ -29,6 +29,7 @@
+ #include "chrome/common/extensions/api/history.h"
+ #include "components/history/core/browser/history_service.h"
+ #include "components/history/core/browser/history_types.h"
++#include "components/history/core/browser/url_row.h"
+ #include "components/history/core/common/pref_names.h"
+ #include "components/prefs/pref_service.h"
+ #include "extensions/browser/event_router.h"
+@@ -52,6 +53,7 @@ typedef std::vector<api::history::HistoryItem> HistoryItemList;
+ typedef std::vector<api::history::VisitItem> VisitItemList;
+ 
+ namespace AddUrl = api::history::AddUrl;
++namespace AddUrls = api::history::AddUrls;
+ namespace DeleteUrl = api::history::DeleteUrl;
+ namespace DeleteRange = api::history::DeleteRange;
+ namespace GetVisits = api::history::GetVisits;
+@@ -386,6 +388,40 @@ ExtensionFunction::ResponseAction HistoryAddUrlFunction::Run() {
+   return RespondNow(NoArguments());
+ }
+ 
++// UC-Sync: importa un historial entero con sus timestamps en una sola llamada.
++// `HistoryService::AddPagesWithDetails()` escribe una visita por fila con su
++// `last_visit_time`, que es exactamente lo que necesita una importación.
++ExtensionFunction::ResponseAction HistoryAddUrlsFunction::Run() {
++  std::optional<AddUrls::Params> params = AddUrls::Params::Create(args());
++  EXTENSION_FUNCTION_VALIDATE(params);
++
++  history::URLRows rows;
++  std::string error;
++  for (const auto& details : params->details.urls) {
++    GURL url;
++    if (!ValidateUrl(details.url, &url, &error)) {
++      return RespondNow(Error(std::move(error)));
++    }
++    base::Time visit_time = base::Time::Now();
++    if (details.visit_time &&
++        !ParseVisitTime(*details.visit_time, &visit_time, &error)) {
++      return RespondNow(Error(std::move(error)));
++    }
++    history::URLRow row(url);
++    if (details.title) {
++      row.set_title(base::UTF8ToUTF16(*details.title));
++    }
++    row.set_last_visit_time(visit_time);
++    rows.push_back(row);
++  }
++
++  history::HistoryService* hs = HistoryServiceFactory::GetForProfile(
++      GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
++  hs->AddPagesWithDetails(rows, history::SOURCE_EXTENSION);
++
++  return RespondNow(NoArguments());
++}
++
+ ExtensionFunction::ResponseAction HistoryDeleteUrlFunction::Run() {
+   std::optional<DeleteUrl::Params> params = DeleteUrl::Params::Create(args());
+   EXTENSION_FUNCTION_VALIDATE(params);
+diff --git a/chrome/browser/extensions/api/history/history_api.h b/chrome/browser/extensions/api/history/history_api.h
+index cf1e219..79e1389 100644
+--- a/chrome/browser/extensions/api/history/history_api.h
++++ b/chrome/browser/extensions/api/history/history_api.h
+@@ -154,6 +154,17 @@ class HistoryAddUrlFunction : public HistoryFunction {
+   ResponseAction Run() override;
+ };
+ 
++class HistoryAddUrlsFunction : public HistoryFunction {
++ public:
++  DECLARE_EXTENSION_FUNCTION("history.addUrls", HISTORY_ADDURLS)
++
++ protected:
++  ~HistoryAddUrlsFunction() override = default;
++
++  // ExtensionFunction:
++  ResponseAction Run() override;
++};
++
+ class HistoryDeleteAllFunction : public HistoryFunctionWithCallback {
+  public:
+   DECLARE_EXTENSION_FUNCTION("history.deleteAll", HISTORY_DELETEALL)
+diff --git a/chrome/browser/extensions/api/history/history_apitest.cc b/chrome/browser/extensions/api/history/history_apitest.cc
+index 2aaabbf..1404fda 100644
+--- a/chrome/browser/extensions/api/history/history_apitest.cc
++++ b/chrome/browser/extensions/api/history/history_apitest.cc
+@@ -393,6 +393,68 @@ IN_PROC_BROWSER_TEST_F(HistoryApiTest, AddUrl_WithVisitTime) {
+   ASSERT_TRUE(RunExtensionTest(test_dir.UnpackedPath(), {}, {})) << message_;
+ }
+ 
++// UC-Sync: `addUrls` importa un lote de visitas con su timestamp en una sola
++// llamada, y no registra nada si alguna entrada es inválida.
++IN_PROC_BROWSER_TEST_F(HistoryApiTest, AddUrls_Bulk) {
++  static constexpr char kManifest[] =
++      R"({
++        "name": "chrome.history",
++        "version": "0.1",
++        "manifest_version": 3,
++        "permissions": ["history"],
++        "background": {
++          "service_worker": "add_urls_bulk.js"
++        }
++      })";
++  static constexpr char kBackgroundJs[] =
++      R"(chrome.test.runTests([
++        function addBatchWithOwnTimestamps() {
++          const week = 7 * 24 * 60 * 60 * 1000;
++          const now = Date.now();
++          const rows = [
++            {url: 'https://example.com/bulk-a', title: 'A', visitTime: now - 3 * week},
++            {url: 'https://example.com/bulk-b', title: 'B', visitTime: now - 2 * week},
++            {url: 'https://example.com/bulk-c', title: 'C'},
++          ];
++          chrome.history.addUrls({urls: rows}, function() {
++            chrome.test.assertNoError();
++            chrome.history.getVisits({url: rows[0].url}, function(visits) {
++              chrome.test.assertEq(1, visits.length);
++              chrome.test.assertEq(rows[0].visitTime, visits[0].visitTime);
++              chrome.history.getVisits({url: rows[1].url}, function(visits2) {
++                chrome.test.assertEq(1, visits2.length);
++                chrome.test.assertEq(rows[1].visitTime, visits2[0].visitTime);
++                chrome.history.getVisits({url: rows[2].url}, function(visits3) {
++                  chrome.test.assertEq(1, visits3.length);
++                  chrome.test.assertTrue(visits3[0].visitTime <= Date.now());
++                  chrome.test.succeed();
++                });
++              });
++            });
++          });
++        },
++        function badRowAbortsWholeBatch() {
++          const good = 'https://example.com/bulk-good';
++          chrome.history.addUrls({urls: [
++            {url: good, visitTime: Date.now() - 60000},
++            {url: 'https://example.com/bulk-bad', visitTime: Date.now() + 60000},
++          ]}, function() {
++            chrome.test.assertLastError(
++                'visitTime must be a valid time that is not in the future.');
++            chrome.history.getVisits({url: good}, function(visits) {
++              chrome.test.assertEq(0, visits.length);
++              chrome.test.succeed();
++            });
++          });
++        },
++      ]);)";
++  TestExtensionDir test_dir;
++  test_dir.WriteManifest(kManifest);
++  test_dir.WriteFile(FILE_PATH_LITERAL("add_urls_bulk.js"), kBackgroundJs);
++
++  ASSERT_TRUE(RunExtensionTest(test_dir.UnpackedPath(), {}, {})) << message_;
++}
++
+ // Test when History API is used from incognito mode, it has access to the
+ // regular mode history and actual incognito navigation has no effect on it.
+ IN_PROC_BROWSER_TEST_F(HistoryApiTest, Incognito) {
+diff --git a/chrome/common/extensions/api/history.json b/chrome/common/extensions/api/history.json
+index 30d2081..84a564c 100644
+--- a/chrome/common/extensions/api/history.json
++++ b/chrome/common/extensions/api/history.json
+@@ -80,7 +80,25 @@
+         "type": "object",
+         "properties": {
+           "url": {"type": "string", "description": "The URL for the operation. It must be in the format as returned from a call to <code>history.search()</code>."},
+-          "visitTime": {"type": "number", "optional": true, "description": "When the visit occurred, represented in milliseconds since the epoch. Only honoured by <code>addUrl</code>, which records the visit at the current time when it is omitted. It must not be in the future. A visit added this way is recorded as coming from elsewhere, i.e. $(ref:history.VisitItem).isLocal is false, exactly like a synchronized visit."}
++          "visitTime": {"type": "number", "optional": true, "description": "When the visit occurred, represented in milliseconds since the epoch. Only honoured by <code>addUrl</code>, which records the visit at the current time when it is omitted. It must not be in the future. The visit is still recorded as a local one, i.e. $(ref:history.VisitItem).isLocal stays true."}
++        }
++      },
++      {
++        "id": "AddUrlsDetails",
++        "type": "object",
++        "properties": {
++          "urls": {
++            "type": "array",
++            "items": {
++              "type": "object",
++              "properties": {
++                "url": {"type": "string", "description": "The URL to add, in the format returned by <code>history.search()</code>."},
++                "title": {"type": "string", "optional": true, "description": "The title to record for the page."},
++                "visitTime": {"type": "number", "optional": true, "description": "When this visit occurred, in milliseconds since the epoch. Omitted means the current time; it must not be in the future."}
++              }
++            },
++            "description": "Visits to record, each with its own timestamp. One call writes all of them, instead of one <code>addUrl</code> call per visit."
++          }
+         }
+       }
+     ],
+@@ -141,6 +159,22 @@
+           "parameters": []
+         }
+       },
++      {
++        "name": "addUrls",
++        "type": "function",
++        "description": "Adds many visits at once, each with its own optional $(ref:history.AddUrlsDetails) timestamp, with a <a href='#transition_types'>transition type</a> of \"link\". If any URL is invalid or any timestamp is in the future, the call fails and nothing is recorded.",
++        "parameters": [
++          {
++            "name": "details",
++            "$ref": "AddUrlsDetails"
++          }
++        ],
++        "returns_async": {
++          "name": "callback",
++          "optional": true,
++          "parameters": []
++        }
++      },
+       {
+         "name": "deleteUrl",
+         "type": "function",
+diff --git a/extensions/browser/extension_function_histogram_value.h b/extensions/browser/extension_function_histogram_value.h
+index 1a54c2b..b857152 100644
+--- a/extensions/browser/extension_function_histogram_value.h
++++ b/extensions/browser/extension_function_histogram_value.h
+@@ -2055,6 +2055,7 @@ enum HistogramValue {
+   AUTOFILLPRIVATE_GETDETAILSFORUPSERTPASS = 1990,
+   AUTOFILLPRIVATE_PRELOADDETAILSFORUPSERTPASS = 1991,
+   EXPERIMENTALAIDATA_GETAPCSNAPSHOT = 1992,
++  HISTORY_ADDURLS = 1993,
+   // Last entry: Add new entries above, then run:
+   // tools/metrics/histograms/update_extension_histograms.py
+   ENUM_BOUNDARY

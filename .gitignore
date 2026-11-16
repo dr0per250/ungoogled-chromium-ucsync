@@ -11,3 +11,6 @@ __pycache__/
 
 # Ignore optional build / cache directory
 /build
+
+# Espacio de trabajo del parche (ficheros de Chromium descargados)
+ucsync/work/
