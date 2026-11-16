@@ -33,13 +33,15 @@ require_tools() {
 
 prepare_git() {
   if [[ ! -d "$SRC/.git" ]]; then
-    echo "[ucsync] Clonando chromium/src (sin blobs) y checkout de $VERSION"
-    mkdir -p "$WORK"
-    git clone --filter=blob:none --no-checkout \
-      https://chromium.googlesource.com/chromium/src.git "$SRC"
+    echo "[ucsync] Inicializando el checkout de chromium/src"
+    mkdir -p "$WORK" "$SRC"
+    (cd "$SRC" && git init -q . && git remote add origin https://chromium.googlesource.com/chromium/src.git)
   fi
-  git -C "$SRC" fetch --filter=blob:none origin --tags --prune
-  git -C "$SRC" checkout --force "$VERSION"
+  # Sólo el tag fijado, con historia poco profunda y sin blobs: el historial completo de
+  # chromium/src son ~1 M de commits y no hace falta para compilar una versión.
+  echo "[ucsync] Traendo el tag $VERSION (profundidad 1, sin blobs)"
+  git -C "$SRC" fetch --depth 1 --filter=blob:none origin "refs/tags/$VERSION:refs/tags/$VERSION"
+  git -C "$SRC" checkout --force "refs/tags/$VERSION"
   git -C "$SRC" clean -fdq
 
   [[ -f "$WORK/.gclient" ]] || (cd "$WORK" && gclient config --name "$(basename "$SRC")" \
