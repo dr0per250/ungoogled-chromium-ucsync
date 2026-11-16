@@ -107,3 +107,7 @@ Hay que instalar también `gn` y `ninja` en el checkout:
 python3 ucsync/install_deps.py --src "$SRC" --filter buildtools/linux64
 python3 ucsync/install_deps.py --src "$SRC" --filter third_party/ninja
 ```
+
+Además, DevTools necesita el binario `esbuild`, que vive en un repositorio anidado cuyo `DEPS`
+gclient no procesa: `ucsync/fetch_esbuild.sh <src>` lo descarga de npm (@esbuild/linux-x64,
+con la versión que fija el `package.json` de DevTools).

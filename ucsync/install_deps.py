@@ -81,6 +81,14 @@ def extract_tar(path, dest):
         tar.extractall(dest, filter="data")
 
 
+def verify_sha256(path, expected):
+    if not expected:
+        return True
+    import hashlib
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digest == expected
+
+
 def download(url, dest):
     with urllib.request.urlopen(url, timeout=600) as response:  # noqa: S310 - url fija de GCS
         dest.write_bytes(response.read())
@@ -146,7 +154,7 @@ def install_gcs(src, entries, tmp):
     failures = []
     for path, objects in sorted(entries.items()):
         root = pathlib.Path(src, path)
-        if root.exists() and any(root.glob("*")):
+        if root.exists() and any(root.glob("*")) and not path.endswith("-format"):
             print(f"[deps] {path}: ya tiene contenido, se omite")
             continue
         root.mkdir(parents=True, exist_ok=True)
@@ -155,8 +163,18 @@ def install_gcs(src, entries, tmp):
             blob = pathlib.Path(tmp, re.sub(r"[^A-Za-z0-9._-]", "_", obj["object_name"]) or "blob")
             try:
                 download(url, blob)
-                extract_tar(blob, root)
-                print(f"[deps] ✓ {path} ← {bucket}/{obj['object_name']}")
+                if not verify_sha256(blob, obj.get("sha256sum")):
+                    raise ValueError("el sha256sum no coincide")
+                output_file = obj.get("output_file")
+                if output_file:  # el objeto es un fichero suelto (p.ej. clang-format)
+                    dest = pathlib.Path(root, output_file)
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(blob.read_bytes())
+                    dest.chmod(0o755)
+                    print(f"[deps] ✓ {dest.relative_to(src)} ← {bucket}/{obj['object_name']}")
+                else:
+                    extract_tar(blob, root)
+                    print(f"[deps] ✓ {path} ← {bucket}/{obj['object_name']}")
             except Exception as err:  # noqa: BLE001 - se reporta por dependencias
                 failures.append((path, str(err)))
                 print(f"[deps] ✗ {path} ← {url}: {err}")
