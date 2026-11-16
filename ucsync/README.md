@@ -85,3 +85,25 @@ auténtica sólo se ve en *Ajustes → Historial sincronizado* de UC-Sync.
 
 Comprobación en CI: el workflow `UC-Sync patch check` ejecuta
 `devutils/check_patch_files.py` y `ucsync/verify_patch.py` en cada push y cada lunes.
+
+## Dependencias que gclient se salta en un checkout de git
+
+En un checkout de git `gclient sync` pone `non_git_source=False`, y con eso **no instala** las
+herramientas condicionadas a esa variable (clang, rust, gn, ninja, mold, typescript, node,
+los sysroots…). `ninja` se cae entonces con `missing and no known rule to make it`.
+
+`ucsync/install_deps.py` lee `DEPS`, toma las entradas `cipd`/`gcs` de Linux/x64 y las instala
+(con `cipd ensure` o descargando el tar del bucket de GCS):
+
+```sh
+python3 ucsync/install_deps.py --src "$SRC" --list      # qué instalaría
+python3 ucsync/install_deps.py --src "$SRC"             # instala lo que falte
+python3 ucsync/install_deps.py --src "$SRC" --filter typescript
+```
+
+Hay que instalar también `gn` y `ninja` en el checkout:
+
+```sh
+python3 ucsync/install_deps.py --src "$SRC" --filter buildtools/linux64
+python3 ucsync/install_deps.py --src "$SRC" --filter third_party/ninja
+```
