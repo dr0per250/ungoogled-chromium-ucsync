@@ -111,3 +111,6 @@ python3 ucsync/install_deps.py --src "$SRC" --filter third_party/ninja
 Además, DevTools necesita el binario `esbuild`, que vive en un repositorio anidado cuyo `DEPS`
 gclient no procesa: `ucsync/fetch_esbuild.sh <src>` lo descarga de npm (@esbuild/linux-x64,
 con la versión que fija el `package.json` de DevTools).
+
+`ucsync/fetch_dawn_go.sh <src>` hace lo mismo para el Go que Dawn necesita
+(`third_party/dawn/tools/golang/linux-amd64/bin/go`, también de un `DEPS` anidado).
