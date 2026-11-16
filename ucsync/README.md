@@ -82,3 +82,6 @@ runtime (`addUrl` con `visitTime` verificado con `getVisits`, y si existe `addUr
 está, degrada a `addUrl()` normal guardando la fecha real en su registro local. Con el parche,
 las visitas sincronizadas aparecen en `chrome://history` con su hora auténtica; sin él, la hora
 auténtica sólo se ve en *Ajustes → Historial sincronizado* de UC-Sync.
+
+Comprobación en CI: el workflow `UC-Sync patch check` ejecuta
+`devutils/check_patch_files.py` y `ucsync/verify_patch.py` en cada push y cada lunes.
