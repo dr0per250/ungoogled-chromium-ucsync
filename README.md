@@ -44,7 +44,13 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/dr0per250/ungoogled-chro
 ucsync-chromium
 ```
 
-Sin clonar nada, sin tokens, sin compilar.
+Sin clonar nada, sin tokens, sin compilar y **sin pasos extra**: el script instala las librerías que
+faltan, descarga el binario del último release, lo instala, deja lanzador + icono + entrada de
+aplicaciones, pone `chrome_sandbox` setuid root con sudo (sandbox real; sólo pide la contraseña de
+sudo si no es sin contraseña), añade `~/.local/bin` al PATH si falta, registra UC-Sync como navegador
+por defecto, comprueba en headless que la UI carga y **abre `chrome://ucsync`** en la sesión gráfica.
+Lo único que no puede hacer el script es escribir tu contraseña del servidor en la terminal: eso se
+pone una vez en la propia UI.
 
 `execute.sh` es un solo fichero autocontenido: descarga el tarball del último release, instala las
 librerías que faltan (`pacman -S --noconfirm`), instala en `~/.local/share/ucsync-chromium`, deja el

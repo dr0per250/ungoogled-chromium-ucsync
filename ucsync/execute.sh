@@ -3,87 +3,99 @@
 #
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/execute.sh)"
 #
-# (El repo es público: no hacen falta tokens. Si alguna vez pasa a privado, la misma línea
-#  funciona con gh autenticado:)
+# Hace todo solo: instala las librerías que faltan, descarga el binario del último release, lo
+# instala, deja lanzador + icono + entrada de aplicaciones, pone el sandbox setuid si puede,
+# lo registra como navegador por defecto, arregla el PATH y abre chrome://ucsync.
 #
+# (Si el repo pasara a privado, la misma línea funciona con gh autenticado:)
 #   bash -c "$(gh api repos/dr0per250/ungoogled-chromium-ucsync/contents/ucsync/execute.sh --jq .content | base64 -d)"
 #
-# Opciones por entorno: UCSYNC_SYSTEM=1 (en /opt con sandbox setuid, pide sudo),
-# UCSYNC_PREFIX, UCSYNC_NO_SANDBOX=1, UCSYNC_SKIP_DEPS=1, UCSYNC_UNINSTALL=1,
-# UCSYNC_SET_DEFAULT=1 (lo deja como navegador por defecto del escritorio).
+# Solo hay un posible gesto del usuario: la contraseña de sudo para el sandbox (si sudo no es
+# sin contraseña). Para renunciar a ella: UCSYNC_NO_SANDBOX=1.
+# Opt-out por entorno: UCSYNC_PREFIX, UCSYNC_NO_SANDBOX=1, UCSYNC_SKIP_DEPS=1,
+# UCSYNC_NO_DEFAULT=1 (no cambiar el navegador por defecto), UCSYNC_NO_LAUNCH=1,
+# UCSYNC_UNINSTALL=1, UCSYNC_TARBALL=<archivo> (instalar de un paquete local).
 set -euo pipefail
 REPO="dr0per250/ungoogled-chromium-ucsync"
 ASSET="ucsync-chromium-linux-x64.tar.gz"
-SYSTEM="${UCSYNC_SYSTEM:-0}"
-NO_SANDBOX="${UCSYNC_NO_SANDBOX:-0}"
-SKIP_DEPS="${UCSYNC_SKIP_DEPS:-0}"
-PREFIX="${UCSYNC_PREFIX:-}"
-[[ "$SYSTEM" == "1" ]] && PREFIX="${PREFIX:-/opt/ucsync-chromium}" || PREFIX="${PREFIX:-$HOME/.local/share/ucsync-chromium}"
-BIN_DIR="$( [[ "$SYSTEM" == "1" ]] && echo /usr/local/bin || echo "$HOME/.local/bin" )"
+PREFIX="${UCSYNC_PREFIX:-$HOME/.local/share/ucsync-chromium}"
+BIN_DIR="$HOME/.local/bin"
 LAUNCHER="$BIN_DIR/ucsync-chromium"
-sudo_() { if [[ "$SYSTEM" == "1" ]]; then sudo "$@"; else "$@"; fi; }
+DESKTOP_ID="io.ucsync.chromium.desktop"
 say() { printf '[ucsync] %s\n' "$*"; }
 
 if [[ "${UCSYNC_UNINSTALL:-0}" == "1" ]]; then
   rm -rf "$PREFIX" "$LAUNCHER"
-  rm -f "$HOME/.local/share/applications/io.ucsync.chromium.desktop" \
+  rm -f "$HOME/.local/share/applications/$DESKTOP_ID" \
         "$HOME/.local/share/icons/hicolor/scalable/apps/ucsync-chromium.svg"
   say "Borrado $PREFIX y $LAUNCHER (el perfil se conserva)."
   exit 0
 fi
 
-if ! command -v pacman >/dev/null 2>&1 && [[ "$SKIP_DEPS" != "1" ]]; then
-  say "Esto es para CachyOS/Arch (no hay pacman). En Debian/Ubuntu usa el tarball a mano."
-  exit 1
-fi
-if [[ "$SKIP_DEPS" != "1" ]] && command -v pacman >/dev/null 2>&1; then
-  NEEDED=(nss dbus alsa-lib at-spi2-core cups gtk3 libgl libx11 expat fontconfig freetype2 harfbuzz pango cairo libdrm mesa)
+# 1) Librerías que necesita el binario (Chromium se compila con sysroot de Debian pero enlaza
+#    contra las de la distribución).
+if [[ "${UCSYNC_SKIP_DEPS:-0}" != "1" ]]; then
+  if ! command -v pacman >/dev/null 2>&1; then
+    say "No hay pacman: esto es para CachyOS/Arch."
+    exit 1
+  fi
+  NEEDED=(nss dbus alsa-lib at-spi2-core cups gtk3 libgl libx11 expat fontconfig freetype2
+          harfbuzz pango cairo libdrm mesa)
   MISSING=()
   for p in "${NEEDED[@]}"; do pacman -Q "$p" >/dev/null 2>&1 || MISSING+=("$p"); done
   if [[ ${#MISSING[@]} -gt 0 ]]; then
-    say "Instalando librerías que necesita el navegador: ${MISSING[*]}"
+    say "Instalando librerías que faltan: ${MISSING[*]}"
     sudo pacman -S --noconfirm --needed "${MISSING[@]}"
   fi
 fi
 
+# 2) Descarga (repo público: sin tokens). Con UCSYNC_TARBALL se usa un paquete local.
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+TAG=""
+if [[ -n "${UCSYNC_TARBALL:-}" ]]; then
+  say "Usando el paquete local $UCSYNC_TARBALL"
+  cp "$UCSYNC_TARBALL" "$TMP/$ASSET"
+elif command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   TAG="$(gh release view -R "$REPO" --json tagName -q .tagName)"
-  say "Descargando $ASSET del release $TAG (con gh)"
+  say "Descargando $ASSET del release $TAG"
   gh release download "$TAG" -R "$REPO" --pattern "$ASSET" --dir "$TMP" --clobber
-elif [[ -n "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]]; then
-  TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
-  TAG="$(curl -sf -H "Authorization: Bearer $TOKEN" "https://api.github.com/repos/$REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
-  say "Descargando $ASSET del release $TAG (con GH_TOKEN)"
-  curl -fL --retry 3 -H "Authorization: Bearer $TOKEN" -o "$TMP/$ASSET" \
-    "https://github.com/$REPO/releases/download/$TAG/$ASSET"
 else
-  say "Descargando $ASSET del último release"
-  curl -fL --retry 3 -o "$TMP/$ASSET" "https://github.com/$REPO/releases/latest/download/$ASSET"
+  TAG="$(curl -sf "https://api.github.com/repos/$REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
+  say "Descargando $ASSET del release ${TAG:-latest}"
+  curl -fL --retry 3 -o "$TMP/$ASSET" "https://github.com/$REPO/releases/download/${TAG:-latest}/$ASSET"
 fi
 tar xzf "$TMP/$ASSET" -C "$TMP"
-[[ -x "$TMP/ucsync-chromium/chrome" ]] || { say "El paquete no trae chrome"; exit 1; }
 PKG="$TMP/ucsync-chromium"
+[[ -x "$PKG/chrome" ]] || { say "El paquete no trae chrome"; exit 1; }
 
+# 3) Instalar
 say "Instalando en $PREFIX"
-sudo_ mkdir -p "$PREFIX"
-sudo_ cp -a "$PKG/." "$PREFIX/"
-[[ "$SYSTEM" == "1" ]] && sudo_ chown -R root:root "$PREFIX"
+mkdir -p "$PREFIX"
+cp -a "$PKG/." "$PREFIX/"
 
+# 4) Sandbox: setuid root sobre chrome_sandbox. Se intenta con sudo sin contraseña y, si no, con
+#    sudo interactivo (una sola petición de contraseña). Sin eso, --no-sandbox en el lanzador.
 EXTRA_FLAGS=""
-if [[ "$NO_SANDBOX" == "1" ]]; then
-  EXTRA_FLAGS="--no-sandbox"; say "AVISO: sandbox desactivado (UCSYNC_NO_SANDBOX=1)."
-elif [[ -f "$PREFIX/chrome_sandbox" && "$SYSTEM" == "1" ]]; then
-  sudo_ chown root:root "$PREFIX/chrome_sandbox" && sudo_ chmod 4755 "$PREFIX/chrome_sandbox"
-  say "Sandbox activo (chrome_sandbox setuid root)."
+if [[ "${UCSYNC_NO_SANDBOX:-0}" == "1" ]]; then
+  EXTRA_FLAGS="--no-sandbox"; say "Sandbox renunciado (UCSYNC_NO_SANDBOX=1)."
 elif [[ -f "$PREFIX/chrome_sandbox" ]]; then
-  EXTRA_FLAGS="--no-sandbox"
-  say "Sin root no se puede dejar chrome_sandbox setuid: se usará --no-sandbox."
-  say "Para el sandbox real:  UCSYNC_SYSTEM=1 bash -c \"\$(…este mismo comando…)\""
+  SAND_OK=0
+  if sudo -n true 2>/dev/null; then SAND_OK=1; elif [[ -t 0 ]]; then
+    say "El sandbox necesita root (una petición de sudo)."
+    sudo true && SAND_OK=1
+  fi
+  if [[ "$SAND_OK" == "1" ]]; then
+    sudo chown root:root "$PREFIX/chrome_sandbox" && sudo chmod 4755 "$PREFIX/chrome_sandbox"
+    say "Sandbox activo: chrome_sandbox setuid root."
+  else
+    EXTRA_FLAGS="--no-sandbox"
+    say "Sin sudo a mano: el lanzador usará --no-sandbox (repite con sudo para el sandbox real)."
+  fi
 else
   EXTRA_FLAGS="--no-sandbox"
 fi
 
+# 5) Lanzador
 mkdir -p "$BIN_DIR"
 {
   echo '#!/usr/bin/env bash'
@@ -94,12 +106,24 @@ mkdir -p "$BIN_DIR"
 } > "$LAUNCHER"
 chmod 755 "$LAUNCHER"
 
+# 6) PATH: si ~/.local/bin no está, se añade al perfil del shell (sin pedir nada).
+case ":$PATH:" in *":$BIN_DIR:"*) ;; *)
+  for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
+    [[ -f "$rc" ]] || continue
+    grep -qF 'HOME/.local/bin' "$rc" || printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$rc"
+  done
+  say "PATH: añadido ~/.local/bin a ~/.bashrc, ~/.zshrc y ~/.profile (vale en la próxima terminal)."
+  export PATH="$BIN_DIR:$PATH"
+  ;;
+esac
+
+# 7) Icono y entrada de aplicaciones
 if [[ -f "$PKG/ucsync/logo.svg" ]]; then
   mkdir -p "$HOME/.local/share/icons/hicolor/scalable/apps"
   cp "$PKG/ucsync/logo.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/ucsync-chromium.svg"
-  [[ "$SYSTEM" == "1" ]] && sudo_ cp "$PKG/ucsync/logo.svg" /usr/share/icons/hicolor/scalable/apps/ucsync-chromium.svg
 fi
-DESKTOP="[Desktop Entry]
+mkdir -p "$HOME/.local/share/applications"
+printf '%s\n' "[Desktop Entry]
 Type=Application
 Name=Navegador UC-Sync
 Comment=Chromium sin Google con UC-Sync integrado
@@ -108,20 +132,43 @@ Icon=ucsync-chromium
 Terminal=false
 Categories=Network;WebBrowser;
 StartupWMClass=ucsync-chromium
-MimeType=x-scheme-handler/http;x-scheme-handler/https;"
-mkdir -p "$HOME/.local/share/applications"
-printf '%s\n' "$DESKTOP" > "$HOME/.local/share/applications/io.ucsync.chromium.desktop"
-[[ "$SYSTEM" == "1" ]] && { sudo_ mkdir -p /usr/share/applications; printf '%s\n' "$DESKTOP" | sudo_ tee /usr/share/applications/io.ucsync.chromium.desktop >/dev/null; }
+MimeType=x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true" > "$HOME/.local/share/applications/$DESKTOP_ID"
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
 
-# Las líneas `Not implemented` de Wayland/ozone al arrancar son ruido conocido de Chromium
-# sobre Wayland; no indican que nada haya roto.
-"$LAUNCHER" --version || true
-if [[ "${UCSYNC_SET_DEFAULT:-0}" == "1" ]] && command -v xdg-settings >/dev/null 2>&1; then
-  xdg-settings set default-web-browser io.ucsync.chromium.desktop && say "Navegador por defecto: UC-Sync."
-  command -v xdg-mime >/dev/null 2>&1 && xdg-mime default io.ucsync.chromium.desktop x-scheme-handler/http x-scheme-handler/https 2>/dev/null || true
+# 8) Navegador por defecto: se pone UC-Sync (UCSYNC_NO_DEFAULT=1 para no tocar el actual).
+if [[ "${UCSYNC_NO_DEFAULT:-0}" != "1" ]] && command -v xdg-settings >/dev/null 2>&1; then
+  CURRENT="$(xdg-settings get default-web-browser 2>/dev/null || echo '')"
+  if [[ -n "$CURRENT" && "$CURRENT" != "$DESKTOP_ID" ]]; then
+    say "Navegador por defecto: era $CURRENT, ahora UC-Sync (UCSYNC_NO_DEFAULT=1 para no cambiarlo)."
+  fi
+  xdg-settings set default-web-browser "$DESKTOP_ID" 2>/dev/null || true
+  command -v xdg-mime >/dev/null 2>&1 &&
+    xdg-mime default "$DESKTOP_ID" x-scheme-handler/http x-scheme-handler/https 2>/dev/null || true
 fi
-say "Listo: ejecuta  ucsync-chromium   y abre chrome://ucsync"
-say "Sandbox: si ves '--no-sandbox' arriba, reinstala con UCSYNC_SYSTEM=1 para el sandbox real (setuid)."
+
+# 9) Comprobación: versión, y que la extensión está integrada y carga (headless, sin molestar).
+"$LAUNCHER" --version || true
+EXT_ID="lidfhdhmbifmhikiaklbiehnhnkhoghe"
+if [[ -f "$PREFIX/ucsync/manifest.json" ]] && command -v timeout >/dev/null 2>&1; then
+  PROBE_DIR="$(mktemp -d)/probe"
+  if timeout 60 "$PREFIX/chrome" --headless=new --no-sandbox --no-first-run --disable-features=Translate \
+       --user-data-dir="$PROBE_DIR" --dump-dom "chrome-extension://$EXT_ID/options.html" 2>/dev/null | grep -q "UC-Sync"; then
+    rm -rf "$PROBE_DIR"
+    say "Comprobado: la extensión está integrada y su UI carga (chrome://ucsync la sirve en la pestaña)."
+  else
+    rm -rf "$PROBE_DIR"
+    say "Aviso: no se pudo verificar la UI en modo headless; abre chrome://ucsync para comprobarla."
+  fi
+fi
+
+# 10) Abrirlo en chrome://ucsync (si hay sesión gráfica), para que no haya que hacer nada más.
+if [[ "${UCSYNC_NO_LAUNCH:-0}" != "1" ]] && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+  say "Abriendo chrome://ucsync…"
+  setsid "$LAUNCHER" chrome://ucsync >/dev/null 2>&1 < /dev/null &
+  disown || true
+else
+  say "Ejecuta  ucsync-chromium   y abre chrome://ucsync"
+fi
 say "Perfil: ${UCSYNC_PROFILE:-$HOME/.config/ucsync-chromium}"
-case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "Añade $BIN_DIR al PATH para llamarlo por su nombre."; ;; esac
