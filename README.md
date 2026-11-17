@@ -37,25 +37,27 @@ El release `chromium-<versión>` trae `ucsync-chromium-linux-x64.tar.gz` (≈ 24
 idiomas recortados y la extensión integrada). Los repos son **privados**, así que la descarga va con
 `gh` autenticado (`gh auth login`) o con `GH_TOKEN`.
 
-```sh
-git clone https://github.com/dr0per250/ungoogled-chromium-ucsync.git ~/uc-fork
-~/uc-fork/ucsync/install_cachyos.sh            # en ~/.local (sin root: usa --no-sandbox)
-ucsync-chromium                                # y abre chrome://ucsync
-```
-
-O sin clonar nada, bajando el asset a mano:
+Una línea y listo (estilo community-scripts):
 
 ```sh
-TAG="$(gh release view -R dr0per250/ungoogled-chromium-ucsync --json tagName -q .tagName)"
-gh release download "$TAG" -R dr0per250/ungoogled-chromium-ucsync -p 'ucsync-chromium-linux-x64.tar.gz'
-~/uc-fork/ucsync/install_cachyos.sh --tarball ucsync-chromium-linux-x64.tar.gz
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/execute.sh)"
+ucsync-chromium
 ```
 
-Opciones del instalador: `--system` (en `/opt`, con `chrome_sandbox` setuid root → sandbox real),
-`--prefix DIR`, `--no-sandbox`, `--skip-deps` (otras distros), `--uninstall`. Comprueba las
-librerías que necesita el binario con `pacman -Q` y, si faltan, dice el `pacman -S` exacto. Instala
-el lanzador `ucsync-chromium`, el icono y la entrada de aplicaciones; el perfil queda en
-`~/.config/ucsync-chromium` (`UCSYNC_PROFILE` para cambiarlo).
+Como el repo es **privado**, esa línea aún no funciona sin credenciales: con `gh` autenticado es la
+misma operación en una línea, y `curl` con `GH_TOKEN` también vale:
+
+```sh
+bash -c "$(gh api repos/dr0per250/ungoogled-chromium-ucsync/contents/ucsync/execute.sh --jq .content | base64 -d)"
+# o:  GH_TOKEN=… bash -c "$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" https://raw.githubusercontent.com/…/ucsync/execute.sh)"
+```
+
+`execute.sh` es un solo fichero autocontenido: descarga el tarball del último release, instala las
+librerías que faltan (`pacman -S --noconfirm`), instala en `~/.local/share/ucsync-chromium`, deja el
+lanzador `ucsync-chromium`, el icono y la entrada de aplicaciones, y comprueba el binario. Opciones
+por entorno: `UCSYNC_SYSTEM=1` (en `/opt` con `chrome_sandbox` setuid root → sandbox real, pide
+sudo), `UCSYNC_PREFIX`, `UCSYNC_NO_SANDBOX=1`, `UCSYNC_SKIP_DEPS=1`, `UCSYNC_UNINSTALL=1`. El perfil
+queda en `~/.config/ucsync-chromium` (`UCSYNC_PROFILE` para cambiarlo).
 
 **Publicar un binario nuevo** tras compilar:
 
