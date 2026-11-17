@@ -45,7 +45,7 @@ index b61fd93..507b4a7 100644
 +    if (details.title) {
 +      row.set_title(base::UTF8ToUTF16(*details.title));
 +    }
-+    row.set_last_visit_time(visit_time);
++    row.set_last_visit(visit_time);
 +    rows.push_back(row);
 +  }
 +
