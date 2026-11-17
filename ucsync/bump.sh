@@ -29,7 +29,7 @@ done
 
 cd "$ROOT"
 git remote get-url upstream >/dev/null 2>&1 || git remote add upstream "${UPSTREAM:-https://github.com/ungoogled-software/ungoogled-chromium.git}"
-git fetch upstream --tags --prune
+timeout 300 git fetch upstream --tags --prune
 
 BEFORE="$(git rev-parse HEAD)"
 OLD_VERSION="$(cat chromium_version.txt)"
@@ -46,7 +46,7 @@ if [[ -n "$TARGET" ]]; then
     commit -m "chromium_version.txt: $TARGET (adelantando a upstream)"
 fi
 
-if ! git merge --no-edit upstream/master; then
+if ! timeout 300 git merge --no-edit upstream/master; then
   echo "[bump] Conflicto fusionando upstream/master; nada subido."
   git merge --abort || true
   REPORT="/tmp/ucsync-bump-conflict.txt"
@@ -65,11 +65,11 @@ if [[ "$(git rev-parse HEAD)" == "$BEFORE" && "$NEW_VERSION" == "$OLD_VERSION" ]
 fi
 echo "[bump] Chromium: $OLD_VERSION -> $NEW_VERSION"
 
-python3 devutils/check_patch_files.py -p patches
+timeout 300 python3 devutils/check_patch_files.py -p patches
 
 FAIL_LOG="/tmp/ucsync-bump-rejects.txt"
 : > "$FAIL_LOG"
-if ! python3 ucsync/verify_patch.py "$NEW_VERSION" 2>&1 | tee "$FAIL_LOG"; then
+if ! timeout 900 python3 ucsync/verify_patch.py "$NEW_VERSION" 2>&1 | tee "$FAIL_LOG"; then
   echo "[bump] Algún parche de UC-Sync no aplica en $NEW_VERSION: se revierte el merge y no se sube nada."
   git reset --hard "$BEFORE" >/dev/null
   if [[ "$ISSUE" == "1" ]] && command -v gh >/dev/null 2>&1; then
@@ -84,11 +84,11 @@ if ! python3 ucsync/verify_patch.py "$NEW_VERSION" 2>&1 | tee "$FAIL_LOG"; then
 fi
 
 if [[ "$APPLY" == "1" ]]; then
-  git push origin "$BRANCH"
+  timeout 300 git push origin "$BRANCH"
   TAG="chromium-$NEW_VERSION"
   if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
     git tag -a "$TAG" -m "Chromium $NEW_VERSION con los parches de UC-Sync"
-    git push origin "$TAG"
+    timeout 300 git push origin "$TAG"
   fi
   echo "[bump] Subido $BRANCH y etiquetado $TAG."
 else
