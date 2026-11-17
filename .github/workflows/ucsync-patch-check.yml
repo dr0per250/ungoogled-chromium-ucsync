@@ -17,6 +17,8 @@ jobs:
         run: python3 devutils/check_patch_files.py -p patches
       - name: Comprobar que los parches de UC-Sync aplican sobre la versión fijada
         run: python3 ucsync/verify_patch.py
+      - name: Comprobar la invariante de las banderas MULTI_VALUE
+        run: python3 ucsync/check_flag_choices.py
       - name: Resumen
         run: |
           echo "versión=$(cat chromium_version.txt)" >> "$GITHUB_STEP_SUMMARY"

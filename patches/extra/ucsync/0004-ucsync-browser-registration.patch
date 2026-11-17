@@ -227,16 +227,15 @@
        kChromeUIWebAppInternalsHost,
 --- a/chrome/browser/ungoogled_flag_choices.h
 +++ b/chrome/browser/ungoogled_flag_choices.h
-@@ -5,13 +5,14 @@
+@@ -5,13 +5,13 @@
  #ifndef CHROME_BROWSER_UNGOOGLED_FLAG_CHOICES_H_
  #define CHROME_BROWSER_UNGOOGLED_FLAG_CHOICES_H_
  const FeatureEntry::Choice kExtensionHandlingChoices[] = {
 -    {flags_ui::kGenericExperimentChoiceDefault, "", ""},
-+    // Chromper: el navegador viene con el aviso de instalación por defecto, para que la Chrome
-+    // Web Store (y cualquier CRX fuera de tienda) se pueda instalar sin tocar chrome://flags.
-+    {"Always prompt for install (Chromper default)",
-+     "extension-mime-request-handling",
-+     "always-prompt-for-install"},
++    // El primer item debe tener switch y valor vacíos (lo exige `FeatureEntry::IsValid()` para los
++    // MULTI_VALUE: si no, `FlagsState` aborta al arrancar). La etiqueta dice lo que hace el
++    // navegador por defecto, que es preguntar antes de instalar (ver `IsOffstoreInstallAllowed()`).
++    {"Always prompt for install (Chromper default)", "", ""},
      {"Download as regular file",
       "extension-mime-request-handling",
       "download-as-regular-file"},
