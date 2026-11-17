@@ -74,7 +74,9 @@ PKG="$TMP/chromper"
 # 3) Instalar
 say "Instalando en $PREFIX"
 mkdir -p "$PREFIX"
-cp -a "$PKG/." "$PREFIX/"
+# --remove-destination: si `chrome_sandbox` quedó root:root setuid de una instalación previa,
+# `cp` no puede escribirlo; borrando y recreando basta (somos dueños del directorio).
+cp -a --remove-destination "$PKG/." "$PREFIX/"
 
 # 4) Sandbox: setuid root sobre chrome_sandbox. Se intenta con sudo sin contraseña y, si no, con
 #    sudo interactivo (una sola petición de contraseña). Sin eso, --no-sandbox en el lanzador.
@@ -99,6 +101,14 @@ else
 fi
 
 # 5) Lanzador
+# Limpieza de nombres anteriores (lanzador y entrada de aplicaciones de la versión previa).
+for viejo in "$BIN_DIR/ucsync-chromium" "$HOME/.local/share/applications/io.ucsync.chromium.desktop" \
+             "$HOME/.local/share/icons/hicolor/scalable/apps/ucsync-chromium.svg"; do
+  if [[ -e "$viejo" ]]; then
+    rm -f "$viejo"
+    say "Quitado el nombre anterior: ${viejo#"$HOME/"}"
+  fi
+done
 mkdir -p "$BIN_DIR"
 {
   echo '#!/usr/bin/env bash'
