@@ -51,15 +51,13 @@ logo = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img"
   <path d="M24 36a12 12 0 0 1-11-8.5l4.6-1.6A7.2 7.2 0 0 0 24 30.8 7.2 7.2 0 0 0 30.4 24l-3.6-3.6 8.4-2.4-2.4 8.4-3.2-3.2A7.2 7.2 0 0 1 24 36z" fill="#cfe3ff"/>
 </svg>
 '''
-(stage / 'logo.svg').write_text(logo)
-for name in ('options.html', 'popup.html'):
+if not (stage / 'logo.svg').exists():          # el repo ya trae logo.svg; esto es la reserva
+    (stage / 'logo.svg').write_text(logo)
+# El embebido no lleva PNG: si una página volviera a apuntar a icons/*.png se vería una imagen rota.
+for name in ('popup.html', 'options.html', 'styles.css'):
     page = stage / name
-    if not page.exists():
-        continue
-    html = page.read_text().replace('<img src="icons/48.png" alt="">', '<img src="logo.svg" alt="">')
-    html = html.replace('<img src="icons/16.png" alt="">', '<img src="logo.svg" alt="">')
-    html = html.replace('icons/16.png', 'logo.svg').replace('icons/48.png', 'logo.svg')
-    page.write_text(html)
+    if page.exists() and 'icons/' in page.read_text():
+        sys.exit(f'{name} referencia icons/*.png: usa logo.svg (el navegador no empaqueta PNG)')
 print('[ucsync] manifiesto sin PNG y logo.svg añadido')
 PY
 

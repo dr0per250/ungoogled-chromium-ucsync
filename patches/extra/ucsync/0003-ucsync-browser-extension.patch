@@ -250,14 +250,14 @@ index 0000000..8ef5107
 +</svg>
 diff --git a/chrome/browser/resources/ucsync/manifest.json b/chrome/browser/resources/ucsync/manifest.json
 new file mode 100644
-index 0000000..7d57eb9
+index 0000000..13e5659
 --- /dev/null
 +++ b/chrome/browser/resources/ucsync/manifest.json
 @@ -0,0 +1,32 @@
 +{
 +  "manifest_version": 3,
 +  "name": "UC-Sync \u2014 marcadores cifrados",
-+  "version": "2.4.0",
++  "version": "2.4.1",
 +  "description": "Sincroniza marcadores, historial y permisos por sitio con cifrado de extremo a extremo y tu propio servidor. Va integrado en ungoogled-chromium UC-Sync.",
 +  "minimum_chrome_version": "110",
 +  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9cUMQW1k7Pm+G9jSzzy3BP2SLqBojwuTGrWArXtOTp4gYK77YX7ZMWHfHUqaPNXkSYiV9egSN0lRhPkThb/EQSB6tRP51Ajd66svTkoNa2AlSpWiwP1Bixs+jmZf3yeu4F7S8WmLC7dsBt+GXrGBQ9QLvlTiVXcsFhqlGttvTUr+qEIjjyzUA8AHsoAFz6SDJCe006df5tt+B+HrhSNcHiAFbOzmeSK52GlOwJ6poD8JtCHDbwklJ2TAV41gpFMdqOsk0X4aWr8akrozXIk6TRmN1X+1VtwaVeoIx2+Bx+IHJ3LWKcIkyg62UMBR+wVYhzfpnMFaFanU8Ho19YVihQIDAQAB",
@@ -849,7 +849,7 @@ index 0000000..35e18b5
 +refresh().catch((err) => message($('connect-message'), err.message, 'error'));
 diff --git a/chrome/browser/resources/ucsync/popup.html b/chrome/browser/resources/ucsync/popup.html
 new file mode 100644
-index 0000000..aeda080
+index 0000000..034aeb4
 --- /dev/null
 +++ b/chrome/browser/resources/ucsync/popup.html
 @@ -0,0 +1,38 @@
@@ -863,7 +863,7 @@ index 0000000..aeda080
 +<body class="popup">
 +<main>
 +  <header class="brand" style="margin-bottom:14px">
-+    <img src="icons/32.png" alt="">
++    <img src="logo.svg" alt="">
 +    <div>
 +      <h1 style="font-size:16px">UC-Sync</h1>
 +      <p style="font-size:12px">Marcadores cifrados</p>

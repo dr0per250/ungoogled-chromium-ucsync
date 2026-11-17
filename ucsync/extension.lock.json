@@ -1,8 +1,8 @@
 {
   "repo": "https://github.com/dr0per250/uc-sync.git",
-  "ucsyncCommit": "3b64dd626204781764f801d2f4c50562961994b8",
-  "extensionVersion": "2.4.0",
-  "patch0003Sha256": "cf65e782260f5ba64d275512296e9f76afc739b2fa53370ea959643d97b3d798",
-  "forkCommit": "172536ef15bc2d7aecdc3de460255fc596944ebb",
-  "generatedAt": "2026-11-17T12:27:14Z"
+  "ucsyncCommit": "d819d632b1e80575c639878b88cad869e23576f5",
+  "extensionVersion": "2.4.1",
+  "patch0003Sha256": "d402c5c0f0081bfd8e8df7a9fe5ebae9fc89383660f893ae3042ef664d1d0306",
+  "forkCommit": "05b350666b9c87beb50f869206cfeee195b78363",
+  "generatedAt": "2026-11-17T18:14:22Z"
 }
