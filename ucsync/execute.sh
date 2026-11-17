@@ -3,7 +3,8 @@
 #
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/execute.sh)"
 #
-# Con el repo privado (ahora mismo) la misma línea necesita credenciales:
+# (El repo es público: no hacen falta tokens. Si alguna vez pasa a privado, la misma línea
+#  funciona con gh autenticado:)
 #
 #   bash -c "$(gh api repos/dr0per250/ungoogled-chromium-ucsync/contents/ucsync/execute.sh --jq .content | base64 -d)"
 #

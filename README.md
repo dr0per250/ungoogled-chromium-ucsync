@@ -44,13 +44,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/dr0per250/ungoogled-chro
 ucsync-chromium
 ```
 
-Como el repo es **privado**, esa línea aún no funciona sin credenciales: con `gh` autenticado es la
-misma operación en una línea, y `curl` con `GH_TOKEN` también vale:
-
-```sh
-bash -c "$(gh api repos/dr0per250/ungoogled-chromium-ucsync/contents/ucsync/execute.sh --jq .content | base64 -d)"
-# o:  GH_TOKEN=… bash -c "$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" https://raw.githubusercontent.com/…/ucsync/execute.sh)"
-```
+Sin clonar nada, sin tokens, sin compilar.
 
 `execute.sh` es un solo fichero autocontenido: descarga el tarball del último release, instala las
 librerías que faltan (`pacman -S --noconfirm`), instala en `~/.local/share/ucsync-chromium`, deja el
