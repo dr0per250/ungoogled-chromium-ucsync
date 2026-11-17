@@ -61,8 +61,7 @@ jobs:
           grep -q "lidfhdhmbifmhikiaklbiehnhnkhoghe" "$src/extensions/common/constants.h"
           echo "OK: la serie aplica y UC-Sync queda integrado en $(cat chromium_version.txt)"
       - name: Avisar si rompe
-        if: steps.lite.outputs.present == 'true'
-        if: failure()
+        if: failure() && steps.lite.outputs.present == 'true' 
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
