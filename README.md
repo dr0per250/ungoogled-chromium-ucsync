@@ -221,7 +221,10 @@ blanco de pruebas; en un árbol podado como el de esta máquina no se construyen
   `google` de `third_party/search_engines_data/resources/definitions/prepopulated_engines.json` como
   viene en upstream (ungoogled lo sustituye por el marcador «No Search», keyword `nosearch`), así los
   perfiles nuevos arrancan con Google — los ajustes regionales (`ES`, `AR`, …) lo ponen primero en su
-  lista. Además limpia la preferencia del buscador por defecto cuando apunta a `nosearch`
+  lista. Además las URL del motor se escriben explícitas (`https://www.google.com/…`): ungoogled
+  sustituye el dominio de Google por `9oo91e.qjz9zk` en el código, y un buscador que apunte a ese
+  marcador no resuelve en DNS. La migración limpia también el buscador por defecto guardado en el
+  perfil cuando apunta a ese dominio sustituido, no sólo cuando es `nosearch`
   (`components/search_engines/default_search_manager.cc`), para que los perfiles creados antes de este
   cambio vuelvan a Google una sola vez; si después eliges otro motor en `chrome://settings/search`, no
   se vuelve a tocar. `ucsync/make_search_patch.sh` regenera el parche y `--refresh-baseline` rehace la

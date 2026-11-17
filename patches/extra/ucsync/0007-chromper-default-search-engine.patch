@@ -13,28 +13,28 @@
 +      "keyword": "google.com",
 +      "favicon_url": "https://www.google.com/images/branding/product/ico/googleg_alldp.ico",
 +      "base_builtin_resource_id": "SEARCH_ENGINE_GOOGLE",
-+      "search_url": "{google:baseURL}search?q={searchTerms}&{google:RLZ}{google:originalQueryForSuggestion}{google:assistedQueryStats}{google:searchFieldtrialParameter}{google:language}{google:prefetchSource}{google:searchClient}{google:sourceId}{google:searchSource}{google:contextualSearchVersion}ie={inputEncoding}",
-+      "suggest_url": "{google:baseSuggestURL}{google:suggestPath}?{google:searchFieldtrialParameter}client={google:suggestClient}&gs_ri={google:suggestRid}&xssi=t&q={searchTerms}&{google:inputType}{google:omniboxFocusType}{google:cursorPosition}{google:currentPageUrl}{google:pageClassification}{google:clientCacheTimeToLive}{google:searchVersion}{google:sessionToken}{google:prefetchQuery}sugkey={google:suggestAPIKeyParameter}",
-+      "image_url": "{google:baseSearchByImageURL}upload",
-+      "image_translate_url": "{google:baseSearchByImageURL}upload?filtertype=tr&{imageTranslateSourceLocale}{imageTranslateTargetLocale}",
-+      "contextual_search_url": "{google:baseURL}_/contextualsearch?{google:contextualSearchVersion}{google:contextualSearchContextData}",
++      "search_url": "https://www.google.com/search?q={searchTerms}&{google:RLZ}{google:originalQueryForSuggestion}{google:assistedQueryStats}{google:searchFieldtrialParameter}{google:language}{google:prefetchSource}{google:searchClient}{google:sourceId}{google:searchSource}{google:contextualSearchVersion}ie={inputEncoding}",
++      "suggest_url": "https://www.google.com/complete/search?client=chrome&gs_ri=chrome&xssi=t&q={searchTerms}&hl={google:language}&gl={google:countryCode}",
++      "image_url": "https://www.google.com/searchbyimage/upload",
++      "image_translate_url": "https://www.google.com/searchbyimage/upload?filtertype=tr&{imageTranslateSourceLocale}{imageTranslateTargetLocale}",
++      "contextual_search_url": "https://www.google.com/_/contextualsearch?{google:contextualSearchVersion}{google:contextualSearchContextData}",
 +      "image_url_post_params": "encoded_image={google:imageThumbnail},image_url={google:imageURL},sbisrc={google:imageSearchSource},original_width={google:imageOriginalWidth},original_height={google:imageOriginalHeight},processed_image_dimensions={google:processedImageDimensions}",
 +      "image_translate_source_language_param_key": "sourcelang",
 +      "image_translate_target_language_param_key": "targetlang",
 +      "search_intent_params": ["si", "gs_ssp", "udm"],
 +      "alternate_urls": [
-+        "{google:baseURL}#q={searchTerms}",
-+        "{google:baseURL}search#q={searchTerms}",
-+        "{google:baseURL}webhp#q={searchTerms}",
-+        "{google:baseURL}s#q={searchTerms}",
-+        "{google:baseURL}s?q={searchTerms}"
++        "https://www.google.com/#q={searchTerms}",
++        "https://www.google.com/search#q={searchTerms}",
++        "https://www.google.com/webhp#q={searchTerms}",
++        "https://www.google.com/s#q={searchTerms}",
++        "https://www.google.com/s?q={searchTerms}"
 +      ],
        "type": "SEARCH_ENGINE_GOOGLE",
        "preconnect_to_search_url" : "ALLOWED",
        "prefetch_likely_navigations" : "ALLOWED",
 --- a/components/search_engines/default_search_manager.cc
 +++ b/components/search_engines/default_search_manager.cc
-@@ -386,6 +386,15 @@
+@@ -386,6 +386,22 @@
      return;
    }
  
@@ -42,7 +42,14 @@
 +  // ungoogled («No Search», keyword `nosearch`) siguen apuntando a él. Se limpia esa
 +  // preferencia para que vuelva el buscador por defecto de este navegador (Google). Si el
 +  // usuario elige otro motor después, la condición ya no se cumple y no se toca.
-+  if (url_dict.FindString(kKeyword) == "nosearch") {
++  const std::string* keyword = url_dict.FindString(kKeyword);
++  const std::string* url = url_dict.FindString(kURL);
++  // `9oo91e.qjz9zk` es el dominio que sustituye ungoogled al de Google: un buscador que
++  // apunte ahí no resuelve en DNS. Se limpia también ese caso (típicamente el motor `google`
++  // heredado de perfiles antiguos) para que vuelva el URL real de Google del binario.
++  const bool apunta_a_marcador = keyword && (*keyword == "nosearch" ||
++                                             (url && url->find("9oo91e.qjz9zk") != std::string::npos));
++  if (apunta_a_marcador) {
 +    pref_service_->SetDict(kDefaultSearchProviderDataPrefName, base::DictValue());
 +    return;
 +  }
