@@ -28,6 +28,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 cd "$ROOT"
+set -x                 # trazas en el log del runner: se ve dónde se queda
 git remote get-url upstream >/dev/null 2>&1 || git remote add upstream "${UPSTREAM:-https://github.com/ungoogled-software/ungoogled-chromium.git}"
 timeout 300 git fetch upstream --tags --prune
 
