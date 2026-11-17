@@ -14,7 +14,8 @@
 # sin contraseña). Para renunciar a ella: UCSYNC_NO_SANDBOX=1.
 # Opt-out por entorno: UCSYNC_PREFIX, UCSYNC_NO_SANDBOX=1, UCSYNC_SKIP_DEPS=1,
 # UCSYNC_NO_DEFAULT=1 (no cambiar el navegador por defecto), UCSYNC_NO_LAUNCH=1,
-# UCSYNC_UNINSTALL=1, UCSYNC_TARBALL=<archivo> (instalar de un paquete local).
+# UCSYNC_UNINSTALL=1, UCSYNC_TARBALL=<archivo> (instalar de un paquete local),
+# UCSYNC_OPEN_UI=1 (abre chrome://ucsync al terminar; por defecto no abre nada).
 set -euo pipefail
 REPO="dr0per250/ungoogled-chromium-ucsync"
 ASSET="ucsync-chromium-linux-x64.tar.gz"
@@ -101,8 +102,16 @@ mkdir -p "$BIN_DIR"
   echo '#!/usr/bin/env bash'
   echo "# UC-Sync Chromium ($(tr '\n' ' ' < "$PKG/VERSION"))"
   echo "PREFIX=\"$PREFIX\""
-  echo 'PROFILE="${UCSYNC_PROFILE:-$HOME/.config/ucsync-chromium}"'
-  echo "exec \"\$PREFIX/chrome\" --user-data-dir=\"\$PROFILE\" $EXTRA_FLAGS \"\$@\""
+  echo 'resolve_profile() {'
+  echo '  local p="${UCSYNC_PROFILE:-}"'
+  echo '  if [[ -n "$p" ]]; then echo "$p"; return; fi'
+  echo '  for c in "$HOME/.config/ucsync-chromium" "$HOME/.config/ungoogled-chromium" "$HOME/.config/chromium"; do'
+  echo '    [[ -d "$c" ]] && { echo "$c"; return; }'
+  echo '  done'
+  echo '  echo "$HOME/.config/ucsync-chromium"'
+  echo '}'
+  echo 'exec "$PREFIX/chrome" --user-data-dir="$(resolve_profile)" $EXTRA_FLAGS "$@"'
+
 } > "$LAUNCHER"
 chmod 755 "$LAUNCHER"
 
@@ -163,12 +172,18 @@ if [[ -f "$PREFIX/ucsync/manifest.json" ]] && command -v timeout >/dev/null 2>&1
   fi
 fi
 
-# 10) Abrirlo en chrome://ucsync (si hay sesión gráfica), para que no haya que hacer nada más.
-if [[ "${UCSYNC_NO_LAUNCH:-0}" != "1" ]] && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+# 10) No abre nada: instalar sin interferir. UCSYNC_OPEN_UI=1 para abrir chrome://ucsync.
+if [[ "${UCSYNC_OPEN_UI:-0}" == "1" ]] && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
   say "Abriendo chrome://ucsync…"
   setsid "$LAUNCHER" chrome://ucsync >/dev/null 2>&1 < /dev/null &
   disown || true
-else
-  say "Ejecuta  ucsync-chromium   y abre chrome://ucsync"
 fi
-say "Perfil: ${UCSYNC_PROFILE:-$HOME/.config/ucsync-chromium}"
+
+PERFIL_ELEGIDO="${UCSYNC_PROFILE:-}"
+if [[ -z "$PERFIL_ELEGIDO" ]]; then
+  for c in "$HOME/.config/ucsync-chromium" "$HOME/.config/ungoogled-chromium" "$HOME/.config/chromium"; do
+    [[ -d "$c" ]] && PERFIL_ELEGIDO="$c" && break
+  done
+  PERFIL_ELEGIDO="${PERFIL_ELEGIDO:-$HOME/.config/ucsync-chromium (nuevo)}"
+fi
+say "Perfil que usará: $PERFIL_ELEGIDO (los marcadores e historial de ese perfil se conservan)."

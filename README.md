@@ -48,9 +48,16 @@ Sin clonar nada, sin tokens, sin compilar y **sin pasos extra**: el script insta
 faltan, descarga el binario del último release, lo instala, deja lanzador + icono + entrada de
 aplicaciones, pone `chrome_sandbox` setuid root con sudo (sandbox real; sólo pide la contraseña de
 sudo si no es sin contraseña), añade `~/.local/bin` al PATH si falta, registra UC-Sync como navegador
-por defecto, comprueba en headless que la UI carga y **abre `chrome://ucsync`** en la sesión gráfica.
-Lo único que no puede hacer el script es escribir tu contraseña del servidor en la terminal: eso se
-pone una vez en la propia UI.
+por defecto y comprueba en headless que la UI carga. **No abre ninguna ventana**: cuando termine,
+lanza tú `ucsync-chromium` (o `UCSYNC_OPEN_UI=1` si quieres que lo abra el script).
+
+Reutiliza el perfil que ya exista, en este orden: `~/.config/ucsync-chromium`,
+`~/.config/ungoogled-chromium`, `~/.config/chromium`; si no hay ninguno, crea
+`~/.config/ucsync-chromium`. Así, si vienes de un ungoogled-chromium instalado con pacman/AUR,
+marcadores, historial y el resto del perfil se conservan y UC-Sync se registra en ese mismo perfil.
+Reinstalar no toca el perfil: `chrome.storage` de la extensión (`Local Extension Settings`) y tus
+datos siguen ahí. Lo único que no puede hacer el script es escribir tu contraseña del servidor en la
+terminal: eso se pone una vez en la propia UI.
 
 `execute.sh` es un solo fichero autocontenido: descarga el tarball del último release, instala las
 librerías que faltan (`pacman -S --noconfirm`), instala en `~/.local/share/ucsync-chromium`, deja el
