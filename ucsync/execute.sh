@@ -189,6 +189,20 @@ if [[ -f "$PREFIX/ucsync/manifest.json" ]] && command -v timeout >/dev/null 2>&1
   fi
 fi
 
+# 9b) Arranque real (sin ventana): `--headless` no pasa por `CreateFeatureList()`, así que una
+# bandera mal definida aborta en silencio y el instalador lo daría por bueno.
+if [[ "${UCSYNC_SKIP_BOOT_CHECK:-0}" != "1" ]] && command -v timeout >/dev/null 2>&1; then
+  BOOT_DIR="$(mktemp -d)"
+  BOOT_OUT="$(timeout 45 "$PREFIX/chromper" --no-sandbox --no-first-run --no-startup-window \
+               --user-data-dir="$BOOT_DIR" 2>&1 | grep -cE "FATAL|DCHECK failed|must be empty" || true)"
+  rm -rf "$BOOT_DIR"
+  if [[ "${BOOT_OUT:-0}" != "0" ]]; then
+    say "Aviso: el navegador aborta al arrancar ($BOOT_OUT líneas). Mira chrome://flags/#extension-mime-request-handling y las banderas MULTI_VALUE."
+  else
+    say "Comprobado: el navegador arranca sin abortar."
+  fi
+fi
+
 # 10) No abre nada: instalar sin interferir. UCSYNC_OPEN_UI=1 para abrir chrome://ucsync.
 if [[ "${UCSYNC_OPEN_UI:-0}" == "1" ]] && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
   say "Abriendo chrome://ucsync…"
