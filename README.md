@@ -21,6 +21,7 @@ que compilar el navegador, así que la extensión viaja con él.
 | Versión fijada | la de [`chromium_version.txt`](chromium_version.txt) (verificada compilando `157.0.8103.78`) |
 | ID de la extensión | `lidfhdhmbifmhikiaklbiehnhnkhoghe`, fijado por el campo `key` del manifiesto |
 | UI | `chrome://ucsync` (servida por el navegador desde los ficheros embebidos, con lista blanca) |
+| **Binarios** | Linux x64 publicado en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases) (`chromium-157.0.8103.78`). Windows: aún no hay binario (no se ha compilado aquí); está `package_windows.ps1` para producirlo. |
 | Bóveda y servidor | [dr0per250/uc-sync](https://github.com/dr0per250/uc-sync) — [Releases](https://github.com/dr0per250/uc-sync/releases) con el zip si quieres la extensión suelta |
 | Herramientas propias | [`ucsync/`](ucsync/README.md) (`build.sh`, `bump.sh`, `verify_patch.py`, `make_ucsync_patches.sh`, `verify_runtime.sh`) |
 | Pruebas de comportamiento | [`ucsync/VERIFICATION.md`](ucsync/VERIFICATION.md) |
@@ -29,6 +30,53 @@ Lo de ungoogled (objetivos, características, FAQ, construcción genérica) sigu
 [upstream](https://github.com/ungoogled-software/ungoogled-chromium) y en sus `docs/`.
 
 ---
+
+## Instalar el binario (CachyOS / Arch)
+
+El release `chromium-<versión>` trae `ucsync-chromium-linux-x64.tar.gz` (≈ 240 MB: navegador, recursos,
+idiomas recortados y la extensión integrada). Los repos son **privados**, así que la descarga va con
+`gh` autenticado (`gh auth login`) o con `GH_TOKEN`.
+
+```sh
+git clone https://github.com/dr0per250/ungoogled-chromium-ucsync.git ~/uc-fork
+~/uc-fork/ucsync/install_cachyos.sh            # en ~/.local (sin root: usa --no-sandbox)
+ucsync-chromium                                # y abre chrome://ucsync
+```
+
+O sin clonar nada, bajando el asset a mano:
+
+```sh
+TAG="$(gh release view -R dr0per250/ungoogled-chromium-ucsync --json tagName -q .tagName)"
+gh release download "$TAG" -R dr0per250/ungoogled-chromium-ucsync -p 'ucsync-chromium-linux-x64.tar.gz'
+~/uc-fork/ucsync/install_cachyos.sh --tarball ucsync-chromium-linux-x64.tar.gz
+```
+
+Opciones del instalador: `--system` (en `/opt`, con `chrome_sandbox` setuid root → sandbox real),
+`--prefix DIR`, `--no-sandbox`, `--skip-deps` (otras distros), `--uninstall`. Comprueba las
+librerías que necesita el binario con `pacman -Q` y, si faltan, dice el `pacman -S` exacto. Instala
+el lanzador `ucsync-chromium`, el icono y la entrada de aplicaciones; el perfil queda en
+`~/.config/ucsync-chromium` (`UCSYNC_PROFILE` para cambiarlo).
+
+**Publicar un binario nuevo** tras compilar:
+
+```sh
+./ucsync/make_release.sh --src ~/ucbuild/src     # package_linux.sh + gh release upload
+```
+
+## Instalar el binario (Windows 11)
+
+Todavía **no hay binario publicado**: no se ha compilado en Windows. Cuando lo tengas (compilando
+abajo o en un runner propio), empaquétalo e instálalo con los dos scripts:
+
+```powershell
+.\ucsync\package_windows.ps1 -Src C:\ucbuild\src -Out C:\paquetes
+.\ucsync\install_windows.ps1 -Zip C:\paquetes\ucsync-chromium-windows-x64.zip
+# o, con gh autenticado y el asset publicado:  .\ucsync\install_windows.ps1
+```
+
+El instalador coloca el navegador en `%LOCALAPPDATA%\ucsync-chromium`, crea el atajo de escritorio
+(con `--user-data-dir` propio), lo añade al `PATH` del usuario y comprueba `chrome.exe --version`.
+`-Uninstall` lo quita.
 
 ## Compilar en CachyOS / Arch
 
@@ -113,8 +161,8 @@ sistema y el loader localiza la extensión con `base::DIR_EXE` (así que `<exe>\
    Abre `out\Release\chrome.exe` y ve a `chrome://ucsync`. Si un hunk rechaza, abre un issue con el
    rechazo exacto: la serie se valida contra la versión fijada en Linux.
 
-**Aquí no hay binarios publicados**: los tags crean releases vacíos (heredados de upstream). Compilar
-es el camino; para la extensión suelta, los releases de
+El binario Linux se publica con `./ucsync/make_release.sh` (crea el release del tag y sube el
+tarball). Para la extensión suelta, los releases de
 [uc-sync](https://github.com/dr0per250/uc-sync/releases).
 
 ## Qué cambia en el navegador (detalle de los 4 parches)
