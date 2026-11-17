@@ -522,7 +522,7 @@
    // 1. Sandboxed extension pages which are not listed in the extension's
 --- /dev/null
 +++ b/chrome/browser/extensions/chromium_web_store_built_in_extension.h
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,32 @@
 +// Chromper: «chromium-web-store» (NeverDecaf) forma parte del navegador, igual que UC-Sync.
 +//
 +// Su código se copia en `chrome/browser/resources/chromium-web-store/` (ver
@@ -540,6 +540,7 @@
 +#include "extensions/browser/extension_registry.h"
 +#include "extensions/browser/unpacked_installer.h"
 +#include "extensions/common/constants.h"
++#include "extensions/common/extension.h"
 +#include "extensions/common/extension_set.h"
 +
 +namespace extensions {

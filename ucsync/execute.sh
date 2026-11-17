@@ -203,6 +203,17 @@ if [[ "${UCSYNC_SKIP_BOOT_CHECK:-0}" != "1" ]] && command -v timeout >/dev/null 
   fi
 fi
 
+# 9c) El prefijo del nombre anterior (`ucsync-chromium`) ya no se usa: los perfiles pueden seguir
+# apuntando a él, y el navegador lo recarga desde la copia nueva en el primer arranque.
+VIEJO_PREFIX="$HOME/.local/share/ucsync-chromium"
+if [[ -d "$VIEJO_PREFIX" && ! -L "$VIEJO_PREFIX" ]]; then
+  # Los perfiles instalados con el nombre antiguo guardan rutas de extensión dentro de ese
+  # prefijo; se deja un enlace al nuevo para que sigan apuntando a los ficheros actuales.
+  rm -rf "$VIEJO_PREFIX"
+  ln -s "$PREFIX" "$VIEJO_PREFIX"
+  say "El prefijo del nombre anterior (.local/share/ucsync-chromium) pasa a ser un enlace al nuevo."
+fi
+
 # 10) No abre nada: instalar sin interferir. UCSYNC_OPEN_UI=1 para abrir chrome://ucsync.
 if [[ "${UCSYNC_OPEN_UI:-0}" == "1" ]] && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
   say "Abriendo chrome://ucsync…"

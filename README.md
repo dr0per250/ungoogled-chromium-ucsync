@@ -220,6 +220,16 @@ blanco de pruebas; en un árbol podado como el de esta máquina no se construyen
 Las visitas se escriben con `SOURCE_EXTENSION`, no con `SOURCE_SYNCED`: Chrome Sync no las borra
 cuando se desactiva y `VisitItem.isLocal` sigue siendo `true` (se pueden borrar a mano).
 
+### El prefijo del nombre anterior
+
+Los perfiles instalados mientras el navegador se llamaba `ucsync-chromium` guardan en
+`Preferences` la **ruta** de la extensión embebida (`~/.local/share/ucsync-chromium/ucsync`). Si ese
+directorio desapareciera, la extensión quedaría sin ficheros y la UI mostraría imágenes rotas: el
+instalador convierte ese prefijo en un **enlace simbólico** al nuevo (`~/.local/share/chromper`), así
+las rutas viejas siguen apuntando a los ficheros actuales. No se recarga la extensión descargándola
+en caliente: quitarla y volverla a cargar en el arranque provoca un `DCHECK` en
+`toolbar_actions_model.cc` (estado de los botones fijados), por eso se resuelve en el disco.
+
 ## Actualización contra upstream
 
 | Trabajo | Qué hace |
