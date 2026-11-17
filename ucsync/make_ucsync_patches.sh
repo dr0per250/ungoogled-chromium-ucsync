@@ -132,9 +132,40 @@ cp "$OUT" "$PATCH_DIR/0004-ucsync-browser-registration.patch"
 echo "[ucsync] 0004: $(grep -c '^+++ ' "$PATCH_DIR/0004-ucsync-browser-registration.patch") ficheros"
 fi
 
+# --- 0005: branding Chromper ----------------------------------------------------------------
+BRANDING=(
+  chrome/app/theme/chromium/BRANDING
+  chrome/app/chromium_strings.grd
+  chrome/app/settings_chromium_strings.grdp
+  chrome/app/settings_strings.grdp
+  chrome/app/resources/chromium_strings_es.xtb
+  chrome/app/resources/chromium_strings_es-419.xtb
+  chrome/app/resources/generated_resources_es.xtb
+  chrome/app/resources/generated_resources_es-419.xtb
+)
+if [[ -z "$ONLY" || "$ONLY" == "0005" ]]; then
+  OUT5="$WORK/0005.patch"
+  : > "$OUT5"
+  for path in "${BRANDING[@]}"; do
+    BASE="$WORK/base5"
+    rm -rf "$BASE"
+    mkdir -p "$(dirname "$BASE/$path")"
+    git -C "$SRC" show "HEAD:$path" > "$BASE/$path"
+    for other in $(grep -v '^extra/ucsync/' patches/series); do
+      if python3 "$FORK/ucsync/patch_sections.py" "patches/$other" "$path" --out "$WORK/section5.patch"; then
+        patch -p1 -s -f --forward -i "$WORK/section5.patch" -d "$BASE" >/dev/null 2>&1 || true
+      fi
+    done
+    diff -u --label "a/$path" --label "b/$path" "$BASE/$path" "$SRC/$path" >> "$OUT5" || true
+  done
+  cp "$OUT5" "$PATCH_DIR/0005-chromper-branding.patch"
+  echo "[ucsync] 0005: $(grep -c '^+++ ' "$PATCH_DIR/0005-chromper-branding.patch") ficheros"
+fi
+
 # --- serie ----------------------------------------------------------------------------------
 SERIES="$FORK/patches/series"
-for entry in extra/ucsync/0003-ucsync-browser-extension.patch extra/ucsync/0004-ucsync-browser-registration.patch; do
+for entry in extra/ucsync/0003-ucsync-browser-extension.patch extra/ucsync/0004-ucsync-browser-registration.patch \
+             extra/ucsync/0005-chromper-branding.patch; do
   grep -qxF "$entry" "$SERIES" || echo "$entry" >> "$SERIES"
 done
 echo "[ucsync] serie:"

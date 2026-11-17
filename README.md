@@ -25,7 +25,7 @@ que compilar el navegador, así que la extensión viaja con él.
 | ID de la extensión | `lidfhdhmbifmhikiaklbiehnhnkhoghe`, fijado por el campo `key` del manifiesto |
 | UI | `chrome://ucsync` (servida por el navegador desde los ficheros embebidos, con lista blanca) |
 | **Binarios** | Linux x64 publicado en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases) (`chromper-linux-x64.tar.gz` en el tag `chromium-157.0.8103.78`). Windows: aún no hay binario (no se ha compilado aquí); están `package_windows.ps1` e `install_windows.ps1`. |
-| Nombre del producto | **Chromper**: ejecutable `chromper`/`chromper.exe`, lanzador `chromper`, entrada `io.chromper.desktop` con el icono de Chromium, perfil `~/.config/chromper`. El motor sigue siendo Chromium. |
+| Nombre del producto | **Chromper** también por dentro: `chromper --version` y el menú/Acerca de dicen Chromper (parche `0005`), ejecutable `chromper`/`chromper.exe`, lanzador `chromper`, entrada `io.chromper.desktop` con el icono de Chromium, perfil `~/.config/chromper`, `WM_CLASS=chromper`. El motor sigue siendo Chromium y la autoría sigue nombrando a The Chromium Authors. |
 | Bóveda y servidor | [dr0per250/uc-sync](https://github.com/dr0per250/uc-sync) — [Releases](https://github.com/dr0per250/uc-sync/releases) con el zip si quieres la extensión suelta |
 | Herramientas propias | [`ucsync/`](ucsync/README.md) (`build.sh`, `bump.sh`, `verify_patch.py`, `make_ucsync_patches.sh`, `verify_runtime.sh`) |
 | Pruebas de comportamiento | [`ucsync/VERIFICATION.md`](ucsync/VERIFICATION.md) |
@@ -178,7 +178,7 @@ El binario Linux se publica con `./ucsync/make_release.sh` (crea el release del 
 tarball). Para la extensión suelta, los releases de
 [uc-sync](https://github.com/dr0per250/uc-sync/releases).
 
-## Qué cambia en el navegador (detalle de los 4 parches)
+## Qué cambia en el navegador (detalle de los 5 parches)
 
 - **`0001-history-api-visit-time`** — `chrome.history.addUrl({url, visitTime})` acepta horas pasadas
   y rechaza las futuras con el mensaje

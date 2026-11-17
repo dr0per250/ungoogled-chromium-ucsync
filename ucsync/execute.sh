@@ -118,11 +118,12 @@ mkdir -p "$BIN_DIR"
   echo '  local p="${UCSYNC_PROFILE:-}"'
   echo '  if [[ -n "$p" ]]; then echo "$p"; return; fi'
   echo '  for c in "$HOME/.config/chromper" "$HOME/.config/ucsync-chromium" "$HOME/.config/ungoogled-chromium" "$HOME/.config/chromium"; do'
-  echo '    [[ -d "$c" ]] && { echo "$c"; return; }'
+  echo '    # Sólo un perfil de verdad (no la carpeta de crashpad que se crea al ejecutar).'
+  echo '    [[ -f "$c/Default/Preferences" ]] && { echo "$c"; return; }'
   echo '  done'
   echo '  echo "$HOME/.config/chromper"'
   echo '}'
-  echo 'exec "$PREFIX/chromper" --user-data-dir="$(resolve_profile)" $EXTRA_FLAGS "$@"'
+  echo 'exec "$PREFIX/chromper" --user-data-dir="$(resolve_profile)" --class=chromper $EXTRA_FLAGS "$@"'
 
 } > "$LAUNCHER"
 chmod 755 "$LAUNCHER"
@@ -198,7 +199,7 @@ fi
 PERFIL_ELEGIDO="${UCSYNC_PROFILE:-}"
 if [[ -z "$PERFIL_ELEGIDO" ]]; then
   for c in "$HOME/.config/chromper" "$HOME/.config/ucsync-chromium" "$HOME/.config/ungoogled-chromium" "$HOME/.config/chromium"; do
-    [[ -d "$c" ]] && PERFIL_ELEGIDO="$c" && break
+    [[ -f "$c/Default/Preferences" ]] && PERFIL_ELEGIDO="$c" && break
   done
   PERFIL_ELEGIDO="${PERFIL_ELEGIDO:-$HOME/.config/chromper (nuevo)}"
 fi
