@@ -110,3 +110,5 @@ extra/ungoogled-chromium/add-flag-for-disabling-jit.patch
 extra/ungoogled-chromium/add-flag-to-hide-window-buttons.patch
 extra/ucsync/0001-history-api-visit-time.patch
 extra/ucsync/0002-history-api-addurls-bulk.patch
+extra/ucsync/0003-ucsync-browser-extension.patch
+extra/ucsync/0004-ucsync-browser-registration.patch

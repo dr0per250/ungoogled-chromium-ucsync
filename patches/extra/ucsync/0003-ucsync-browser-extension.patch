@@ -1,0 +1,2999 @@
+diff --git a/chrome/browser/resources/ucsync/background.js b/chrome/browser/resources/ucsync/background.js
+new file mode 100644
+index 0000000..fad9351
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/background.js
+@@ -0,0 +1,233 @@
++// Service worker (MV3): alarmas, eventos de marcadores y API para la UI.
++import { ApiError, normalizeServerUrl } from './src/api.js';
++import { readTree } from './src/bookmarks.js';
++import { detectCapabilities, exportHistory, loadLedger, summarizeHistory } from './src/history.js';
++import { exportSettings } from './src/settings.js';
++import { IdMap, loadState, resetSyncState, saveState } from './src/state.js';
++import {
++  activeRoots,
++  activeTargets,
++  connect,
++  deleteVault,
++  exportBackup,
++  historyAudit,
++  listBackups,
++  recoverHistory,
++  restoreBackup,
++  syncNow,
++  testConnection,
++} from './src/sync.js';
++import { countNodes } from './src/tree.js';
++
++const ALARM = 'ucsync-auto';
++const DEBOUNCE_MS = 3000;
++
++let debounceTimer = null;
++let running = null;
++
++const ok = (data) => ({ ok: true, data });
++const fail = (err) => ({ ok: false, error: { message: err?.message ?? 'Error', code: err?.code ?? 'unknown' } });
++
++async function scheduleAlarm() {
++  const { settings } = await loadState();
++  await chrome.alarms.clear(ALARM);
++  if (settings.enabled && settings.intervalMinutes > 0) {
++    chrome.alarms.create(ALARM, { periodInMinutes: settings.intervalMinutes, delayInMinutes: settings.intervalMinutes });
++  }
++}
++
++function runSync(reason = 'auto') {
++  if (running) return running;
++  running = syncNow({ reason }).finally(() => {
++    running = null;
++  });
++  return running;
++}
++
++function scheduleSync() {
++  clearTimeout(debounceTimer);
++  debounceTimer = setTimeout(() => {
++    loadState()
++      .then(({ settings }) => {
++        if (settings.enabled) runSync('cambio-local').catch(() => {});
++      })
++      .catch(() => {});
++  }, DEBOUNCE_MS);
++}
++
++async function treeSnapshot() {
++  const { settings } = await loadState();
++  const map = await IdMap.load();
++  const tree = await readTree(activeRoots(settings), map);
++  await map.save();
++  return tree;
++}
++
++const EMPTY_HISTORY_SUMMARY = { total: 0, synced: 0, synthetic: 0, truncated: false, dropped: 0, incomplete: false };
++
++/**
++ * Historial sincronizado con la fecha REAL de cada visita: las entradas bajadas de otro
++ * dispositivo llevan `s: 'added'` (la visita la creó UC-Sync «ahora») y `addedAt`, así que
++ * la interfaz puede mostrar la fecha auténtica en vez de la de la añadidura. `timed` son las
++ * entradas cuya hora real está también en `chrome://history` (`tm: 1`), y `capabilities` dice si
++ * este Chromium admite `visitTime`.
++ */
++async function historyView({ limit = 200 } = {}) {
++  const { settings, sync } = await loadState();
++  const capabilities = await detectCapabilities({ history: chrome.history });
++  if (settings.sync?.history !== true) {
++    return ok({ disabled: true, entries: [], summary: EMPTY_HISTORY_SUMMARY, capabilities, last: sync.lastHistory ?? null });
++  }
++  const ledger = await loadLedger();
++  try {
++    const hist = await exportHistory({ ...settings.history, ledger });
++    const times = hist.entries.map((entry) => entry.v).filter((v) => v > 0);
++    return ok({
++      entries: hist.entries.slice(0, limit).map((entry) => ({ ...entry, addedAt: ledger[entry.u]?.addedAt ?? 0 })),
++      summary: summarizeHistory(hist),
++      capabilities,
++      // Las entradas que tienen su hora real en el historial del navegador, no sólo en UC-Sync.
++      timed: hist.entries.filter((entry) => entry.tm === 1).length,
++      oldest: times.length ? Math.min(...times) : 0,
++      newest: times.length ? Math.max(...times) : 0,
++      last: sync.lastHistory ?? null,
++      limit,
++    });
++  } catch (err) {
++    return ok({
++      unavailable: err.code === 'history_unavailable',
++      message: err.message,
++      entries: [],
++      summary: EMPTY_HISTORY_SUMMARY,
++      capabilities,
++      timed: 0,
++      last: sync.lastHistory ?? null,
++    });
++  }
++}
++
++const handlers = {
++  async 'app:state'() {
++    const { settings, sync } = await loadState();
++    return ok({
++      settings,
++      sync: {
++        configured: Boolean(sync.token && sync.keys),
++        revision: sync.revision,
++        lastSyncAt: sync.lastSyncAt,
++        lastError: sync.lastError,
++        status: sync.status,
++        conflicts: sync.conflicts,
++        lastHistory: sync.lastHistory ?? null,
++      },
++    });
++  },
++
++  async 'app:test'({ serverUrl }) {
++    return ok(await testConnection(serverUrl));
++  },
++
++  async 'app:connect'({ serverUrl, password, mode }) {
++    const result = await connect({ serverUrl, password, mode });
++    if (result.connected) await scheduleAlarm();
++    return ok(result);
++  },
++
++  async 'app:sync'() {
++    const result = await runSync('manual');
++    return ok({
++      result: result.result,
++      revision: result.revision,
++      conflicts: result.conflicts,
++      stats: result.stats,
++      history: result.history,
++    });
++  },
++
++  async 'app:save'({ settings }) {
++    const state = await loadState();
++    const merged = {
++      ...state.settings,
++      ...settings,
++      roots: { ...state.settings.roots, ...(settings?.roots ?? {}) },
++      sync: { ...state.settings.sync, ...(settings?.sync ?? {}) },
++      history: { ...state.settings.history, ...(settings?.history ?? {}) },
++    };
++    if (merged.serverUrl) merged.serverUrl = normalizeServerUrl(merged.serverUrl);
++    await saveState({ settings: merged, sync: state.sync });
++    await scheduleAlarm();
++    return ok(merged);
++  },
++
++  async 'app:unlink'() {
++    await resetSyncState();
++    await scheduleAlarm();
++    return ok({ unlinked: true });
++  },
++
++  async 'app:deleteVault'() {
++    await deleteVault();
++    await resetSyncState();
++    await scheduleAlarm();
++    return ok({ deleted: true });
++  },
++
++  async 'app:backups'() {
++    return ok(await listBackups());
++  },
++
++  async 'app:restoreBackup'({ key }) {
++    return ok(await restoreBackup(key));
++  },
++
++  async 'app:counts'() {
++    return ok(countNodes(await treeSnapshot()));
++  },
++
++  async 'app:history'({ limit } = {}) {
++    return historyView({ limit });
++  },
++
++  async 'app:historyRecover'() {
++    return ok(await recoverHistory());
++  },
++
++  async 'app:historyAudit'() {
++    return ok(await historyAudit({ limit: 30 }));
++  },
++};
++
++chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
++  const handler = handlers[message?.type];
++  if (!handler) return false;
++  handler(message)
++    .then(sendResponse)
++    .catch((err) => sendResponse(fail(err)));
++  return true;
++});
++
++chrome.alarms.onAlarm.addListener((alarm) => {
++  if (alarm.name === ALARM) runSync('alarma').catch(() => {});
++});
++
++chrome.runtime.onInstalled.addListener(() => {
++  scheduleAlarm().catch(() => {});
++});
++
++chrome.runtime.onStartup.addListener(() => {
++  scheduleAlarm().catch(() => {});
++  loadState()
++    .then(({ settings }) => {
++      if (settings.enabled && settings.autoOnStart !== false) runSync('inicio').catch(() => {});
++    })
++    .catch(() => {});
++});
++
++for (const event of ['onCreated', 'onRemoved', 'onChanged', 'onMoved', 'onChildrenReordered', 'onImportEnded']) {
++  if (chrome.bookmarks[event]) chrome.bookmarks[event].addListener(() => scheduleSync());
++}
++
++void ApiError;
++void activeTargets;
++void exportSettings;
++void exportBackup;
+diff --git a/chrome/browser/resources/ucsync/logo.svg b/chrome/browser/resources/ucsync/logo.svg
+new file mode 100644
+index 0000000..8ef5107
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/logo.svg
+@@ -0,0 +1,5 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="UC-Sync">
++  <rect width="48" height="48" rx="10" fill="#1f6feb"/>
++  <path d="M24 12a12 12 0 0 1 11 8.5l-4.6 1.6A7.2 7.2 0 0 0 24 17.2 7.2 7.2 0 0 0 17.6 24l3.6 3.6-8.4 2.4 2.4-8.4 3.2 3.2A7.2 7.2 0 0 1 24 12z" fill="#fff"/>
++  <path d="M24 36a12 12 0 0 1-11-8.5l4.6-1.6A7.2 7.2 0 0 0 24 30.8 7.2 7.2 0 0 0 30.4 24l-3.6-3.6 8.4-2.4-2.4 8.4-3.2-3.2A7.2 7.2 0 0 1 24 36z" fill="#cfe3ff"/>
++</svg>
+diff --git a/chrome/browser/resources/ucsync/manifest.json b/chrome/browser/resources/ucsync/manifest.json
+new file mode 100644
+index 0000000..7d57eb9
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/manifest.json
+@@ -0,0 +1,32 @@
++{
++  "manifest_version": 3,
++  "name": "UC-Sync \u2014 marcadores cifrados",
++  "version": "2.4.0",
++  "description": "Sincroniza marcadores, historial y permisos por sitio con cifrado de extremo a extremo y tu propio servidor. Va integrado en ungoogled-chromium UC-Sync.",
++  "minimum_chrome_version": "110",
++  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9cUMQW1k7Pm+G9jSzzy3BP2SLqBojwuTGrWArXtOTp4gYK77YX7ZMWHfHUqaPNXkSYiV9egSN0lRhPkThb/EQSB6tRP51Ajd66svTkoNa2AlSpWiwP1Bixs+jmZf3yeu4F7S8WmLC7dsBt+GXrGBQ9QLvlTiVXcsFhqlGttvTUr+qEIjjyzUA8AHsoAFz6SDJCe006df5tt+B+HrhSNcHiAFbOzmeSK52GlOwJ6poD8JtCHDbwklJ2TAV41gpFMdqOsk0X4aWr8akrozXIk6TRmN1X+1VtwaVeoIx2+Bx+IHJ3LWKcIkyg62UMBR+wVYhzfpnMFaFanU8Ho19YVihQIDAQAB",
++  "permissions": [
++    "bookmarks",
++    "storage",
++    "alarms",
++    "unlimitedStorage",
++    "history",
++    "contentSettings"
++  ],
++  "host_permissions": [
++    "https://*/*",
++    "http://*/*"
++  ],
++  "background": {
++    "service_worker": "background.js",
++    "type": "module"
++  },
++  "action": {
++    "default_title": "UC-Sync",
++    "default_popup": "popup.html"
++  },
++  "options_ui": {
++    "page": "options.html",
++    "open_in_tab": true
++  }
++}
+diff --git a/chrome/browser/resources/ucsync/options.html b/chrome/browser/resources/ucsync/options.html
+new file mode 100644
+index 0000000..2706004
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/options.html
+@@ -0,0 +1,150 @@
++<!doctype html>
++<html lang="es">
++<head>
++  <meta charset="utf-8">
++  <title>UC-Sync</title>
++  <link rel="stylesheet" href="styles.css">
++</head>
++<body>
++<main>
++  <header class="brand">
++    <img src="logo.svg" alt="">
++    <div>
++      <h1>UC-Sync</h1>
++      <p>Marcadores, historial y permisos por sitio, cifrados y en tu servidor</p>
++    </div>
++  </header>
++
++  <section class="card">
++    <h2>Conectar</h2>
++    <p class="hint">La contraseña cifra los datos en este navegador. No se envía al servidor y no se puede recuperar.</p>
++    <label class="field"><span>Servidor</span>
++      <input id="server-url" type="url" placeholder="http://10.7.93.19:8443" autocomplete="off">
++    </label>
++    <p class="hint" id="transport-hint" hidden></p>
++    <label class="field"><span>Contraseña</span>
++      <input id="password" type="password" autocomplete="current-password">
++    </label>
++    <button id="connect" class="primary">Conectar</button>
++    <div id="choice" class="choice" hidden>
++      <p class="hint">Ese servidor ya tiene datos. ¿Qué hago con los de este navegador?</p>
++      <div class="row">
++        <button id="use-server">Usar los del servidor</button>
++        <button id="use-local">Subir los de este navegador</button>
++      </div>
++    </div>
++    <div id="connect-message" class="message"></div>
++  </section>
++
++  <section class="card" id="status-card" hidden>
++    <h2>Estado</h2>
++    <div class="row" style="justify-content:space-between">
++      <span id="chip" class="status">—</span>
++      <span id="revision" class="mono">rev. —</span>
++    </div>
++    <dl class="meta">
++      <dt>Última sincronización</dt><dd id="last">—</dd>
++      <dt>Marcadores</dt><dd id="count">—</dd>
++    </dl>
++    <div class="row" style="margin-top:12px">
++      <button id="sync-now" class="primary">Sincronizar ahora</button>
++    </div>
++    <div id="status-message" class="message"></div>
++  </section>
++
++  <section class="card" id="targets-card" hidden>
++    <h2>Qué sincronizar</h2>
++    <label class="check"><input type="checkbox" id="b-bookmarks"> Marcadores</label>
++    <label class="check"><input type="checkbox" id="b-history"> Historial</label>
++    <label class="check"><input type="checkbox" id="b-settings"> Permisos por sitio</label>
++    <div class="row" style="margin-top:10px">
++      <button id="save-targets">Guardar</button>
++    </div>
++    <div id="targets-message" class="message"></div>
++  </section>
++
++  <section class="card" id="history-card" hidden>
++    <h2>Historial sincronizado</h2>
++    <p class="hint">La fecha mostrada es la visita real. Con el Chromium parcheado la visita se crea con su hora real y queda en <code>chrome://history</code>; en un Chromium sin parchear <code>chrome.history.addUrl()</code> no admite fechas del pasado, así que las entradas bajadas se crean «ahora» pero conservan su fecha auténtica en UC-Sync (marcadas abajo).</p>
++    <p class="hint" id="history-cap" hidden></p>
++    <p class="hint">UC-Sync <strong>nunca borra</strong> historial: sólo añade. Si borraste el historial a mano, usa <em>Reaplicar lo de la bóveda</em> para volver a añadir las URLs (la bóveda y el registro local conservan las fechas reales).</p>
++    <dl class="meta">
++      <dt>URLs del rango (este navegador)</dt><dd id="history-local">—</dd>
++      <dt>URLs en la bóveda</dt><dd id="history-vault">—</dd>
++      <dt>Que faltan aquí</dt><dd id="history-missing">—</dd>
++      <dt>Hora real en el navegador</dt><dd id="history-timed">—</dd>
++      <dt>Fecha real conservada</dt><dd id="history-synthetic">—</dd>
++      <dt>Última aplicación</dt><dd id="history-last">—</dd>
++    </dl>
++    <div class="row" style="margin-top:10px">
++      <button id="history-refresh">Ver historial</button>
++      <button id="history-recover">Reaplicar lo de la bóveda</button>
++    </div>
++    <table class="backups">
++      <thead><tr><th>Fecha real</th><th>Url</th><th>Origen</th></tr></thead>
++      <tbody id="history-body"><tr><td colspan="3">—</td></tr></tbody>
++    </table>
++    <div id="history-message" class="message"></div>
++  </section>
++
++  <details id="advanced" hidden>
++    <summary>Avanzado</summary>
++    <section class="card">
++      <label class="field"><span>Sincronizar automáticamente</span>
++        <select id="interval">
++          <option value="0">Sólo manualmente</option>
++          <option value="5">Cada 5 minutos</option>
++          <option value="15">Cada 15 minutos</option>
++          <option value="30">Cada 30 minutos</option>
++          <option value="60">Cada hora</option>
++        </select>
++      </label>
++      <label class="field"><span>Si hay conflicto</span>
++        <select id="policy">
++          <option value="merge">Fusionar cambios</option>
++          <option value="remote">Gana el servidor</option>
++          <option value="local">Gana este navegador</option>
++        </select>
++      </label>
++      <div class="row">
++        <label class="field" style="margin:0;max-width:120px"><span>Días de historial</span>
++          <input id="history-days" type="number" min="1" max="3650" value="90">
++        </label>
++        <label class="field" style="margin:0;max-width:170px"><span>Máximo de entradas (0 = todas)</span>
++          <input id="history-max" type="number" min="0" max="50000" value="0">
++        </label>
++      </div>
++      <div class="row" style="margin-top:12px">
++        <button id="save-advanced">Guardar</button>
++        <button id="export">Exportar copia</button>
++      </div>
++      <div id="advanced-message" class="message"></div>
++    </section>
++
++    <section class="card">
++      <h2>Copias locales</h2>
++      <p class="hint">Se guardan antes de descargar o fusionar marcadores.</p>
++      <table class="backups">
++        <thead><tr><th>Fecha</th><th>Motivo</th><th>Elementos</th><th></th></tr></thead>
++        <tbody id="backups-body"><tr><td colspan="4">—</td></tr></tbody>
++      </table>
++    </section>
++
++    <section class="card">
++      <h2>Desconectar</h2>
++      <div class="row">
++        <button id="unlink" class="danger">Olvidar la contraseña en este navegador</button>
++        <button id="delete-vault" class="danger">Borrar todo del servidor</button>
++      </div>
++      <div id="danger-message" class="message"></div>
++    </section>
++  </details>
++
++  <p class="hint">
++    UC-Sync viene integrado en este Chromium: se abre como <code>chrome://ucsync</code> y su ID es
++    <code>lidfhdhmbifmhikiaklbiehnhnkhoghe</code>.
++  </p>
++</main>
++<script type="module" src="options.js"></script>
++</body>
++</html>
+diff --git a/chrome/browser/resources/ucsync/options.js b/chrome/browser/resources/ucsync/options.js
+new file mode 100644
+index 0000000..35e18b5
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/options.js
+@@ -0,0 +1,399 @@
++// Ajustes: conectar con el servidor, elegir qué sincronizar y ver el estado.
++import { isLocalHost } from './src/api.js';
++
++const $ = (id) => document.getElementById(id);
++
++async function send(type, payload = {}) {
++  const response = await chrome.runtime.sendMessage({ type, ...payload });
++  if (!response) throw new Error('El service worker no respondió');
++  if (!response.ok) throw new Error(response.error?.message ?? 'Error');
++  return response.data;
++}
++
++function message(el, text, kind = '') {
++  el.textContent = text;
++  el.className = `message ${kind}`;
++}
++
++const fmtDate = (ms) => (ms ? new Date(ms).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—');
++
++// En el build embebido los permisos son estáticos (manifest), así que ya están concedidos:
++// aquí sólo se comprueba, nunca se pide nada al usuario.
++async function hasOrigin(serverUrl) {
++  if (!chrome.permissions) return true;
++  const url = new URL(serverUrl);
++  return chrome.permissions.contains({ origins: [`${url.protocol}//${url.host}/*`] });
++}
++
++async function hasOptionalApis(sync) {
++  const wanted = [];
++  if (sync.history) wanted.push('history');
++  if (sync.settings) wanted.push('contentSettings');
++  if (!wanted.length || !chrome.permissions) return true;
++  return chrome.permissions.contains({ permissions: wanted });
++}
++
++/** Aviso de transporte: HTTP no lleva TLS, así que sólo vale en la red local. */
++function updateTransportHint() {
++  const el = $('transport-hint');
++  el.hidden = true;
++  el.textContent = '';
++  el.className = 'hint';
++  let url;
++  try {
++    url = new URL($('server-url').value.trim());
++  } catch {
++    return;
++  }
++  if (url.protocol !== 'http:') return;
++  if (!isLocalHost(url.hostname)) {
++    el.hidden = false;
++    el.className = 'hint error';
++    el.textContent = 'HTTP sólo se permite en la red local. Para un servidor en Internet, usa HTTPS.';
++    return;
++  }
++  el.hidden = false;
++  el.className = 'hint warn';
++  el.textContent = 'Sin TLS: la bóveda sigue cifrada de extremo a extremo, pero el token de acceso viaja por tu red local.';
++}
++
++function chip(sync) {
++  const el = $('chip');
++  if (sync.status === 'syncing') {
++    el.className = 'status';
++    el.textContent = 'Sincronizando…';
++  } else if (sync.status === 'error') {
++    el.className = 'status error';
++    el.textContent = 'Error';
++  } else if (sync.conflicts > 0) {
++    el.className = 'status conflict';
++    el.textContent = `${sync.conflicts} conflicto(s)`;
++  } else if (sync.configured) {
++    el.className = 'status ok';
++    el.textContent = 'Al día';
++  } else {
++    el.className = 'status';
++    el.textContent = 'Sin configurar';
++  }
++}
++
++async function refresh() {
++  const { settings, sync } = await send('app:state');
++  $('server-url').value = settings.serverUrl ?? '';
++  updateTransportHint();
++  chip(sync);
++  $('revision').textContent = `rev. ${sync.revision || '—'}`;
++  $('last').textContent = fmtDate(sync.lastSyncAt);
++  message($('status-message'), sync.lastError ?? '', sync.lastError ? 'error' : '');
++
++  const configured = sync.configured;
++  $('status-card').hidden = !configured;
++  $('targets-card').hidden = !configured;
++  $('advanced').hidden = !configured;
++  $('history-card').hidden = true;
++  if (!configured) return;
++
++  $('b-bookmarks').checked = settings.sync.bookmarks !== false;
++  $('b-history').checked = settings.sync.history === true;
++  $('b-settings').checked = settings.sync.settings === true;
++  $('interval').value = String(settings.intervalMinutes ?? 15);
++  $('policy').value = settings.policy ?? 'merge';
++  $('history-days').value = String(settings.history?.days ?? 90);
++  $('history-max').value = String(settings.history?.max ?? 0);
++  $('history-last').textContent = describeHistoryRun(sync.lastHistory);
++
++  try {
++    const counts = await send('app:counts');
++    $('count').textContent = counts.urls === 1 ? '1 marcador' : `${counts.urls} marcadores`;
++  } catch {
++    $('count').textContent = '—';
++  }
++  if (settings.sync.history === true) await refreshHistory();
++  await refreshBackups();
++}
++
++/** Resumen de la última aplicación del historial (conteos explícitos, nada silencioso). */
++function describeHistoryRun(last) {
++  if (!last) return '—';
++  const parts = [`${last.added} añadidas`, `${last.existing} ya estaban`];
++  if (last.dated > 0) parts.push(`${last.dated} con su hora real en el navegador`);
++  if (last.mode === 'now' && (last.total ?? 0) > 0) parts.push('hora real sólo en UC-Sync');
++  if (last.bulk === true) parts.push('en lotes');
++  if (last.failed) parts.push(`${last.failed} sin poder añadirse`);
++  if (last.truncated) parts.push(`${last.dropped} fuera por el máximo`);
++  return parts.join(' · ');
++}
++
++const historyOrigin = (entry) => {
++  if (entry.s !== 'added') return 'visitado aquí';
++  if (entry.tm === 1) return 'de otro dispositivo (su hora real está en el historial del navegador)';
++  return `de otro dispositivo (añadida el ${fmtDate(entry.addedAt)}: su hora real sólo está en UC-Sync)`;
++};
++
++/** Aviso de capacidad: sin el Chromium parcheado la hora real no puede escribirse en el historial. */
++function renderCapability(capabilities) {
++  const el = $('history-cap');
++  if (capabilities?.visitTime === true) {
++    el.hidden = true;
++    el.className = 'hint';
++    el.textContent = '';
++    return;
++  }
++  el.hidden = false;
++  el.className = 'hint warn';
++  el.textContent = 'Este Chromium no admite `visitTime`: la hora real sólo se ve en UC-Sync; se recupera con el Chromium parcheado.';
++}
++
++/**
++ * Historial sincronizado con su fecha real: UC-Sync no puede crear visitas del pasado, así
++ * que la fecha auténtica vive en el registro local y es la que se muestra aquí.
++ */
++async function refreshHistory() {
++  const view = await send('app:history', { limit: 100 });
++  $('history-card').hidden = view.disabled === true;
++  if (view.disabled) return;
++  renderCapability(view.capabilities);
++  $('history-local').textContent = `${view.summary?.total ?? 0} en ${fmtDate(view.oldest ?? 0)} → ${fmtDate(view.newest ?? 0)}`;
++  $('history-synthetic').textContent = `${view.summary?.synthetic ?? 0} con fecha de otro dispositivo`;
++  $('history-timed').textContent = `${view.timed ?? 0} de ${view.summary?.total ?? 0} tienen su hora real en chrome://history`;
++
++  try {
++    const audit = await send('app:historyAudit');
++    $('history-vault').textContent = audit.vault
++      ? `${audit.vault.entries} (rev. ${audit.vault.revision}${audit.vault.truncated ? `, recortadas ${audit.vault.dropped}` : ''})`
++      : 'ninguna todavía';
++    $('history-missing').textContent = audit.vault ? `${audit.missing} URLs` : '—';
++    $('history-last').textContent = describeHistoryRun(audit.last ?? view.last);
++    if (audit.missing > 0) {
++      message($('history-message'), `Faltan ${audit.missing} URLs de la bóveda en este navegador: pulsa «Reaplicar lo de la bóveda».`, 'warn');
++    }
++  } catch (err) {
++    $('history-vault').textContent = '—';
++    $('history-missing').textContent = '—';
++    $('history-last').textContent = describeHistoryRun(view.last);
++    message($('history-message'), err.message, 'error');
++  }
++
++  const body = $('history-body');
++  body.textContent = '';
++  if (view.unavailable || view.message) {
++    message($('history-message'), view.message ?? 'Sin acceso al historial', 'error');
++  } else if (view.summary?.truncated) {
++    message($('history-message'), `El máximo deja ${view.summary.dropped} URLs del rango fuera. Pon 0 para sincronizar todas.`, 'warn');
++  } else if (view.summary?.incomplete) {
++    message($('history-message'), 'El rango no se pudo leer entero; reduce los días de historial.', 'warn');
++  }
++
++  if (!view.entries.length) {
++    const tr = document.createElement('tr');
++    const td = document.createElement('td');
++    td.colSpan = 3;
++    td.textContent = view.unavailable ? 'Sin permiso de historial.' : 'Todavía no hay entradas sincronizadas.';
++    tr.append(td);
++    body.append(tr);
++    return;
++  }
++  for (const entry of view.entries) {
++    const tr = document.createElement('tr');
++    const date = document.createElement('td');
++    date.textContent = fmtDate(entry.v);
++    const url = document.createElement('td');
++    url.textContent = entry.u;
++    url.title = entry.t || entry.u;
++    const origin = document.createElement('td');
++    origin.textContent = historyOrigin(entry);
++    tr.append(date, url, origin);
++    body.append(tr);
++  }
++}
++
++async function refreshBackups() {
++  const backups = await send('app:backups');
++  const body = $('backups-body');
++  body.textContent = '';
++  if (!backups.length) {
++    const tr = document.createElement('tr');
++    const td = document.createElement('td');
++    td.colSpan = 4;
++    td.textContent = 'Todavía no hay copias.';
++    tr.append(td);
++    body.append(tr);
++    return;
++  }
++  for (const backup of backups) {
++    const tr = document.createElement('tr');
++    const date = document.createElement('td');
++    date.textContent = fmtDate(backup.at);
++    const reason = document.createElement('td');
++    reason.textContent = { pull: 'Antes de descargar', merge: 'Antes de fusionar' }[backup.reason] ?? backup.reason;
++    const total = document.createElement('td');
++    total.textContent = String(backup.total);
++    const action = document.createElement('td');
++    const button = document.createElement('button');
++    button.textContent = 'Restaurar';
++    button.addEventListener('click', async () => {
++      if (!confirm('¿Restaurar esta copia sobre tus marcadores actuales?')) return;
++      try {
++        await send('app:restoreBackup', { key: backup.key });
++        message($('advanced-message'), 'Copia restaurada.', 'ok');
++        await refresh();
++      } catch (err) {
++        message($('advanced-message'), err.message, 'error');
++      }
++    });
++    action.append(button);
++    tr.append(date, reason, total, action);
++    body.append(tr);
++  }
++}
++
++$('server-url').addEventListener('input', updateTransportHint);
++
++$('connect').addEventListener('click', async () => {
++  const serverUrl = $('server-url').value.trim();
++  const password = $('password').value;
++  if (!serverUrl) return message($('connect-message'), 'Escribe la dirección del servidor.', 'error');
++  if (password.length < 8) return message($('connect-message'), 'La contraseña necesita al menos 8 caracteres.', 'error');
++
++  const button = $('connect');
++  button.disabled = true;
++  message($('connect-message'), 'Conectando…');
++  try {
++    if (!(await hasOrigin(serverUrl))) throw new Error('Este navegador no dio acceso a ese origen (revisa la política de extensiones).');
++    const result = await send('app:connect', { serverUrl, password });
++    if (result.needsChoice) {
++      $('choice').hidden = false;
++      message($('connect-message'), `El servidor ya tiene datos (rev. ${result.revision}). Elige qué conservar.`);
++      return;
++    }
++    $('password').value = '';
++    message($('connect-message'), 'Conectado.', 'ok');
++    await refresh();
++  } catch (err) {
++    message($('connect-message'), err.message, 'error');
++  } finally {
++    button.disabled = false;
++  }
++});
++
++for (const [id, mode, text] of [['use-server', 'pull', 'Adoptando los datos del servidor…'], ['use-local', 'push', 'Subiendo los de este navegador…']]) {
++  $(id).addEventListener('click', async () => {
++    const serverUrl = $('server-url').value.trim();
++    const password = $('password').value;
++    message($('connect-message'), text);
++    try {
++      await send('app:connect', { serverUrl, password, mode });
++      $('choice').hidden = true;
++      $('password').value = '';
++      message($('connect-message'), 'Conectado.', 'ok');
++      await refresh();
++    } catch (err) {
++      message($('connect-message'), err.message, 'error');
++    }
++  });
++}
++
++$('save-targets').addEventListener('click', async () => {
++  const sync = { bookmarks: true, history: $('b-history').checked, settings: $('b-settings').checked };
++  try {
++    if (!(await hasOptionalApis(sync))) throw new Error('Este navegador no dio `history`/`contentSettings` (revisa la política de extensiones).');
++    await send('app:save', { settings: { sync } });
++    message($('targets-message'), 'Guardado.', 'ok');
++    await refresh();
++  } catch (err) {
++    message($('targets-message'), err.message, 'error');
++  }
++});
++
++$('save-advanced').addEventListener('click', async () => {
++  try {
++    await send('app:save', {
++      settings: {
++        intervalMinutes: Number($('interval').value),
++        policy: $('policy').value,
++        history: {
++          days: Math.max(1, Number($('history-days').value) || 90),
++          max: Math.max(0, Number($('history-max').value) || 0),
++        },
++      },
++    });
++    message($('advanced-message'), 'Guardado.', 'ok');
++  } catch (err) {
++    message($('advanced-message'), err.message, 'error');
++  }
++});
++
++$('history-refresh').addEventListener('click', async () => {
++  try {
++    await refreshHistory();
++    message($('history-message'), 'Historial actualizado.', 'ok');
++  } catch (err) {
++    message($('history-message'), err.message, 'error');
++  }
++});
++
++$('history-recover').addEventListener('click', async () => {
++  if (!confirm('¿Volver a añadir al navegador las URLs guardadas en la bóveda que falten? No se borra nada.')) return;
++  const button = $('history-recover');
++  button.disabled = true;
++  message($('history-message'), 'Reaplicando el historial de la bóveda…');
++  try {
++    const res = await send('app:historyRecover');
++    message($('history-message'), `Reaplicado: ${res.added} añadidas, ${res.existing} ya estaban${res.failed ? `, ${res.failed} sin poder añadirse` : ''}.`, 'ok');
++    await refreshHistory();
++  } catch (err) {
++    message($('history-message'), err.message, 'error');
++  } finally {
++    button.disabled = false;
++  }
++});
++
++$('sync-now').addEventListener('click', async () => {
++  const button = $('sync-now');
++  button.disabled = true;
++  message($('status-message'), 'Sincronizando…');
++  try {
++    const result = await send('app:sync');
++    const extra = result.history ? ` · historial: ${describeHistoryRun(result.history)}` : '';
++    message($('status-message'), `${result.result} · rev. ${result.revision}${extra}`, 'ok');
++  } catch (err) {
++    message($('status-message'), err.message, 'error');
++  } finally {
++    button.disabled = false;
++    await refresh();
++  }
++});
++
++$('export').addEventListener('click', async () => {
++  const { settings } = await send('app:state');
++  const { sync } = await send('app:state');
++  if (!sync.configured) return message($('advanced-message'), 'Configura primero la sincronización.', 'error');
++  const tree = await send('app:counts');
++  const blob = new Blob([JSON.stringify({ format: 'ucsync-resumen', exportedAt: new Date().toISOString(), serverUrl: settings.serverUrl, marcadores: tree }, null, 2)], { type: 'application/json' });
++  const url = URL.createObjectURL(blob);
++  const link = document.createElement('a');
++  link.href = url;
++  link.download = `ucsync-${new Date().toISOString().slice(0, 10)}.json`;
++  link.click();
++  setTimeout(() => URL.revokeObjectURL(url), 5000);
++});
++
++$('unlink').addEventListener('click', async () => {
++  if (!confirm('¿Olvidar la contraseña en este navegador? Tus marcadores no se tocan.')) return;
++  await send('app:unlink');
++  message($('danger-message'), 'Desconectado.', 'ok');
++  await refresh();
++});
++
++$('delete-vault').addEventListener('click', async () => {
++  if (!confirm('¿Borrar todo lo sincronizado en el servidor? No se puede deshacer.')) return;
++  try {
++    await send('app:deleteVault');
++    message($('danger-message'), 'Bóveda borrada del servidor.', 'ok');
++    await refresh();
++  } catch (err) {
++    message($('danger-message'), err.message, 'error');
++  }
++});
++
++refresh().catch((err) => message($('connect-message'), err.message, 'error'));
+diff --git a/chrome/browser/resources/ucsync/popup.html b/chrome/browser/resources/ucsync/popup.html
+new file mode 100644
+index 0000000..aeda080
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/popup.html
+@@ -0,0 +1,38 @@
++<!doctype html>
++<html lang="es">
++<head>
++  <meta charset="utf-8">
++  <title>UC-Sync</title>
++  <link rel="stylesheet" href="styles.css">
++</head>
++<body class="popup">
++<main>
++  <header class="brand" style="margin-bottom:14px">
++    <img src="icons/32.png" alt="">
++    <div>
++      <h1 style="font-size:16px">UC-Sync</h1>
++      <p style="font-size:12px">Marcadores cifrados</p>
++    </div>
++  </header>
++
++  <section class="card">
++    <div class="row" style="justify-content:space-between">
++      <span id="status" class="status">Cargando…</span>
++      <span id="revision" class="mono">rev. —</span>
++    </div>
++    <dl class="meta" style="margin-top:10px">
++      <dt>Última</dt><dd id="last">—</dd>
++          </dl>
++    <div id="error" class="message"></div>
++  </section>
++
++  <section class="card">
++    <div class="row">
++      <button id="sync" class="primary grow">Sincronizar ahora</button>
++      <button id="open-options">Ajustes</button>
++    </div>
++  </section>
++</main>
++<script type="module" src="popup.js"></script>
++</body>
++</html>
+diff --git a/chrome/browser/resources/ucsync/popup.js b/chrome/browser/resources/ucsync/popup.js
+new file mode 100644
+index 0000000..ef924e5
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/popup.js
+@@ -0,0 +1,54 @@
++const $ = (id) => document.getElementById(id);
++
++async function send(type, payload = {}) {
++  const response = await chrome.runtime.sendMessage({ type, ...payload });
++  if (!response) throw new Error('Sin respuesta');
++  if (!response.ok) throw new Error(response.error?.message ?? 'Error');
++  return response.data;
++}
++
++const fmtDate = (ms) => (ms ? new Date(ms).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '—');
++
++async function refresh() {
++  const { sync } = await send('app:state');
++  const chip = $('status');
++  if (!sync.configured) {
++    chip.className = 'status';
++    chip.textContent = 'Sin configurar';
++  } else if (sync.status === 'syncing') {
++    chip.className = 'status';
++    chip.textContent = 'Sincronizando…';
++  } else if (sync.status === 'error') {
++    chip.className = 'status error';
++    chip.textContent = 'Error';
++  } else {
++    chip.className = 'status ok';
++    chip.textContent = 'Al día';
++  }
++  $('revision').textContent = `rev. ${sync.revision || '—'}`;
++  $('last').textContent = fmtDate(sync.lastSyncAt);
++  $('error').textContent = sync.lastError || '';
++  $('error').className = sync.lastError ? 'message error' : 'message';
++  $('sync').disabled = !sync.configured;
++}
++
++$('sync').addEventListener('click', async () => {
++  $('sync').disabled = true;
++  try {
++    const result = await send('app:sync');
++    $('error').className = 'message ok';
++    $('error').textContent = `Sincronizado (rev. ${result.revision})`;
++  } catch (err) {
++    $('error').className = 'message error';
++    $('error').textContent = err.message;
++  } finally {
++    await refresh();
++  }
++});
++
++$('open-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
++
++refresh().catch((err) => {
++  $('error').className = 'message error';
++  $('error').textContent = err.message;
++});
+diff --git a/chrome/browser/resources/ucsync/src/api.js b/chrome/browser/resources/ucsync/src/api.js
+new file mode 100644
+index 0000000..1fd556c
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/api.js
+@@ -0,0 +1,126 @@
++// Cliente HTTP del servidor UC-Sync. Sin dependencias: fetch + AbortController.
++export class ApiError extends Error {
++  constructor(message, { status = 0, code = 'network_error' } = {}) {
++    super(message);
++    this.name = 'ApiError';
++    this.status = status;
++    this.code = code;
++  }
++}
++
++const LAN_SUFFIXES = ['.local', '.lan', '.home', '.home.arpa', '.internal', '.localdomain'];
++
++/** ¿El host es de la red local? (loopback, rangos privados, CGNAT o nombre interno) */
++export function isLocalHost(hostname) {
++  const host = String(hostname ?? '').replace(/^\[|\]$/g, '').toLowerCase();
++  if (!host) return false;
++  if (host === 'localhost' || host.endsWith('.localhost')) return true;
++  if (LAN_SUFFIXES.some((suffix) => host.endsWith(suffix))) return true;
++
++  if (host.includes(':')) {
++    if (host === '::1') return true;
++    if (/^f[cd][0-9a-f]{2}:/.test(host)) return true; // fc00::/7 (ULA)
++    if (/^fe[89ab][0-9a-f]:/.test(host)) return true; // fe80::/10 (link-local)
++    return false;
++  }
++
++  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
++  if (v4) {
++    const [a, b] = [Number(v4[1]), Number(v4[2])];
++    if (a === 10 || a === 127) return true;
++    if (a === 192 && b === 168) return true;
++    if (a === 172 && b >= 16 && b <= 31) return true;
++    if (a === 169 && b === 254) return true;
++    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT / Tailscale
++    return false;
++  }
++
++  return !host.includes('.'); // nombre de una sola etiqueta (DNS interno)
++}
++
++/**
++ * Valida y normaliza la URL del servidor.
++ * HTTPS siempre; HTTP sólo en la red local, para no depender de instalar una CA.
++ */
++export function normalizeServerUrl(raw) {
++  if (typeof raw !== 'string' || !raw.trim()) throw new ApiError('Falta la URL del servidor', { code: 'bad_url' });
++  let url;
++  try {
++    url = new URL(raw.trim());
++  } catch {
++    throw new ApiError('URL del servidor no válida', { code: 'bad_url' });
++  }
++  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
++    throw new ApiError('El servidor debe usar http:// o https://', { code: 'insecure_url' });
++  }
++  if (url.protocol === 'http:' && !isLocalHost(url.hostname)) {
++    throw new ApiError(
++      'HTTP sólo se permite en la red local (IP privada, nombre .local o localhost). Para un servidor en Internet usa HTTPS.',
++      { code: 'insecure_url' },
++    );
++  }
++  return url.toString().replace(/\/+$/, '');
++}
++
++export function originPattern(serverUrl) {
++  const url = new URL(serverUrl);
++  return `${url.protocol}//${url.host}/*`;
++}
++
++export class Client {
++  constructor({ serverUrl, token, timeoutMs = 15_000 }) {
++    this.base = normalizeServerUrl(serverUrl);
++    this.token = token;
++    this.timeoutMs = timeoutMs;
++  }
++
++  async #request(path, { method = 'GET', body, headers = {} } = {}) {
++    const controller = new AbortController();
++    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
++    try {
++      const response = await fetch(`${this.base}${path}`, {
++        method,
++        signal: controller.signal,
++        headers: {
++          accept: 'application/json',
++          ...(body ? { 'content-type': 'application/json' } : {}),
++          ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
++          ...headers,
++        },
++        body: body ? JSON.stringify(body) : undefined,
++      });
++      if (response.status === 204) return { status: 204 };
++      const text = await response.text();
++      const data = text ? JSON.parse(text) : {};
++      if (!response.ok && response.status !== 409) {
++        throw new ApiError(data?.error?.message ?? `Error ${response.status}`, {
++          status: response.status,
++          code: data?.error?.code ?? 'server_error',
++        });
++      }
++      return { status: response.status, data };
++    } catch (err) {
++      if (err instanceof ApiError) throw err;
++      if (err.name === 'AbortError') throw new ApiError('El servidor no responde', { code: 'timeout' });
++      throw new ApiError(err.message ?? 'Error de red', { code: 'network_error' });
++    } finally {
++      clearTimeout(timer);
++    }
++  }
++
++  info() {
++    return this.#request('/v1/info');
++  }
++
++  readVault() {
++    return this.#request('/v1/vault');
++  }
++
++  writeVault({ baseRevision, payload }) {
++    return this.#request('/v1/vault', { method: 'PUT', body: { baseRevision, payload } });
++  }
++
++  deleteVault() {
++    return this.#request('/v1/vault', { method: 'DELETE' });
++  }
++}
+diff --git a/chrome/browser/resources/ucsync/src/bookmarks.js b/chrome/browser/resources/ucsync/src/bookmarks.js
+new file mode 100644
+index 0000000..e58f3fb
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/bookmarks.js
+@@ -0,0 +1,148 @@
++// Adaptador entre el árbol normalizado y la API de marcadores de Chromium.
++//
++// Responsabilidades:
++//  · leer la barra, "otros marcadores" y "marcadores móviles" y asignar a cada
++//    marcador un id estable (uuid) que sobrevive a renombrados y movimientos;
++//  · aplicar un árbol remoto reconciliando por uuid y, si no hay uuid, por
++//    (carpeta, tipo, url/título) para no duplicar nada;
++//  · no tocar las raíces que el usuario no ha marcado para sincronizar.
++import { ROOTS } from './tree.js';
++import { uuid } from './util.js';
++
++const ROOT_IDS = { bookmark_bar: '1', other: '2', mobile: '3' };
++
++export async function readTree(roots, mapping) {
++  const tree = { v: 1, roots: {} };
++  for (const key of ROOTS) {
++    const rootId = ROOT_IDS[key];
++    const empty = { id: key, type: 'folder', title: key, children: [] };
++    if (!roots.includes(key)) {
++      tree.roots[key] = empty;
++      continue;
++    }
++    let children = [];
++    try {
++      children = await chrome.bookmarks.getChildren(rootId);
++    } catch {
++      children = [];
++    }
++    tree.roots[key] = { id: key, type: 'folder', title: key, children: await toNodes(children, mapping) };
++  }
++  return tree;
++}
++
++async function toNodes(children, mapping) {
++  const nodes = [];
++  for (const child of children) {
++    if (child.url) {
++      nodes.push({ id: mapping.idFor(child.id), type: 'url', title: child.title ?? '', url: child.url });
++    } else {
++      const grandChildren = await chrome.bookmarks.getChildren(child.id);
++      nodes.push({
++        id: mapping.idFor(child.id),
++        type: 'folder',
++        title: child.title ?? '',
++        children: await toNodes(grandChildren, mapping),
++      });
++    }
++  }
++  return nodes;
++}
++
++/**
++ * Aplica `target` sobre las raíces indicadas y devuelve un resumen de cambios.
++ * `mapping` mantiene la correspondencia uuid ↔ id nativo.
++ */
++export async function applyTree(target, roots, mapping) {
++  const stats = { created: 0, updated: 0, moved: 0, removed: 0 };
++  for (const key of ROOTS) {
++    if (!roots.includes(key)) continue;
++    const rootId = ROOT_IDS[key];
++    const desired = target.roots?.[key]?.children ?? [];
++    // En escritorio puede no existir la raíz de "marcadores móviles".
++    if (!(await hasRoot(rootId))) continue;
++    await reconcileChildren(rootId, desired, mapping, stats);
++  }
++  await mapping.save();
++  return stats;
++}
++
++async function reconcileChildren(parentId, desired, mapping, stats) {
++  const existing = await chrome.bookmarks.getChildren(parentId);
++  const byNativeId = new Map(existing.map((n) => [n.id, n]));
++  const byUuid = new Map();
++  for (const node of existing) byUuid.set(mapping.idFor(node.id), node);
++
++  const keep = new Set();
++  for (let position = 0; position < desired.length; position += 1) {
++    const wanted = desired[position];
++    const candidate = byUuid.get(wanted.id);
++    if (candidate) {
++      keep.add(candidate.id);
++      mapping.bind(wanted.id, candidate.id);
++      const isUrl = Boolean(candidate.url);
++      if ((wanted.type === 'url') !== isUrl) {
++        // Tipo distinto con el mismo uuid: se reemplaza.
++        await chrome.bookmarks.removeTree(candidate.id);
++        const created = await createNode(parentId, wanted, position, mapping);
++        keep.add(created.id);
++        stats.created += 1;
++        continue;
++      }
++      if (wanted.type === 'url') {
++        if ((candidate.title ?? '') !== (wanted.title ?? '') || candidate.url !== wanted.url) {
++          await chrome.bookmarks.update(candidate.id, { title: wanted.title ?? '', url: wanted.url });
++          stats.updated += 1;
++        }
++        const currentParent = (await chrome.bookmarks.get(candidate.id))[0]?.parentId;
++        if (currentParent !== parentId) {
++          await chrome.bookmarks.move(candidate.id, { parentId, index: position });
++          stats.moved += 1;
++        }
++      } else {
++        if ((candidate.title ?? '') !== (wanted.title ?? '')) {
++          await chrome.bookmarks.update(candidate.id, { title: wanted.title ?? '' });
++          stats.updated += 1;
++        }
++        await reconcileChildren(candidate.id, wanted.children ?? [], mapping, stats);
++      }
++    } else {
++      const created = await createNode(parentId, wanted, position, mapping);
++      keep.add(created.id);
++      stats.created += 1;
++    }
++  }
++
++  // Lo que no está en el árbol destino se elimina (sólo dentro de las raíces sincronizadas).
++  for (const node of existing) {
++    if (!keep.has(node.id)) {
++      await chrome.bookmarks.removeTree(node.id);
++      mapping.forget(node.id);
++      stats.removed += 1;
++    }
++  }
++  void byNativeId;
++}
++
++async function hasRoot(id) {
++  try {
++    await chrome.bookmarks.get(id);
++    return true;
++  } catch {
++    return false;
++  }
++}
++
++async function createNode(parentId, wanted, index, mapping) {
++  if (wanted.type === 'url') {
++    const created = await chrome.bookmarks.create({ parentId, index, title: wanted.title ?? '', url: wanted.url });
++    mapping.bind(wanted.id, created.id);
++    return created;
++  }
++  const created = await chrome.bookmarks.create({ parentId, index, title: wanted.title ?? '' });
++  mapping.bind(wanted.id, created.id);
++  for (let i = 0; i < (wanted.children ?? []).length; i += 1) {
++    await createNode(created.id, wanted.children[i], i, mapping);
++  }
++  return created;
++}
+diff --git a/chrome/browser/resources/ucsync/src/crypto.js b/chrome/browser/resources/ucsync/src/crypto.js
+new file mode 100644
+index 0000000..300ee92
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/crypto.js
+@@ -0,0 +1,68 @@
++// Criptografía del cliente. Todo ocurre en el navegador: el servidor sólo
++// recibe un blob AES-GCM y un verificador derivado por separado.
++//
++//   passphrase ──PBKDF2-SHA256(310k, salt="ucsync:v1:"+syncId)──▶ 64 bytes
++//                                                     ├─ encKey  (32) → AES-256-GCM
++//                                                     └─ authKey (32) → sha256 → token
++//
++// El token de autenticación no permite recuperar encKey (dominios separados),
++// así que ni el servidor ni quien robe el token puede descifrar nada.
++import { fromBase64, fromHex, sha256Hex, toBase64, toHex } from './util.js';
++
++const ITERATIONS = 310_000;
++const VERSION = 1;
++const encoder = new TextEncoder();
++
++const SALT = 'ucsync:vault:v1';
++
++export async function deriveKeys(passphrase) {
++  if (typeof passphrase !== 'string' || passphrase.length < 8) {
++    throw new Error('La contraseña debe tener al menos 8 caracteres');
++  }
++  const material = await crypto.subtle.importKey('raw', encoder.encode(passphrase), 'PBKDF2', false, ['deriveBits']);
++  const bits = await crypto.subtle.deriveBits(
++    { name: 'PBKDF2', hash: 'SHA-256', salt: encoder.encode(SALT), iterations: ITERATIONS },
++    material,
++    512,
++  );
++  const bytes = new Uint8Array(bits);
++  return { encKey: toHex(bytes.slice(0, 32)), authKey: toHex(bytes.slice(32)) };
++}
++
++export async function authTokenFrom(authKeyHex) {
++  return sha256Hex(fromHex(authKeyHex));
++}
++
++async function importEncKey(encKeyHex) {
++  return crypto.subtle.importKey('raw', fromHex(encKeyHex), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
++}
++
++export async function encryptPayload(encKeyHex, value) {
++  const key = await importEncKey(encKeyHex);
++  const iv = crypto.getRandomValues(new Uint8Array(12));
++  const plaintext = encoder.encode(JSON.stringify(value));
++  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, tagLength: 128 }, key, plaintext);
++  const packed = new Uint8Array(iv.length + ciphertext.byteLength);
++  packed.set(iv, 0);
++  packed.set(new Uint8Array(ciphertext), iv.length);
++  return toBase64(packed);
++}
++
++export async function decryptPayload(encKeyHex, blob) {
++  const packed = fromBase64(blob);
++  if (packed.length < 13) throw new Error('Blob cifrado inválido');
++  const key = await importEncKey(encKeyHex);
++  let plaintext;
++  try {
++    plaintext = await crypto.subtle.decrypt(
++      { name: 'AES-GCM', iv: packed.subarray(0, 12), tagLength: 128 },
++      key,
++      packed.subarray(12),
++    );
++  } catch {
++    throw new Error('No se pudo descifrar: contraseña incorrecta o datos dañados');
++  }
++  return JSON.parse(new TextDecoder().decode(plaintext));
++}
++
++export const payloadVersion = VERSION;
+diff --git a/chrome/browser/resources/ucsync/src/history.js b/chrome/browser/resources/ucsync/src/history.js
+new file mode 100644
+index 0000000..f650216
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/history.js
+@@ -0,0 +1,556 @@
++// Sincronización del historial: TODAS las URLs del rango y la fecha REAL de cada visita.
++//
++// Los dos límites reales de la API de extensiones se resuelven aquí (no arriba, en la UI):
++//
++//  1. `chrome.history.search()` devuelve como mucho `maxResults` elementos. Para no perder
++//     ninguna URL del rango configurado se recorre en ventanas de tiempo que se subdividen
++//     cuando una viene llena, y las ventanas solapadas se unen por URL (unión, no recorte).
++//     `max` deja de ser un techo silencioso: `0` = todas las entradas, y un techo explícito
++//     se reporta con `dropped`/`truncated` para que sea visible.
++//
++//  2. `chrome.history.addUrl()` sin parchear no permite fechas del pasado: la visita se crea
++//     "ahora". La fecha real se guarda en un registro local (`ledger`) y es la que se exporta,
++//     se fusiona y se muestra, con `s: 'added'` para distinguir "esta visita la creó UC-Sync"
++//     de "aquí se visitó de verdad". Así una entrada bajada nunca queda convertida en una
++//     visita de hoy al volver a exportarse.
++//
++//     El Chromium parcheado sí admite horas del pasado: `addUrl({url, visitTime})` y el lote
++//     `addUrls({urls: […]})`. UC-Sync lo detecta por la forma de la API, **lo comprueba**
++//     leyendo `getVisits()` después de escribir y, si el build no cumple, desactiva la
++//     capacidad en `ucsync.history.capabilities.v1` y degrada a `addUrl()` sin hora.
++export const HISTORY_VERSION = 2;
++export const LEDGER_KEY = 'ucsync.history.ledger.v1';
++export const CAPABILITIES_KEY = 'ucsync.history.capabilities.v1';
++export const PAGE_SIZE = 5000;
++export const MAX_WINDOWS = 400;
++export const BULK_SIZE = 500;
++export const DEFAULT_HISTORY_SETTINGS = { days: 90, max: 0 };
++
++const DAY_MS = 86_400_000;
++
++function unavailable(message) {
++  return Object.assign(new Error(message), { code: 'history_unavailable' });
++}
++
++export function isSyncable(url) {
++  return typeof url === 'string' && /^https?:/i.test(url);
++}
++
++/**
++ * Cortafuegos de capacidades: la sincronización de historial **sólo lee y añade**. Aquí se
++ * exponen únicamente `search`, `addUrl`, `addUrls` y `getVisits`, de modo que ninguna ruta puede
++ * llamar a `deleteUrl`/`deleteAll`/`deleteRange` ni hoy ni en el futuro.
++ */
++export function additiveHistory(history) {
++  if (!history?.search || !history?.addUrl) {
++    throw unavailable('Sin acceso al historial: activa la sincronización de historial y concede el permiso.');
++  }
++  return {
++    search: (query) => history.search(query),
++    addUrl: (visitItem) => history.addUrl(visitItem),
++    ...(history.addUrls ? { addUrls: (items) => history.addUrls(items) } : {}),
++    ...(history.getVisits ? { getVisits: (query) => history.getVisits(query) } : {}),
++  };
++}
++
++/** Entrada canónica. `s`: 'real' (visita genuina de este dispositivo) | 'added' (creada por UC-Sync). */
++export function normalizeEntry(entry) {
++  const out = {
++    u: entry.u,
++    t: entry.t ?? '',
++    v: Number(entry.v) || 0,
++    c: Number(entry.c) || 0,
++    y: Number(entry.y) || 0,
++    s: entry.s === 'added' ? 'added' : 'real',
++  };
++  if (entry.tm === 1 || entry.tm === true) out.tm = 1;
++  return out;
++}
++
++/** Historia → entradas, sin recorte y deduplicadas por URL (gana la visita más reciente). */
++export function entriesFromItems(items) {
++  const byUrl = new Map();
++  for (const item of items ?? []) {
++    if (!isSyncable(item?.url)) continue;
++    const previous = byUrl.get(item.url);
++    if (!previous) {
++      byUrl.set(item.url, {
++        url: item.url,
++        title: item.title ?? '',
++        lastVisitTime: Number(item.lastVisitTime) || 0,
++        visitCount: Number(item.visitCount) || 0,
++        typedCount: Number(item.typedCount) || 0,
++      });
++      continue;
++    }
++    previous.lastVisitTime = Math.max(previous.lastVisitTime, Number(item.lastVisitTime) || 0);
++    previous.visitCount = Math.max(previous.visitCount, Number(item.visitCount) || 0);
++    previous.typedCount = Math.max(previous.typedCount, Number(item.typedCount) || 0);
++    if (!previous.title) previous.title = item.title ?? '';
++  }
++  return [...byUrl.values()];
++}
++
++/**
++ * Recorre `[startTime, endTime]` exhaustivamente aunque cada llamada venga truncada:
++ * si una ventana devuelve `pageSize` elementos (el techo de la API) se parte por la mitad.
++ * Las ventanas comparten el borde, así que la deduplicación por URL hace la unión.
++ */
++export async function collectHistoryItems({
++  search,
++  startTime = 0,
++  endTime = Date.now(),
++  pageSize = PAGE_SIZE,
++  maxWindows = MAX_WINDOWS,
++} = {}) {
++  if (typeof search !== 'function') throw unavailable('Sin acceso al historial: falta el permiso «history».');
++  const items = [];
++  const queue = [{ startTime, endTime }];
++  let windows = 0;
++  let incomplete = false;
++  while (queue.length) {
++    const window = queue.pop();
++    if (windows >= maxWindows) {
++      incomplete = true;
++      break;
++    }
++    windows += 1;
++    const page = (await search({ text: '', startTime: window.startTime, endTime: window.endTime, maxResults: pageSize })) ?? [];
++    if (page.length >= pageSize) {
++      if (window.endTime - window.startTime > 1) {
++        const middle = Math.floor((window.startTime + window.endTime) / 2);
++        queue.push({ startTime: window.startTime, endTime: middle }, { startTime: middle + 1, endTime: window.endTime });
++        continue;
++      }
++      // Más visitas en el mismo milisegundo que el techo de la llamada: no hay forma de dividirlas.
++      incomplete = true;
++    }
++    items.push(...page);
++  }
++  return { items: entriesFromItems(items), windows, incomplete };
++}
++
++/** Registro local: url → { v: fecha real de la visita, addedAt: cuándo la añadió UC-Sync (0 = no) }. */
++export async function loadLedger(storage = globalThis.chrome?.storage?.local) {
++  if (!storage?.get) return {};
++  const stored = (await storage.get(LEDGER_KEY))[LEDGER_KEY] ?? {};
++  return Object.fromEntries(
++    Object.entries(stored)
++      .filter(([url, rec]) => isSyncable(url) && Number(rec?.v) > 0)
++      .map(([url, rec]) => [url, {
++        v: Number(rec.v),
++        addedAt: Number(rec.addedAt) || 0,
++        t: rec.t ?? '',
++        ...(rec.timed === true ? { timed: true } : {}),
++      }]),
++  );
++}
++
++/**
++ * Qué admite este Chromium. El parche aporta las dos cosas (`addUrl({visitTime})` y `addUrls`),
++ * así que la presencia de `addUrls` es la señal de un build parcheado. Esta función es sólo la
++ * forma de la API: `applyHistory()` confirma la hora escribiendo y leyendo `getVisits()`, y
++ * desactiva la capacidad si el build no cumple.
++ */
++export function historyCapabilities(history) {
++  const bulk = typeof history?.addUrls === 'function' && typeof history?.addUrl === 'function';
++  return { visitTime: bulk, bulk };
++}
++
++export async function loadCapabilities(storage = globalThis.chrome?.storage?.local) {
++  if (!storage?.get) return null;
++  const stored = (await storage.get(CAPABILITIES_KEY))[CAPABILITIES_KEY];
++  if (typeof stored?.visitTime !== 'boolean' || typeof stored?.bulk !== 'boolean') return null;
++  return { visitTime: stored.visitTime, bulk: stored.bulk, checkedAt: Number(stored.checkedAt) || 0 };
++}
++
++/**
++ * Caché de capacidades. `bulk` refleja siempre la forma actual de la API (así se ve si el
++ * navegador cambió); `visitTime` es la capacidad confirmada, y es la que se desactiva al degradar.
++ */
++export async function saveCapabilities(caps, storage = globalThis.chrome?.storage?.local, { now = Date.now() } = {}) {
++  const next = { visitTime: caps?.visitTime === true, bulk: caps?.bulk === true, checkedAt: Number(now) || Date.now() };
++  if (!storage?.set) return next;
++  await storage.set({ [CAPABILITIES_KEY]: next });
++  return next;
++}
++
++/**
++ * Capacidades con caché en `chrome.storage.local`. La caché deja de valer si la API cambió de
++ * forma (apareció o desapareció `addUrls`: otra compilación de Chromium), porque entonces lo que
++ * se escribió antes no describe a este navegador.
++ */
++export async function detectCapabilities({
++  history = globalThis.chrome?.history,
++  storage = globalThis.chrome?.storage?.local,
++  now = Date.now(),
++} = {}) {
++  const shape = historyCapabilities(history);
++  const cached = await loadCapabilities(storage);
++  if (cached && cached.bulk === shape.bulk) return cached;
++  return saveCapabilities(shape, storage, { now });
++}
++
++export async function saveLedger(ledger, storage = globalThis.chrome?.storage?.local) {
++  if (!storage?.set) return ledger;
++  await storage.set({ [LEDGER_KEY]: ledger ?? {} });
++  return ledger;
++}
++
++/**
++ * Anota las fechas reales de unas entradas (puro; `addedAt` es la última añadidura).
++ * `timed: true` afirma que la hora real de esas entradas **cuajó en `chrome://history`**;
++ * una entrada bajada nunca trae esa prueba de otro navegador, así que sólo se anota cuando
++ * `applyHistory()` lo verificó con `getVisits()` en este dispositivo.
++ */
++export function mergeLedger(ledger, entries, { addedAt = 0, timed = false } = {}) {
++  const next = { ...(ledger ?? {}) };
++  for (const entry of entries ?? []) {
++    if (!isSyncable(entry?.u)) continue;
++    const previous = next[entry.u] ?? { v: 0, addedAt: 0, t: '' };
++    const record = {
++      v: Math.max(previous.v, Number(entry.v) || 0),
++      // La última añadidura manda: tras un borrado externo se vuelve a crear la visita y hay que
++      // poder distinguir esa visita sintética de una visita genuina posterior.
++      addedAt: Math.max(previous.addedAt, Number(addedAt) || 0),
++      t: previous.t || entry.t || '',
++    };
++    if (previous.timed === true || timed === true) record.timed = true;
++    next[entry.u] = record;
++  }
++  return next;
++}
++
++/**
++ * Fecha que se exporta para una visita local: si la única visita de esta URL es la que creó
++ * UC-Sync (`lastVisitTime <= addedAt`) se exporta la fecha real del registro, no "ahora".
++ */
++export function resolveExport(item, record) {
++  const local = Number(item.lastVisitTime) || 0;
++  const base = { u: item.url, t: item.title ?? '', c: Number(item.visitCount) || 0, y: Number(item.typedCount) || 0 };
++  const timed = record?.timed === true ? { tm: 1 } : {};
++  if (!record) return { ...base, v: local, s: 'real' };
++  const genuine = local > record.addedAt; // hubo una visita real después de nuestra añadidura sintética
++  return genuine
++    ? { ...base, v: Math.max(local, record.v), s: 'real', ...timed }
++    : { ...base, t: record.t || item.title || '', v: record.v, s: 'added', ...timed };
++}
++
++/**
++ * Lee el historial del rango configurado y devuelve TODAS sus URLs.
++ * `max` (`0` por defecto) es un techo explícito y reportado, nunca un recorte silencioso.
++ */
++export async function exportHistory({
++  days = DEFAULT_HISTORY_SETTINGS.days,
++  max = DEFAULT_HISTORY_SETTINGS.max,
++  pageSize = PAGE_SIZE,
++  maxWindows = MAX_WINDOWS,
++  history = globalThis.chrome?.history,
++  ledger,
++  storage = globalThis.chrome?.storage?.local,
++  now = Date.now(),
++} = {}) {
++  const api = additiveHistory(history);
++  const endTime = now;
++  const startTime = days > 0 ? Math.max(0, endTime - days * DAY_MS) : 0;
++  const records = ledger ?? (await loadLedger(storage));
++  const { items, windows, incomplete } = await collectHistoryItems({ search: api.search, startTime, endTime, pageSize, maxWindows });
++  const entries = items
++    .map((item) => normalizeEntry(resolveExport(item, records[item.url])))
++    .sort((a, b) => b.v - a.v);
++  const total = entries.length;
++  const dropped = max > 0 ? Math.max(0, total - max) : 0;
++  return {
++    v: HISTORY_VERSION,
++    days,
++    entries: dropped ? entries.slice(0, total - dropped) : entries,
++    total,
++    dropped,
++    truncated: dropped > 0,
++    scanned: items.length,
++    windows,
++    incomplete,
++  };
++}
++
++export function historyIndex(history) {
++  return new Map((history?.entries ?? []).map((entry) => [entry.u, entry]));
++}
++
++/** Una visita sintética (`'added'`) nunca gana a una visita genuina; entre genuinas, la más reciente. */
++export function mergeVisitTime(a, b) {
++  if (a.s === 'added' && b.s !== 'added') return { v: b.v, t: b.t, s: 'real' };
++  if (b.s === 'added' && a.s !== 'added') return { v: a.v, t: a.t, s: 'real' };
++  const newer = (a.v ?? 0) >= (b.v ?? 0) ? a : b;
++  return { v: Math.max(a.v ?? 0, b.v ?? 0), t: newer.t, s: newer.s ?? 'real' };
++}
++
++/** Unión por URL: TODAS las URLs de ambas bandas, fecha real conservada, contadores máximos. */
++export function mergeHistory(local, remote, { max = DEFAULT_HISTORY_SETTINGS.max } = {}) {
++  const merged = new Map();
++  for (const raw of [...(remote?.entries ?? []), ...(local?.entries ?? [])]) {
++    if (!isSyncable(raw?.u)) continue;
++    const entry = normalizeEntry(raw);
++    const previous = merged.get(entry.u);
++    if (!previous) {
++      merged.set(entry.u, entry);
++      continue;
++    }
++    const time = mergeVisitTime(previous, entry);
++    merged.set(entry.u, {
++      u: entry.u,
++      t: time.t || previous.t || entry.t || '',
++      v: time.v,
++      s: time.s,
++      c: Math.max(previous.c ?? 0, entry.c ?? 0),
++      y: Math.max(previous.y ?? 0, entry.y ?? 0),
++    });
++  }
++  const all = [...merged.values()].sort((a, b) => b.v - a.v);
++  const total = all.length;
++  const dropped = max > 0 ? Math.max(0, total - max) : 0;
++  return {
++    v: HISTORY_VERSION,
++    days: Math.max(local?.days ?? 0, remote?.days ?? 0) || DEFAULT_HISTORY_SETTINGS.days,
++    entries: dropped ? all.slice(0, total - dropped) : all,
++    total,
++    dropped,
++    truncated: dropped > 0,
++  };
++}
++
++/** Conjunto completo de URLs locales (sin techo de resultados) para saber qué falta realmente. */
++export async function localUrlSet({ history = globalThis.chrome?.history, pageSize = PAGE_SIZE, maxWindows = MAX_WINDOWS } = {}) {
++  const { items, incomplete } = await collectHistoryItems({ search: additiveHistory(history).search, startTime: 0, pageSize, maxWindows });
++  return { urls: new Set(items.map((item) => item.url)), incomplete };
++}
++
++/** Hora que se puede escribir en `chrome://history`: pasado real; `0` si la hora no es fiable. */
++function realTime(entry, now) {
++  const v = Math.floor(Number(entry?.v) || 0);
++  return v > 0 && v <= now ? v : 0;
++}
++
++const timedItem = (entry, now) => {
++  const v = realTime(entry, now);
++  return { url: entry.u, ...(entry.t ? { title: entry.t } : {}), ...(v ? { visitTime: v } : {}) };
++};
++
++function chunksOf(items, size) {
++  const out = [];
++  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
++  return out;
++}
++
++/** Rechazo de validación: el build no entiende la propiedad (no un problema de una URL). */
++function isValidationError(err) {
++  return /invalid parameters|visittime/i.test(String(err?.message ?? err ?? ''));
++}
++
++/**
++ * Comprueba en `chrome://history` que la hora real cuajó. Muestra primero y última del lote.
++ *  · `'ok'`       — la visita tiene la hora pedida
++ *  · `'mismatch'` — el build escribió otra hora: `visitTime` no es de fiar
++ *  · `'unknown'`  — no hay `getVisits` o falló: se añadió, pero sin confirmar
++ */
++async function verifyVisitTime(api, entries, now) {
++  if (!api.getVisits) return 'unknown';
++  const samples = [];
++  for (const entry of [entries[0], entries[entries.length - 1]]) {
++    if (entry && realTime(entry, now) > 0 && !samples.includes(entry)) samples.push(entry);
++  }
++  if (!samples.length) return 'ok'; // nada con hora que comprobar
++  for (const entry of samples) {
++    let visits;
++    try {
++      visits = await api.getVisits({ url: entry.u });
++    } catch {
++      return 'unknown';
++    }
++    if (!(visits ?? []).some((visit) => Number(visit?.visitTime) === realTime(entry, now))) return 'mismatch';
++  }
++  return 'ok';
++}
++
++/**
++ * Añade al historial local las URLs que falten y anota la fecha real de cada una en el
++ * registro. Con Chromium parcheado escribe las visitas con su hora real (en lotes de
++ * `bulkSize` si ofrece `addUrls`) y lo confirma con `getVisits()`; si el build rechaza
++ * `visitTime` o la comprobación no cuaja, desactiva la capacidad cacheada y reintenta el
++ * lote con `addUrl()` sin hora (visita «ahora» + fecha real en el registro).
++ *
++ * Devuelve conteos explícitos: nada se descarta en silencio. `dated` = visitas escritas con
++ * su hora real confirmada, `mode` = el modo con el que terminó la ejecución, `bulk` = si se
++ * usó `addUrls`.
++ */
++export async function applyHistory(
++  remote,
++  {
++    history = globalThis.chrome?.history,
++    ledger,
++    storage = globalThis.chrome?.storage?.local,
++    pageSize = PAGE_SIZE,
++    now = null,
++    known,
++    capabilities,
++    bulkSize = BULK_SIZE,
++  } = {},
++) {
++  const api = additiveHistory(history);
++  const incoming = (remote?.entries ?? []).filter((entry) => isSyncable(entry?.u)).map(normalizeEntry);
++  const invalid = (remote?.entries ?? []).length - incoming.length;
++  const records = ledger ?? (await loadLedger(storage));
++  const set = known ?? (await localUrlSet({ history: api, pageSize }));
++  const present = set.urls ?? set;
++  // Si el recorrido local no fue completo no podemos afirmar que una URL falta: entonces el
++  // registro («ya la añadimos») es lo único que evita añadir la visita dos veces.
++  const trustLedger = Boolean(set.incomplete);
++  let next = mergeLedger(records, incoming, { addedAt: 0 });
++
++  const at = now ?? Date.now();
++  // La instantánea de la añadidura se toma **después** de crear cada visita: si después hay una
++  // visita genuina, su `lastVisitTime` será mayor y la entrada pasa a considerarse real.
++  const stamp = () => now ?? Date.now();
++  const caps = { ...(capabilities ?? (await detectCapabilities({ history, storage, now: at }))) };
++  const demote = () => {
++    if (caps.visitTime !== true) return;
++    caps.visitTime = false;
++  };
++
++  // Las que ya están aquí (o que el registro dice que ya añadimos) no se vuelven a crear.
++  const pending = incoming.filter((entry) => !present.has(entry.u) && !(trustLedger && next[entry.u]?.addedAt));
++  const existing = incoming.length - pending.length;
++
++  let added = 0;
++  let failed = 0;
++  let dated = 0;
++  let bulkUsed = false;
++  let demoted = false;
++
++  /**
++   * Escribe un lote con su hora real. Devuelve `{ wrote, timed, missing }`: entradas creadas,
++   * las que quedaron con hora real confirmada y las que no se escribieron (hay que degradar).
++   */
++  async function writeTimed(chunk) {
++    if (caps.bulk && api.addUrls) {
++      try {
++        await api.addUrls({ urls: chunk.map((entry) => timedItem(entry, at)) });
++        bulkUsed = true;
++        const verdict = await verifyVisitTime(api, chunk, at);
++        if (verdict === 'mismatch') {
++          demote();
++          demoted = true;
++          return { wrote: [], timed: [], missing: chunk };
++        }
++        const timed = verdict === 'ok' ? chunk.filter((entry) => realTime(entry, at) > 0) : [];
++        return { wrote: chunk, timed, missing: [] };
++      } catch (err) {
++        if (isValidationError(err)) {
++          demote();
++          demoted = true;
++        }
++        return { wrote: [], timed: [], missing: chunk };
++      }
++    }
++    const wrote = [];
++    const timed = [];
++    const missing = [];
++    for (const entry of chunk) {
++      try {
++        await api.addUrl(timedItem(entry, at));
++        const verdict = await verifyVisitTime(api, [entry], at);
++        if (verdict === 'mismatch') {
++          demote();
++          demoted = true;
++          missing.push(entry);
++          continue;
++        }
++        wrote.push(entry);
++        if (verdict === 'ok' && realTime(entry, at) > 0) timed.push(entry);
++      } catch (err) {
++        if (isValidationError(err)) {
++          demote();
++          demoted = true;
++        }
++        missing.push(entry);
++      }
++    }
++    return { wrote, timed, missing };
++  }
++
++  for (const chunk of chunksOf(pending, caps.bulk ? Math.max(1, bulkSize) : 1)) {
++    let retry = chunk;
++    if (caps.visitTime) {
++      const { wrote, timed, missing } = await writeTimed(chunk);
++      const addedAt = stamp();
++      const timedUrls = new Set(timed.map((entry) => entry.u));
++      added += wrote.length;
++      dated += timed.length;
++      next = mergeLedger(next, timed, { addedAt, timed: true });
++      next = mergeLedger(next, wrote.filter((entry) => !timedUrls.has(entry.u)), { addedAt });
++      retry = missing;
++    }
++    // Degradación: el lote se vuelve a escribir con `addUrl()` sin `visitTime`.
++    for (const entry of retry) {
++      try {
++        await api.addUrl({ url: entry.u });
++        added += 1;
++        next = mergeLedger(next, [entry], { addedAt: stamp() });
++      } catch {
++        failed += 1;
++      }
++    }
++  }
++
++  await saveLedger(next, storage);
++  // La degradación se persiste, pero `bulk` sigue reflejando la forma actual de la API: así la
++  // caché vuelve a invalidarse si este navegador cambia de compilación.
++  if (demoted) await saveCapabilities({ visitTime: false, bulk: historyCapabilities(history).bulk }, storage, { now: at });
++  return {
++    total: incoming.length,
++    attempted: incoming.length,
++    added,
++    existing,
++    failed,
++    invalid,
++    realDates: incoming.filter((entry) => entry.v > 0).length,
++    dated,
++    mode: caps.visitTime ? 'timed' : 'now',
++    bulk: bulkUsed,
++    ledger: next,
++  };
++}
++
++/**
++ * Lo que se cifra y se compara por hash: sólo datos estables. `windows`/`scanned`/`incomplete`
++ * son métricas del recorrido y cambiarían el hash sin que cambie el historial.
++ */
++export function historyPayload(history) {
++  if (!history) return null;
++  const entries = history.entries ?? [];
++  return {
++    v: history.v ?? HISTORY_VERSION,
++    days: history.days ?? 0,
++    entries,
++    total: history.total ?? entries.length,
++    dropped: history.dropped ?? 0,
++    truncated: history.truncated === true,
++  };
++}
++
++/** Resumen visible del historial sincronizado (entradas, fechas sintéticas, recortes). */
++export function summarizeHistory(history) {
++  const entries = history?.entries ?? [];
++  return {
++    total: history?.total ?? entries.length,
++    synced: entries.length,
++    synthetic: entries.filter((entry) => entry.s === 'added').length,
++    truncated: history?.truncated === true,
++    dropped: history?.dropped ?? 0,
++    incomplete: history?.incomplete === true,
++  };
++}
++
++export function historySize(history) {
++  return (history?.entries ?? []).reduce((total, entry) => total + entry.u.length + (entry.t?.length ?? 0) + 44, 0);
++}
+diff --git a/chrome/browser/resources/ucsync/src/settings.js b/chrome/browser/resources/ucsync/src/settings.js
+new file mode 100644
+index 0000000..3da1da0
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/settings.js
+@@ -0,0 +1,116 @@
++// Sincronización de la configuración que una extensión puede leer y aplicar:
++// permisos por sitio (chrome.contentSettings). No se pueden enumerar, así que se
++// consultan los orígenes de los marcadores e historial sincronizados y se
++// guardan sólo los que se desvían del valor por defecto.
++//
++// Quedan fuera, por límites del navegador: proxy (sólo puede pedirse como
++// permiso obligatorio, con aviso en la instalación), browserSettings (no existe
++// en Chromium) y los ajustes internos (motor de búsqueda, tema, barra), que no
++// tienen API de extensión.
++export const SETTINGS_VERSION = 1;
++
++const CONTENT_TYPES = [
++  'cookies',
++  'images',
++  'javascript',
++  'popups',
++  'notifications',
++  'location',
++  'microphone',
++  'camera',
++  'automaticDownloads',
++  'sound',
++];
++const CONTROL_ORIGIN = 'https://ucsync-default.invalid/';
++const MAX_ORIGINS = 300;
++
++/** Orígenes únicos (esquema + host) a partir de marcadores e historial. */
++export function originsFrom({ tree, history } = {}) {
++  const seen = new Set();
++  const add = (url) => {
++    if (!url || seen.size >= MAX_ORIGINS) return;
++    try {
++      const parsed = new URL(url);
++      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return;
++      seen.add(`${parsed.protocol}//${parsed.host}`);
++    } catch {
++      // URL no válida.
++    }
++  };
++  const walk = (node) => {
++    if (!node) return;
++    if (node.type === 'url') add(node.url);
++    for (const child of node.children ?? []) walk(child);
++  };
++  for (const root of Object.values(tree?.roots ?? {})) walk(root);
++  for (const entry of history?.entries ?? []) add(entry.u);
++  return [...seen];
++}
++
++async function readContent(origins) {
++  const out = {};
++  for (const type of CONTENT_TYPES) {
++    const api = chrome.contentSettings?.[type];
++    if (!api) continue;
++    let fallback;
++    try {
++      fallback = (await api.get({ primaryUrl: CONTROL_ORIGIN }))?.setting;
++    } catch {
++      continue;
++    }
++    const items = [];
++    for (const origin of origins) {
++      try {
++        const got = await api.get({ primaryUrl: `${origin}/` });
++        if (got?.setting && got.setting !== fallback) {
++          items.push({ p: `${origin}/*`, s: got.setting });
++        }
++      } catch {
++        // Origen no consultable.
++      }
++    }
++    if (items.length) out[type] = items;
++  }
++  return out;
++}
++
++export async function exportSettings({ origins = [] } = {}) {
++  const content = await readContent(origins);
++  return { v: SETTINGS_VERSION, content };
++}
++
++export function mergeSettings(local, remote, policy = 'merge') {
++  if (policy === 'local') return local ?? remote ?? null;
++  const chosen = remote ?? local ?? null;
++  if (!chosen) return null;
++  return { v: SETTINGS_VERSION, content: chosen.content ?? {} };
++}
++
++/** Aplica la configuración remota; devuelve qué se aplicó y qué se omitió. */
++export async function applySettings(remote) {
++  const result = { content: 0, skipped: 0 };
++
++  for (const [type, items] of Object.entries(remote?.content ?? {})) {
++    const api = chrome.contentSettings?.[type];
++    if (!api) {
++      result.skipped += items.length;
++      continue;
++    }
++    for (const item of items) {
++      try {
++        await api.set({ primaryPattern: item.p, setting: item.s, scope: 'regular' });
++        result.content += 1;
++      } catch {
++        result.skipped += 1;
++      }
++    }
++  }
++
++  return result;
++}
++
++export function settingsSummary(settings) {
++  if (!settings) return { content: 0 };
++  const content = Object.values(settings.content ?? {}).reduce((total, items) => total + items.length, 0);
++  return { content };
++}
+diff --git a/chrome/browser/resources/ucsync/src/state.js b/chrome/browser/resources/ucsync/src/state.js
+new file mode 100644
+index 0000000..1517ffb
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/state.js
+@@ -0,0 +1,113 @@
++// Ajustes y estado persistente (chrome.storage.local) y mapa uuid ↔ id nativo.
++import { randomHex, uuid } from './util.js';
++
++const KEY = 'ucsync.state.v2';
++const MAP_KEY = 'ucsync.map.v1';
++
++export const DEFAULT_SETTINGS = {
++  enabled: false,
++  serverUrl: '',
++  deviceName: '',
++  deviceId: randomHex(8),
++  intervalMinutes: 15,
++  policy: 'merge',
++  roots: { bookmark_bar: true, other: true, mobile: true },
++  sync: { bookmarks: true, history: false, settings: false },
++  // `max: 0` = todas las URLs del rango; un techo > 0 se reporta (nunca recorta en silencio).
++  // `bulkSize` es el tamaño del lote con el que se escribe el historial cuando el Chromium
++  // parcheado ofrece `chrome.history.addUrls()`.
++  history: { days: 90, max: 0, bulkSize: 500 },
++  keepBackups: 5,
++  autoOnStart: true,
++};
++
++export const DEFAULT_STATE = {
++  token: '',
++  keys: null,
++  revision: 0,
++  lastSyncAt: 0,
++  lastError: '',
++  status: 'idle',
++  conflicts: 0,
++  lastHistory: null,
++  sectionHashes: { bookmarks: null, history: null, settings: null },
++  rootsSnapshot: null,
++};
++
++export async function loadState() {
++  const stored = (await chrome.storage.local.get(KEY))[KEY] ?? {};
++  return {
++    settings: {
++      ...DEFAULT_SETTINGS,
++      ...(stored.settings ?? {}),
++      roots: { ...DEFAULT_SETTINGS.roots, ...(stored.settings?.roots ?? {}) },
++      sync: { ...DEFAULT_SETTINGS.sync, ...(stored.settings?.sync ?? {}) },
++      history: { ...DEFAULT_SETTINGS.history, ...(stored.settings?.history ?? {}) },
++    },
++    sync: { ...DEFAULT_STATE, ...(stored.sync ?? {}) },
++  };
++}
++
++export async function saveState(state) {
++  await chrome.storage.local.set({ [KEY]: state });
++  return state;
++}
++
++export async function patchState(patch) {
++  const state = await loadState();
++  const next = { settings: { ...state.settings, ...(patch.settings ?? {}) }, sync: { ...state.sync, ...(patch.sync ?? {}) } };
++  if (patch.settings?.roots) next.settings.roots = { ...state.settings.roots, ...patch.settings.roots };
++  if (patch.settings?.sync) next.settings.sync = { ...state.settings.sync, ...patch.settings.sync };
++  if (patch.settings?.history) next.settings.history = { ...state.settings.history, ...patch.settings.history };
++  await saveState(next);
++  return next;
++}
++
++export async function resetSyncState(patch = {}) {
++  const state = await loadState();
++  state.sync = { ...DEFAULT_STATE, ...patch };
++  await saveState(state);
++  return state;
++}
++
++/** Mapa estable uuid ↔ id nativo de Chromium. */
++export class IdMap {
++  #byNative = new Map();
++  #byUuid = new Map();
++
++  static async load() {
++    const map = new IdMap();
++    const stored = (await chrome.storage.local.get(MAP_KEY))[MAP_KEY] ?? {};
++    for (const [nativeId, id] of Object.entries(stored)) map.bind(id, nativeId);
++    return map;
++  }
++
++  idFor(nativeId) {
++    const existing = this.#byNative.get(nativeId);
++    if (existing) return existing;
++    const id = uuid();
++    this.bind(id, nativeId);
++    return id;
++  }
++
++  bind(id, nativeId) {
++    this.#byNative.set(nativeId, id);
++    this.#byUuid.set(id, nativeId);
++  }
++
++  forget(nativeId) {
++    const id = this.#byNative.get(nativeId);
++    if (id) {
++      this.#byNative.delete(nativeId);
++      this.#byUuid.delete(id);
++    }
++  }
++
++  nativeFor(id) {
++    return this.#byUuid.get(id) ?? null;
++  }
++
++  async save() {
++    await chrome.storage.local.set({ [MAP_KEY]: Object.fromEntries(this.#byNative) });
++  }
++}
+diff --git a/chrome/browser/resources/ucsync/src/sync.js b/chrome/browser/resources/ucsync/src/sync.js
+new file mode 100644
+index 0000000..0536d94
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/sync.js
+@@ -0,0 +1,433 @@
++// Sincronización con una única bóveda: marcadores, historial y permisos por sitio.
++//
++// No hay IDs ni cuentas: el servidor guarda una sola bóveda cifrada y el cliente
++// se autentica con el token derivado de la contraseña. Cada sección se compara
++// por hash; si cambiaron las dos, se fusiona (marcadores por uuid, historial por
++// unión, ajustes según la política).
++import { ApiError, Client, normalizeServerUrl } from './api.js';
++import { applyTree, readTree } from './bookmarks.js';
++import { authTokenFrom, decryptPayload, deriveKeys, encryptPayload } from './crypto.js';
++import { applyHistory, exportHistory, historyPayload, isSyncable, loadLedger, mergeHistory, summarizeHistory } from './history.js';
++import { applySettings, exportSettings, mergeSettings, originsFrom, settingsSummary } from './settings.js';
++import { IdMap, loadState, patchState, saveState } from './state.js';
++import { ROOTS, countNodes, mergeTrees, pruneRoots } from './tree.js';
++import { canonicalJson, sha256Hex } from './util.js';
++
++const BACKUP_PREFIX = 'ucsync.backup.';
++const SECTIONS = ['bookmarks', 'history', 'settings'];
++const PAYLOAD_VERSION = 2;
++
++export function activeRoots(settings) {
++  return ROOTS.filter((key) => settings.roots?.[key] !== false);
++}
++
++export function activeTargets(settings) {
++  return {
++    bookmarks: settings.sync?.bookmarks !== false,
++    history: settings.sync?.history === true,
++    settings: settings.sync?.settings === true,
++  };
++}
++
++/** Qué hizo la sección de historial en esta sincronización (conteos explícitos). */
++export function historyReport(res, union = null, metrics = {}) {
++  if (!res) return null;
++  return {
++    total: res.total ?? 0,
++    added: res.added ?? 0,
++    existing: res.existing ?? 0,
++    failed: res.failed ?? 0,
++    invalid: res.invalid ?? 0,
++    // `dated`: visitas escritas con su hora real (confirmada en `chrome://history`).
++    // `mode`: 'timed' (Chromium parcheado) | 'now' (la hora real sólo vive en el registro).
++    // `bulk`: si se escribió por lotes con `addUrls()`.
++    dated: res.dated ?? 0,
++    mode: res.mode ?? 'now',
++    bulk: res.bulk === true,
++    truncated: union?.truncated === true,
++    dropped: union?.dropped ?? 0,
++    incomplete: metrics.historyIncomplete === true,
++  };
++}
++
++async function collectLocal(settings, targets, map, metrics = {}) {
++  const local = {};
++  if (targets.bookmarks) {
++    local.bookmarks = await readTree(activeRoots(settings), map);
++    await map.save();
++  }
++  if (targets.history) {
++    const history = await exportHistory(settings.history);
++    // El hash de la sección sólo puede depender de las entradas, no de cómo se recorrió el rango.
++    if (history.incomplete) metrics.historyIncomplete = true;
++    local.history = historyPayload(history);
++  }
++  if (targets.settings) {
++    local.settings = await exportSettings({ origins: originsFrom({ tree: local.bookmarks, history: local.history }) });
++  }
++  return local;
++}
++
++const hashSection = async (value) => (value === undefined || value === null ? null : sha256Hex(canonicalJson(value)));
++
++async function hashAll(sections) {
++  const out = {};
++  for (const section of SECTIONS) out[section] = await hashSection(sections[section]);
++  return out;
++}
++
++async function applyRemote(remote, settings, targets, map) {
++  const applied = { bookmarks: 0, history: 0, settings: 0 };
++  let history = null;
++  if (targets.bookmarks && remote.tree) {
++    await backupBefore(await readTree(activeRoots(settings), map), settings, 'pull');
++    const stats = await applyTree(pruneRoots(remote.tree, activeRoots(settings)), activeRoots(settings), map);
++    applied.bookmarks = stats.created + stats.updated + stats.moved;
++  }
++  if (targets.history && remote.history) {
++    const res = await applyHistory(remote.history, settings.history);
++    applied.history = res.added;
++    history = historyReport(res, remote.history);
++  }
++  if (targets.settings && remote.settings) {
++    const res = await applySettings(remote.settings);
++    applied.settings = res.content;
++  }
++  return { applied, history };
++}
++
++export async function testConnection(serverUrl) {
++  const client = new Client({ serverUrl });
++  const { data } = await client.info();
++  return data;
++}
++
++/**
++ * Configura la bóveda. `mode`:
++ *  · 'auto'  → si está vacía la usará; si ya tiene datos pide elegir.
++ *  · 'pull'  → adopta lo que hay en el servidor (copia antes lo local).
++ *  · 'push'  → sube lo de este navegador y sobrescribe la bóveda.
++ */
++export async function connect({ serverUrl, password, mode = 'auto' }) {
++  const base = normalizeServerUrl(serverUrl);
++  const keys = await deriveKeys(password);
++  const token = await authTokenFrom(keys.authKey);
++  const client = new Client({ serverUrl: base, token });
++
++  let remote = null;
++  try {
++    remote = (await client.readVault()).data;
++  } catch (err) {
++    if (err.status !== 404) throw err; // 401 = contraseña incorrecta
++  }
++
++  if (mode === 'auto' && remote) {
++    return { needsChoice: true, revision: remote.revision, size: remote.size, updatedAt: remote.updatedAt };
++  }
++
++  const state = await loadState();
++  const settings = { ...state.settings, serverUrl: base, enabled: true };
++  const map = await IdMap.load();
++  const targets = activeTargets(settings);
++  const metrics = {};
++  let pulledHistory = null;
++
++  if (mode === 'pull' && remote) {
++    const payload = await decryptPayload(keys.encKey, remote.payload);
++    pulledHistory = (await applyRemote(payload, settings, targets, map)).history;
++  }
++
++  if (mode === 'push' && remote) {
++    // Se subirá con baseRevision 0 no: se sobrescribe en el siguiente sync.
++    await saveState({ settings, sync: { ...state.sync, token, keys, revision: remote.revision } });
++    const payload = await encryptPayload(keys.encKey, {
++      v: PAYLOAD_VERSION,
++      ...(await collectLocal(settings, targets, map, metrics)),
++      device: { id: settings.deviceId, name: settings.deviceName || 'Este navegador' },
++      savedAt: Date.now(),
++    });
++    const pushed = await client.writeVault({ baseRevision: remote.revision, payload });
++    const local = await collectLocal(settings, targets, map, metrics);
++    await saveState({
++      settings,
++      sync: {
++        ...state.sync,
++        token,
++        keys,
++        revision: pushed.data.revision,
++        lastSyncAt: Date.now(),
++        lastError: '',
++        status: 'ok',
++        conflicts: 0,
++        sectionHashes: await hashAll(local),
++        rootsSnapshot: local.bookmarks ?? null,
++      },
++    });
++    return { connected: true, mode: 'push', revision: pushed.data.revision };
++  }
++
++  const local = await collectLocal(settings, targets, map, metrics);
++  await saveState({
++    settings,
++    sync: {
++      ...state.sync,
++      token,
++      keys,
++      revision: remote?.revision ?? 0,
++      lastSyncAt: 0,
++      lastError: '',
++      status: 'ok',
++      conflicts: 0,
++      lastHistory: pulledHistory,
++      sectionHashes: mode === 'pull' ? await hashAll(await collectLocal(settings, targets, map)) : await hashAll({}),
++      rootsSnapshot: null,
++    },
++  });
++  return { connected: true, mode: 'auto', revision: remote?.revision ?? 0, counts: countNodes(local.bookmarks ?? { roots: {} }) };
++}
++
++export async function syncNow({ reason = 'manual' } = {}) {
++  const state = await loadState();
++  const { settings, sync } = state;
++  if (!settings.enabled) throw new ApiError('Configura primero la sincronización', { code: 'not_configured' });
++  if (!sync.token || !sync.keys) throw new ApiError('Falta la contraseña de la bóveda', { code: 'not_configured' });
++
++  const targets = activeTargets(settings);
++  const metrics = {};
++  await patchState({ sync: { status: 'syncing', lastError: '' } });
++
++  try {
++    const map = await IdMap.load();
++    const client = new Client({ serverUrl: settings.serverUrl, token: sync.token });
++    const local = await collectLocal(settings, targets, map, metrics);
++    const localHashes = await hashAll(local);
++
++    let remote = null;
++    try {
++      remote = (await client.readVault()).data;
++    } catch (err) {
++      if (err.status !== 404) throw err;
++    }
++
++    const applied = { bookmarks: 0, history: 0, settings: 0 };
++    let merged = [];
++    let conflicts = 0;
++    let tree = local.bookmarks ?? null;
++    let lastHistory = null;
++
++    if (remote) {
++      const payload = await decryptPayload(sync.keys.encKey, remote.payload);
++      const remoteSections = {
++        bookmarks: payload.tree ? pruneRoots(payload.tree, activeRoots(settings)) : null,
++        history: payload.history ?? null,
++        settings: payload.settings ?? null,
++      };
++      const remoteHashes = await hashAll(remoteSections);
++      const previous = sync.sectionHashes ?? {};
++
++      if (targets.bookmarks && remoteSections.bookmarks) {
++        const localChanged = localHashes.bookmarks !== previous.bookmarks;
++        const remoteChanged = remoteHashes.bookmarks !== previous.bookmarks;
++        if (remoteChanged && !localChanged) {
++          await backupBefore(local.bookmarks, settings, 'pull');
++          await applyTree(remoteSections.bookmarks, activeRoots(settings), map);
++          tree = await readTree(activeRoots(settings), map);
++          await map.save();
++          applied.bookmarks = 1;
++        } else if (remoteChanged && localChanged) {
++          const result = mergeTrees({ base: sync.rootsSnapshot, local: local.bookmarks, remote: remoteSections.bookmarks, policy: settings.policy });
++          conflicts += result.conflicts.length;
++          await backupBefore(local.bookmarks, settings, 'merge');
++          await applyTree(result.tree, activeRoots(settings), map);
++          tree = await readTree(activeRoots(settings), map);
++          await map.save();
++          merged.push('bookmarks');
++        }
++      }
++
++      if (targets.history) {
++        if (remoteHashes.history !== previous.history || localHashes.history !== previous.history) {
++          const union = mergeHistory(local.history, remoteSections.history, settings.history);
++          const res = await applyHistory(union, settings.history);
++          lastHistory = historyReport(res, union, metrics);
++          applied.history = res.added;
++        }
++      }
++
++      if (targets.settings && remoteSections.settings) {
++        const localChanged = localHashes.settings !== previous.settings;
++        const remoteChanged = remoteHashes.settings !== previous.settings;
++        if (remoteChanged || localChanged) {
++          const chosen = mergeSettings(local.settings, remoteSections.settings, localChanged && remoteChanged ? settings.policy : 'merge');
++          if (remoteChanged) {
++            applied.settings = (await applySettings(chosen)).content;
++            merged.push('settings');
++          }
++        }
++      }
++    }
++
++    const final = await collectLocal(settings, targets, map, metrics);
++    const payload = await encryptPayload(sync.keys.encKey, {
++      v: PAYLOAD_VERSION,
++      tree: final.bookmarks ?? null,
++      history: final.history ?? null,
++      settings: final.settings ?? null,
++      device: { id: settings.deviceId, name: settings.deviceName || 'Este navegador' },
++      savedAt: Date.now(),
++    });
++    const written = await client.writeVault({ baseRevision: remote?.revision ?? 0, payload });
++
++    const settled = await collectLocal(settings, targets, map, metrics);
++    await patchState({
++      sync: {
++        revision: written.data.revision,
++        rootsSnapshot: settled.bookmarks ?? null,
++        sectionHashes: await hashAll(settled),
++        lastSyncAt: Date.now(),
++        status: conflicts ? 'conflict' : 'ok',
++        lastError: '',
++        conflicts,
++        ...(lastHistory ? { lastHistory } : {}),
++      },
++    });
++
++    return {
++      result: merged.length ? 'fusionado' : applied.bookmarks ? 'bajado' : 'subido',
++      revision: written.data.revision,
++      conflicts,
++      reason,
++      applied,
++      history: lastHistory,
++      stats: {
++        ...countNodes(settled.bookmarks ?? { roots: {} }),
++        history: settled.history?.entries?.length ?? 0,
++        historySummary: summarizeHistory(settled.history),
++        settings: settingsSummary(settled.settings),
++      },
++    };
++  } catch (err) {
++    await patchState({ sync: { status: 'error', lastError: err.message } });
++    throw err;
++  }
++}
++
++/**
++ * Sección de historial tal y como está en la bóveda (descifrada en este navegador).
++ * `null` si todavía no hay bóveda o está vacía.
++ */
++export async function remoteHistory() {
++  const state = await loadState();
++  const { settings, sync } = state;
++  if (!sync.token || !sync.keys) return null;
++  const client = new Client({ serverUrl: settings.serverUrl, token: sync.token });
++  let data;
++  try {
++    data = (await client.readVault()).data;
++  } catch (err) {
++    if (err.status === 404) return null;
++    throw err;
++  }
++  const payload = await decryptPayload(sync.keys.encKey, data.payload);
++  return { revision: data.revision, history: payload.history ?? null };
++}
++
++/** Resumen comparado: qué hay en este navegador, qué hay en la bóveda y qué falta aquí. */
++export async function historyAudit({ limit = 200 } = {}) {
++  const state = await loadState();
++  const { settings, sync } = state;
++  const local = await exportHistory(settings.history);
++  const summary = summarizeHistory(local);
++  const ledger = await loadLedger();
++  const remote = await remoteHistory();
++  const entries = remote?.history?.entries ?? [];
++  const localUrls = new Set(local.entries.map((entry) => entry.u));
++  const missing = entries.filter((entry) => isSyncable(entry.u) && !localUrls.has(entry.u));
++  const dated = entries.filter((entry) => (entry.v ?? 0) > 0).map((entry) => entry.v);
++  return {
++    local: { ...summary, days: local.days, scanned: local.scanned, windows: local.windows },
++    vault: remote
++      ? {
++          revision: remote.revision,
++          entries: entries.length,
++          days: remote.history?.days ?? 0,
++          truncated: remote.history?.truncated === true,
++          dropped: remote.history?.dropped ?? 0,
++          oldest: dated.length ? Math.min(...dated) : 0,
++          newest: dated.length ? Math.max(...dated) : 0,
++        }
++      : null,
++    missing: missing.length,
++    missingSample: missing.slice(0, limit).map((entry) => ({ u: entry.u, v: entry.v ?? 0 })),
++    ledger: Object.keys(ledger).length,
++    last: sync.lastHistory ?? null,
++  };
++}
++
++/**
++ * Recupera el historial: vuelve a añadir al navegador las URLs guardadas en la bóveda que
++ * falten (por ejemplo después de un borrado manual del historial en `chrome://history`).
++ * Nunca borra nada: `applyHistory()` sólo añade.
++ */
++export async function recoverHistory() {
++  const state = await loadState();
++  const { settings, sync } = state;
++  if (!sync.token || !sync.keys) throw new ApiError('Configura primero la sincronización', { code: 'not_configured' });
++  if (!activeTargets(settings).history) throw new ApiError('La sincronización de historial está desactivada', { code: 'history_disabled' });
++
++  const remote = await remoteHistory();
++  const union = mergeHistory(await exportHistory(settings.history), remote?.history ?? null, settings.history);
++  const res = await applyHistory(union, settings.history);
++  const report = historyReport(res, union);
++  await patchState({ sync: { lastHistory: report } });
++  return report;
++}
++
++async function backupBefore(tree, settings, reason) {
++  if (!tree) return;
++  const limit = Math.max(1, settings.keepBackups ?? 5);
++  const key = `${BACKUP_PREFIX}${Date.now()}`;
++  const stored = await chrome.storage.local.get(null);
++  const backups = Object.keys(stored).filter((k) => k.startsWith(BACKUP_PREFIX)).sort();
++  while (backups.length >= limit) {
++    await chrome.storage.local.remove(backups.shift());
++  }
++  await chrome.storage.local.set({ [key]: { at: Date.now(), reason, tree } });
++}
++
++export async function listBackups() {
++  const stored = await chrome.storage.local.get(null);
++  return Object.entries(stored)
++    .filter(([k]) => k.startsWith(BACKUP_PREFIX))
++    .map(([k, v]) => ({ key: k, at: v.at, reason: v.reason, total: countNodes(v.tree).total }))
++    .sort((a, b) => b.at - a.at);
++}
++
++export async function restoreBackup(key) {
++  const stored = await chrome.storage.local.get(key);
++  const backup = stored[key];
++  if (!backup?.tree) throw new ApiError('Copia no encontrada', { code: 'not_found' });
++  const state = await loadState();
++  await applyTree(backup.tree, activeRoots(state.settings), await IdMap.load());
++  return { restoredAt: backup.at, total: countNodes(backup.tree).total };
++}
++
++export async function deleteVault() {
++  const state = await loadState();
++  if (!state.sync.token) throw new ApiError('No hay bóveda configurada', { code: 'not_configured' });
++  const client = new Client({ serverUrl: state.settings.serverUrl, token: state.sync.token });
++  await client.deleteVault();
++  return { deleted: true };
++}
++
++export function exportBackup(state, sections) {
++  return {
++    format: 'ucsync-backup',
++    version: 2,
++    exportedAt: new Date().toISOString(),
++    serverUrl: state.settings.serverUrl,
++    tree: sections.bookmarks ?? null,
++    history: sections.history ?? null,
++    settings: sections.settings ?? null,
++  };
++}
+diff --git a/chrome/browser/resources/ucsync/src/tree.js b/chrome/browser/resources/ucsync/src/tree.js
+new file mode 100644
+index 0000000..566ab9e
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/tree.js
+@@ -0,0 +1,210 @@
++// Modelo de árbol y fusión a tres bandas (base, local, remoto).
++//
++// Cada nodo lleva un id estable (uuid) que el cliente mantiene asociado al
++// marcador nativo, de modo que renombrar o mover un marcador no lo convierte
++// en "borrado + añadido". La fusión es estructural y determinista: mismo
++// resultado en cualquier dispositivo, sin depender del orden de llegada.
++import { canonicalJson } from './util.js';
++
++export const ROOTS = ['bookmark_bar', 'other', 'mobile'];
++
++export const emptyTree = () => ({
++  v: 1,
++  roots: Object.fromEntries(ROOTS.map((key) => [key, { id: key, type: 'folder', title: key, children: [] }])),
++});
++
++export function countNodes(tree) {
++  let urls = 0;
++  let folders = 0;
++  const walk = (node) => {
++    if (node.type === 'url') urls += 1;
++    else {
++      folders += 1;
++      for (const child of node.children ?? []) walk(child);
++    }
++  };
++  for (const key of ROOTS) if (tree.roots[key]) walk(tree.roots[key]);
++  return { urls, folders, total: urls + folders };
++}
++
++/** Campos que definen el contenido de un nodo (sin hijos ni metadatos volátiles). */
++export function nodeSignature(node) {
++  return canonicalJson(node.type === 'url'
++    ? { t: 'url', title: node.title ?? '', url: node.url ?? '' }
++    : { t: 'folder', title: node.title ?? '' });
++}
++
++export function indexById(tree) {
++  const index = new Map();
++  const walk = (node) => {
++    index.set(node.id, node);
++    for (const child of node.children ?? []) walk(child);
++  };
++  for (const key of ROOTS) if (tree.roots[key]) walk(tree.roots[key]);
++  return index;
++}
++
++export function diffTrees(fromTree, toTree) {
++  const from = indexById(fromTree ?? emptyTree());
++  const to = indexById(toTree ?? emptyTree());
++  const added = [];
++  const removed = [];
++  const modified = [];
++  for (const [id, node] of to) {
++    const previous = from.get(id);
++    if (!previous) added.push(node);
++    else if (nodeSignature(previous) !== nodeSignature(node)) modified.push(node);
++  }
++  for (const [id, node] of from) if (!to.has(id)) removed.push(node);
++  return { added, removed, modified };
++}
++
++export function pruneRoots(tree, roots) {
++  const next = emptyTree();
++  for (const key of ROOTS) next.roots[key] = roots.includes(key) && tree.roots[key] ? tree.roots[key] : { id: key, type: 'folder', title: key, children: [] };
++  return next;
++}
++
++function mergeLists(baseChildren, localChildren, remoteChildren, ctx) {
++  const base = new Map((baseChildren ?? []).map((n) => [n.id, n]));
++  const local = new Map((localChildren ?? []).map((n) => [n.id, n]));
++  const remote = new Map((remoteChildren ?? []).map((n) => [n.id, n]));
++  const order = [];
++  const seen = new Set();
++  const push = (id) => {
++    if (!seen.has(id)) {
++      seen.add(id);
++      order.push(id);
++    }
++  };
++  for (const id of base.keys()) push(id);
++  for (const id of local.keys()) push(id);
++  for (const id of remote.keys()) push(id);
++
++  const result = [];
++  for (const id of order) {
++    const b = base.get(id);
++    const l = local.get(id);
++    const r = remote.get(id);
++
++    if (!b && l && r) {
++      // Añadido en ambos lados: si coinciden, uno; si no, decide la política.
++      if (nodeSignature(l) === nodeSignature(r)) result.push(ctx.mergeChildren(l, r, null));
++      else result.push(ctx.pick(l, r, null, ctx));
++      continue;
++    }
++    if (b && !l && !r) continue; // borrado en ambos
++    if (b && l && !r) {
++      // Borrado en remoto.
++      if (nodeSignature(b) === nodeSignature(l)) continue; // sin cambios locales → aceptar borrado
++      result.push(ctx.deletedElsewhere(b, l, ctx));
++      continue;
++    }
++    if (b && !l && r) {
++      // Borrado en local.
++      if (nodeSignature(b) === nodeSignature(r)) continue;
++      result.push(ctx.deletedLocally(b, r, ctx));
++      continue;
++    }
++    if (!b && l) {
++      result.push(ctx.onlyLocal(l));
++      continue;
++    }
++    if (!b && r) {
++      result.push(ctx.onlyRemote(r));
++      continue;
++    }
++    if (!b) continue;
++
++    // Presente en los tres: comparar cambios de campos y de hijos.
++    const localChanged = nodeSignature(l) !== nodeSignature(b);
++    const remoteChanged = nodeSignature(r) !== nodeSignature(b);
++    let chosen = l;
++    if (localChanged && remoteChanged && nodeSignature(l) !== nodeSignature(r)) {
++      chosen = ctx.pick(l, r, b, ctx);
++      ctx.conflicts.push({ id, base: b, local: l, remote: r });
++    } else if (remoteChanged) {
++      chosen = r;
++    } else {
++      chosen = l;
++    }
++
++    if (chosen.type === 'folder') {
++      result.push(ctx.mergeChildren(chosen, l, r, b));
++    } else {
++      result.push({ ...chosen });
++    }
++  }
++  return result;
++}
++
++/**
++ * Fusiona tres versiones del árbol.
++ *
++ * @param {object} args
++ * @param {object|null} args.base  último árbol sincronizado (null = sin base)
++ * @param {object} args.local
++ * @param {object} args.remote
++ * @param {'merge'|'ask'|'remote'|'local'} args.policy
++ * @returns {{tree: object, conflicts: Array, stats: object}}
++ */
++export function mergeTrees({ base, local, remote, policy = 'merge' }) {
++  const conflicts = [];
++  const baseTree = base ?? emptyTree();
++
++  const ctx = {
++    policy,
++    conflicts,
++    // En conflicto, `merge`/`ask` se resuelven con remoto para ser deterministas.
++    pick(l, r, b, self) {
++      if (self.policy === 'local') return { ...l };
++      if (self.policy === 'remote') return { ...r };
++      return { ...r };
++    },
++    onlyLocal: (l) => ({ ...l, children: l.children ? [...l.children] : undefined }),
++    onlyRemote: (r) => ({ ...r, children: r.children ? [...r.children] : undefined }),
++    deletedElsewhere(b, l, self) {
++      // Borrado en remoto pero modificado en local: local gana salvo política 'remote'.
++      if (self.policy === 'remote') return null;
++      self.conflicts.push({ id: b.id, kind: 'delete-remote', base: b, local: l });
++      return { ...l };
++    },
++    deletedLocally(b, r, self) {
++      if (self.policy === 'local') return null;
++      self.conflicts.push({ id: b.id, kind: 'delete-local', base: b, remote: r });
++      return { ...r };
++    },
++    mergeChildren(chosen, l, r, b) {
++      if (!chosen.children && !l.children && !r.children) return { ...chosen, children: [] };
++      const children = mergeLists(
++        b ? b.children : [],
++        (l ?? chosen).children ?? [],
++        (r ?? chosen).children ?? [],
++        ctx,
++      ).filter(Boolean);
++      return { ...chosen, children };
++    },
++  };
++
++  const tree = { v: 1, roots: {} };
++  for (const key of ROOTS) {
++    const b = baseTree.roots?.[key] ?? { id: key, type: 'folder', title: key, children: [] };
++    const l = local.roots?.[key] ?? { id: key, type: 'folder', title: key, children: [] };
++    const r = remote.roots?.[key] ?? { id: key, type: 'folder', title: key, children: [] };
++    tree.roots[key] = {
++      id: key,
++      type: 'folder',
++      title: key,
++      children: mergeLists(b.children, l.children, r.children, ctx).filter(Boolean),
++    };
++  }
++
++  return {
++    tree,
++    conflicts,
++    stats: {
++      conflicts: conflicts.length,
++      ...countNodes(tree),
++    },
++  };
++}
+diff --git a/chrome/browser/resources/ucsync/src/util.js b/chrome/browser/resources/ucsync/src/util.js
+new file mode 100644
+index 0000000..6ca5cd3
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/src/util.js
+@@ -0,0 +1,52 @@
++// Utilidades sin dependencias: hex, base64, JSON canónico y hash.
++const encoder = new TextEncoder();
++
++export const toHex = (bytes) => [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
++
++export function fromHex(hex) {
++  if (hex.length % 2 !== 0 || /[^a-f0-9]/i.test(hex)) throw new Error('hex no válido');
++  const out = new Uint8Array(hex.length / 2);
++  for (let i = 0; i < out.length; i += 1) out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
++  return out;
++}
++
++export function toBase64(bytes) {
++  const view = new Uint8Array(bytes);
++  let binary = '';
++  const chunk = 0x8000;
++  for (let i = 0; i < view.length; i += chunk) {
++    binary += String.fromCharCode(...view.subarray(i, i + chunk));
++  }
++  return btoa(binary);
++}
++
++export function fromBase64(text) {
++  const binary = atob(text);
++  const out = new Uint8Array(binary.length);
++  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
++  return out;
++}
++
++export async function sha256Hex(value) {
++  const data = typeof value === 'string' ? encoder.encode(value) : value;
++  const digest = await crypto.subtle.digest('SHA-256', data);
++  return toHex(digest);
++}
++
++/** JSON con claves ordenadas: misma estructura ⇒ mismo hash en cualquier dispositivo. */
++export function canonicalJson(value) {
++  if (value === null || typeof value !== 'object') return JSON.stringify(value);
++  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
++  const keys = Object.keys(value).sort();
++  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(value[k])}`).join(',')}}`;
++}
++
++export const randomHex = (bytes = 16) => toHex(crypto.getRandomValues(new Uint8Array(bytes)));
++
++export function uuid() {
++  const b = crypto.getRandomValues(new Uint8Array(16));
++  b[6] = (b[6] & 0x0f) | 0x40;
++  b[8] = (b[8] & 0x3f) | 0x80;
++  const h = toHex(b);
++  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
++}
+diff --git a/chrome/browser/resources/ucsync/styles.css b/chrome/browser/resources/ucsync/styles.css
+new file mode 100644
+index 0000000..0afbe6f
+--- /dev/null
++++ b/chrome/browser/resources/ucsync/styles.css
+@@ -0,0 +1,164 @@
++:root {
++  color-scheme: light dark;
++  --bg: #f6f7f9;
++  --panel: #ffffff;
++  --text: #16181d;
++  --muted: #5f6672;
++  --line: #e2e5ea;
++  --accent: #2563eb;
++  --accent-text: #ffffff;
++  --ok: #15803d;
++  --warn: #b45309;
++  --err: #b91c1c;
++  --radius: 10px;
++}
++
++@media (prefers-color-scheme: dark) {
++  :root {
++    --bg: #14161a;
++    --panel: #1c1f25;
++    --text: #e8eaee;
++    --muted: #9aa3b2;
++    --line: #2b3038;
++    --accent: #4f8cff;
++    --accent-text: #0b1220;
++    --ok: #4ade80;
++    --warn: #fbbf24;
++    --err: #f87171;
++  }
++}
++
++* { box-sizing: border-box; }
++
++body {
++  margin: 0;
++  background: var(--bg);
++  color: var(--text);
++  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
++}
++
++main {
++  max-width: 760px;
++  margin: 0 auto;
++  padding: 28px 20px 64px;
++}
++
++header.brand {
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  margin-bottom: 22px;
++}
++
++header.brand img { width: 32px; height: 32px; }
++header.brand h1 { font-size: 20px; margin: 0; }
++header.brand p { margin: 0; color: var(--muted); font-size: 13px; }
++
++section.card {
++  background: var(--panel);
++  border: 1px solid var(--line);
++  border-radius: var(--radius);
++  padding: 18px 20px;
++  margin-bottom: 16px;
++}
++
++section.card h2 {
++  font-size: 15px;
++  margin: 0 0 4px;
++}
++
++section.card p.hint {
++  margin: 0 0 14px;
++  color: var(--muted);
++  font-size: 13px;
++}
++
++section.card p.hint.warn { color: var(--warn); }
++section.card p.hint.error { color: var(--err); }
++
++label.field { display: block; margin-bottom: 12px; }
++label.field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
++
++input[type="text"], input[type="url"], input[type="password"], select {
++  width: 100%;
++  padding: 9px 11px;
++  border: 1px solid var(--line);
++  border-radius: 8px;
++  background: var(--bg);
++  color: var(--text);
++  font: inherit;
++}
++
++input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
++
++.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
++.row > * { flex: 0 0 auto; }
++.grow { flex: 1 1 220px; }
++
++button {
++  font: inherit;
++  padding: 9px 14px;
++  border-radius: 8px;
++  border: 1px solid var(--line);
++  background: var(--panel);
++  color: var(--text);
++  cursor: pointer;
++}
++
++button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
++button.danger { border-color: var(--err); color: var(--err); }
++button:disabled { opacity: 0.55; cursor: not-allowed; }
++
++.check { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
++.check input { width: 16px; height: 16px; }
++
++.status {
++  display: inline-flex;
++  align-items: center;
++  gap: 6px;
++  font-size: 13px;
++  padding: 3px 9px;
++  border-radius: 999px;
++  border: 1px solid var(--line);
++  color: var(--muted);
++}
++.status.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
++.status.error { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, var(--line)); }
++.status.conflict { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
++
++dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 13px; }
++dl.meta dt { color: var(--muted); }
++dl.meta dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
++
++.message { margin-top: 12px; font-size: 13px; min-height: 18px; }
++.message.ok { color: var(--ok); }
++.message.error { color: var(--err); }
++.message.warn { color: var(--warn); }
++
++hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
++
++.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
++.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
++
++table.backups { width: 100%; border-collapse: collapse; font-size: 13px; }
++table.backups th, table.backups td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
++table.backups tr:last-child td { border-bottom: 0; }
++
++code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
++
++/* popup */
++body.popup { width: 340px; }
++body.popup main { padding: 16px; }
++body.popup section.card { margin-bottom: 10px; padding: 14px; }
++
++.choice { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
++details > summary {
++  cursor: pointer;
++  color: var(--muted);
++  font-size: 13px;
++  margin: 6px 0 10px;
++  list-style: none;
++}
++details > summary::-webkit-details-marker { display: none; }
++details > summary::before { content: '▸ '; }
++details[open] > summary::before { content: '▾ '; }

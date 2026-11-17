@@ -29,6 +29,9 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+sys.path.insert(0, str(ROOT))
+import patch_sections  # noqa: E402 - está junto a este script
 UCSYNC_PATCHES = ROOT / "patches" / "extra" / "ucsync"
 VERSION_FILE = ROOT / "chromium_version.txt"
 SERIES_FILE = ROOT / "patches" / "series"
@@ -54,12 +57,27 @@ def series_patches():
 
 
 def touched_files(patch_path):
+    """Ficheros que el parche modifica (los que crea desde /dev/null no están en upstream)."""
     files = []
+    created = []
+    previous = None
     for line in patch_path.read_text(encoding="utf-8").splitlines():
-        match = PATCH_HEADER.match(line)
-        if match and match.group(1) != "/dev/null":
-            files.append(match.group(1))
-    return files
+        if line.startswith("--- "):
+            previous = line[4:].split()[0]
+        elif line.startswith("+++ "):
+            match = PATCH_HEADER.match(line)
+            if not match or match.group(1) == "/dev/null":
+                continue
+            if previous and previous.startswith("/dev/null"):
+                created.append(match.group(1))
+            else:
+                files.append(match.group(1))
+    return files, created
+
+
+def new_files(patch_path):
+    """Rutas que el parche crea de la nada (no existen en el tag de upstream)."""
+    return touched_files(patch_path)[1]
 
 
 def fetch(version, path, dest):
@@ -75,6 +93,44 @@ def fetch(version, path, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(raw)
     return None
+
+
+def series_upstream_patches():
+    """Parches de upstream/ungoogled que van antes de los nuestros en `patches/series`."""
+    ordered = []
+    for line in SERIES_FILE.read_text(encoding="utf-8").splitlines():
+        entry = line.strip()
+        if entry and not entry.startswith("#") and not entry.startswith(UCSYNC_PREFIX):
+            ordered.append(entry)
+    return ordered
+
+
+def apply_upstream_baseline(src_root, known_files):
+    """Reproduce sobre los ficheros descargados los parches que van antes de los nuestros.
+
+    Nuestros parches se escriben contra el árbol ya parcheado de ungoogled, así que comparar
+    contra el tag en crudo daría falsos rechazos.
+    """
+    applied = 0
+    for entry in series_upstream_patches():
+        patch_path = ROOT / "patches" / entry
+        if not patch_path.exists():
+            continue
+        text = patch_path.read_text(encoding="utf-8", errors="replace")
+        for path in known_files:
+            section = patch_sections.section_for(text, path)
+            if not section:
+                continue
+            with tempfile.NamedTemporaryFile("w", suffix=".patch", delete=False) as handle:
+                handle.write(section)
+                section_path = handle.name
+            try:
+                subprocess.run(["patch", "-p1", "--forward", "-s", "-f", "-i", section_path],
+                               cwd=src_root, capture_output=True, text=True, check=False)
+                applied += 1
+            finally:
+                os.unlink(section_path)
+    print(f"[ucsync] base de upstream: {applied} secciones de parches previos aplicadas")
 
 
 def apply_patch(src_root, patch_path):
@@ -103,7 +159,7 @@ def main():
     if args.list:
         for patch_path in patches:
             print(f"{patch_path.relative_to(ROOT)}:")
-            for path in touched_files(patch_path):
+            for path in touched_files(patch_path)[0]:
                 print(f"    {path}")
         return 0
 
@@ -112,12 +168,16 @@ def main():
     with tempfile.TemporaryDirectory(prefix="ucsync-verify-") as tmp:
         src = Path(tmp) / "src"
         src.mkdir()
-        all_files = sorted({path for patch_path in patches for path in touched_files(patch_path)})
+        all_files = sorted({path for patch_path in patches for path in touched_files(patch_path)[0]})
+        for patch_path in patches:
+            for path in new_files(patch_path):
+                (src / path).parent.mkdir(parents=True, exist_ok=True)
         for path in all_files:
             error = fetch(version, path, src / path)
             if error:
                 print(f"[ucsync] {error}", file=sys.stderr)
                 return 1
+        apply_upstream_baseline(src, all_files)
         print(f"[ucsync] {len(all_files)} ficheros descargados: {', '.join(all_files)}")
 
         for patch_path in patches:

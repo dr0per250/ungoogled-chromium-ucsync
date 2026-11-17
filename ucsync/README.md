@@ -114,3 +114,22 @@ con la versión que fija el `package.json` de DevTools).
 
 `ucsync/fetch_dawn_go.sh <src>` hace lo mismo para el Go que Dawn necesita
 (`third_party/dawn/tools/golang/linux-amd64/bin/go`, también de un `DEPS` anidado).
+
+## UC-Sync dentro del navegador
+
+Además de los parches de la API de historial, el fork embebe la extensión de UC-Sync:
+
+- `0003-ucsync-browser-extension.patch`: el código de la extensión en
+  `chrome/browser/resources/ucsync/` (texto puro; sin PNG, el logo es `logo.svg`).
+- `0004-ucsync-browser-registration.patch`: `EnsureUCSyncBuiltInExtension()` registra la
+  extensión en cada perfil al arrancar (ID fijo `lidfhdhmbifmhikiaklbiehnhnkhoghe`, derivado del
+  campo `key` del manifiesto) y `chrome://ucsync` apunta a su página de opciones.
+- `ucsync/make_ucsync_patches.sh` regenera ambos: 0003 desde `--extension <carpeta>` y 0004 desde
+  el árbol de Chromium modificado, comparando contra la base **ya parcheada de upstream**
+  (`ucsync/patch_sections.py` extrae de cada parche previo sólo la sección del fichero que toca).
+- `ucsync/build.sh --chrome` copia `chrome/browser/resources/ucsync/` a `out/Default/ucsync/`, que
+  es donde el loader busca la extensión (`<exe>/ucsync`). Si no está, el navegador funciona igual
+  sin UC-Sync.
+
+La clave privada que fija el ID está en `../ucsync-extension-key.pem` (fuera del fork): cambiarla
+cambia el ID y con él las claves de `chrome.storage` y el destino de `chrome://ucsync`.

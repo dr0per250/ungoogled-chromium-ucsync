@@ -32,3 +32,14 @@ valida los tres comportamientos. Salida obtenida sobre el binario compilado:
 
 Detalles del parche: las visitas se registran con `SOURCE_EXTENSION` (no `SOURCE_SYNCED`), así la
 «limpieza de visitas foreign» de Chrome Sync no las borra si se desactiva la sincronización de Chrome.
+
+## UC-Sync embebido (sin extensión que instalar)
+
+Sobre el binario compilado con los parches 0003 y 0004, en un perfil nuevo sin cargar nada:
+
+- `Secure Preferences`/`Preferences` listan la extensión `lidfhdhmbifmhikiaklbiehnhnkhoghe`
+  (registrada sola, con `location` de unpacked y permisos estáticos).
+- El loader deja en el log `UC-Sync: registrada la extensión integrada de <exe>/ucsync`.
+- Pendiente: `chrome://ucsync` aún no resuelve (el WebUI no llega a crear su controlador), y
+  navegar a `chrome-extension://<id>/options.html` desde una pestaña normal la bloquea Chrome
+  (`ERR_BLOCKED_BY_CLIENT`) mientras la página no sea accesible desde otros orígenes.

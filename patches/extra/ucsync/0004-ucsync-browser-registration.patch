@@ -1,0 +1,285 @@
+--- a/chrome/browser/extensions/extension_service.cc
++++ b/chrome/browser/extensions/extension_service.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/extensions/extension_service.h"
++#include "chrome/browser/extensions/ucsync_built_in_extension.h"
+ 
+ #include <stddef.h>
+ 
+@@ -373,6 +374,10 @@
+   if (load_command_line_extensions) {
+     LoadExtensionsFromCommandLineFlag(switches::kLoadExtension);
+   }
++
++  // UC-Sync: la extensión de sincronización forma parte de este build; se registra en cada
++  // perfil sin pedir nada al usuario (si el build no la trae, esto no hace nada).
++  EnsureUCSyncBuiltInExtension(profile_);
+   EnabledReloadableExtensions();
+   delayed_install_manager_->FinishInstallationsDelayedByShutdown();
+   SetReadyAndNotifyListeners();
+--- a/chrome/browser/extensions/BUILD.gn
++++ b/chrome/browser/extensions/BUILD.gn
+@@ -441,6 +441,8 @@
+     "system_display/display_info_provider.h",
+     "tab_helper.cc",
+     "tab_helper.h",
++    "ucsync_built_in_extension.cc",
++    "ucsync_built_in_extension.h",
+     "updater/authenticated_network_fetcher.cc",
+     "updater/authenticated_network_fetcher.h",
+     "updater/chrome_extension_downloader_factory.cc",
+@@ -554,6 +556,7 @@
+     "//chrome/browser/subresource_filter",
+     "//chrome/browser/tab_group_sync:factories",
+     "//chrome/browser/tab_list",
++    "//chrome/browser/ucsync:id",
+     "//chrome/browser/ui:accelerator_utils_headers",
+     "//chrome/browser/ui:browser_element_identifiers",
+     "//chrome/browser/ui:browser_live_tab_context",
+--- a/chrome/browser/ui/webui/chrome_web_ui_configs.cc
++++ b/chrome/browser/ui/webui/chrome_web_ui_configs.cc
+@@ -57,6 +57,7 @@
+ #include "chrome/browser/ui/webui/suggest_internals/suggest_internals_ui.h"
+ #include "chrome/browser/ui/webui/sync_internals/sync_internals_ui.h"
+ #include "chrome/browser/ui/webui/translate_internals/translate_internals_ui.h"
++#include "chrome/browser/ui/webui/ucsync/ucsync_ui.h"
+ #include "chrome/browser/ui/webui/ungoogled_first_run.h"
+ #include "chrome/browser/ui/webui/usb_internals/usb_internals_ui.h"
+ #include "chrome/browser/ui/webui/version/version_ui.h"
+@@ -522,6 +523,7 @@
+ #endif
+ 
+ #if BUILDFLAG(IS_MAC)
++  map.AddWebUIConfig(std::make_unique<ucsync::UCSyncUIConfig>());
+   map.AddWebUIConfig(std::make_unique<UnexportableKeysInternalsUIConfig>());
+ #endif  // BUILDFLAG(IS_MAC)
+ 
+--- a/chrome/browser/ui/webui/BUILD.gn
++++ b/chrome/browser/ui/webui/BUILD.gn
+@@ -89,6 +89,7 @@
+     "//chrome/browser/ui/webui/suggest_internals",
+     "//chrome/browser/ui/webui/sync_internals",
+     "//chrome/browser/ui/webui/translate_internals",
++    "//chrome/browser/ui/webui/ucsync",
+     "//chrome/browser/ui/webui/usb_internals",
+     "//chrome/browser/ui/webui/version",
+     "//components/lens:buildflags",
+--- /dev/null
++++ b/chrome/browser/ucsync/BUILD.gn
+@@ -0,0 +1,7 @@
++# Copyright 2025 The Chromium Authors
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++source_set("id") {
++  public = [ "ucsync_constants.h" ]
++}
+--- /dev/null
++++ b/chrome/browser/ucsync/ucsync_constants.h
+@@ -0,0 +1,19 @@
++// UC-Sync: constantes compartidas entre el registro de la extensión embebida y `chrome://ucsync`.
++#ifndef CHROME_BROWSER_UCSYNC_UCSYNC_CONSTANTS_H_
++#define CHROME_BROWSER_UCSYNC_UCSYNC_CONSTANTS_H_
++
++#include <string_view>
++
++namespace ucsync {
++
++// ID de la extensión embebida, derivado del campo `key` de su manifiesto. Cambiarlo rompe
++// `chrome://ucsync` y las claves que UC-Sync guarda en `chrome.storage`.
++inline constexpr std::string_view kExtensionId =
++    "lidfhdhmbifmhikiaklbiehnhnkhoghe";
++
++// Página de opciones de esa extensión (`options_ui.open_in_tab: true`).
++inline constexpr std::string_view kOptionsPage = "options.html";
++
++}  // namespace ucsync
++
++#endif  // CHROME_BROWSER_UCSYNC_UCSYNC_CONSTANTS_H_
+--- /dev/null
++++ b/chrome/browser/extensions/ucsync_built_in_extension.h
+@@ -0,0 +1,32 @@
++// UC-Sync: la extensión de sincronización forma parte del navegador.
++//
++// El código vive en `chrome/browser/resources/ucsync/` y `ucsync/build.sh` lo copia junto al
++// binario (`<exe>/ucsync`). Aquí se registra en cada perfil al arrancar, sin pedir nada al
++// usuario: si la copia no está (por ejemplo un Chromium sin nuestros parches), no se hace nada.
++#ifndef CHROME_BROWSER_EXTENSIONS_UCSYNC_BUILT_IN_EXTENSION_H_
++#define CHROME_BROWSER_EXTENSIONS_UCSYNC_BUILT_IN_EXTENSION_H_
++
++#include "base/command_line.h"
++#include "base/files/file_path.h"
++#include "base/files/file_util.h"
++#include "base/path_service.h"
++#include "content/public/browser/browser_context.h"
++#include "extensions/browser/extension_registrar.h"
++#include "extensions/browser/extension_registry.h"
++#include "extensions/browser/unpacked_installer.h"
++#include "chrome/browser/ucsync/ucsync_constants.h"
++#include "extensions/common/extension.h"
++#include "extensions/common/extension_set.h"
++
++namespace extensions {
++
++// Directorio de la extensión integrada: `--ucsync-extension-dir` si se pasa, si no `<exe>/ucsync`.
++// Vacío si la ruta no existe.
++base::FilePath GetUCSyncExtensionDir();
++
++// Instala la extensión integrada si falta y la vuelve a activar si el usuario la desactivó.
++void EnsureUCSyncBuiltInExtension(content::BrowserContext* browser_context);
++
++}  // namespace extensions
++
++#endif  // CHROME_BROWSER_EXTENSIONS_UCSYNC_BUILT_IN_EXTENSION_H_
+--- /dev/null
++++ b/chrome/browser/extensions/ucsync_built_in_extension.cc
+@@ -0,0 +1,50 @@
++// UC-Sync: registro de la extensión integrada en el navegador. Ver el encabezado.
++#include "chrome/browser/extensions/ucsync_built_in_extension.h"
++
++#include <string>
++
++#include "base/logging.h"
++
++namespace extensions {
++
++base::FilePath GetUCSyncExtensionDir() {
++  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
++  if (command_line.HasSwitch("ucsync-extension-dir")) {
++    const base::FilePath switch_value =
++        command_line.GetSwitchValuePath("ucsync-extension-dir");
++    if (base::PathExists(switch_value.Append("manifest.json"))) {
++      return switch_value;
++    }
++    return base::FilePath();
++  }
++
++  base::FilePath exe_dir;
++  if (!base::PathService::Get(base::DIR_EXE, &exe_dir)) {
++    return base::FilePath();
++  }
++  const base::FilePath dir = exe_dir.Append("ucsync");
++  return base::PathExists(dir.Append("manifest.json")) ? dir : base::FilePath();
++}
++
++void EnsureUCSyncBuiltInExtension(content::BrowserContext* browser_context) {
++  const base::FilePath dir = GetUCSyncExtensionDir();
++  if (dir.empty()) {
++    return;  // Build sin la copia integrada: no hay UC-Sync que registrar.
++  }
++
++  const std::string id(ucsync::kExtensionId);
++  ExtensionRegistry* registry = ExtensionRegistry::Get(browser_context);
++  if (registry->GetInstalledExtension(id)) {
++    // UC-Sync es parte del navegador: si alguien lo desactivó en chrome://extensions, se
++    // reactiva en cada arranque.
++    if (registry->disabled_extensions().Contains(id)) {
++      ExtensionRegistrar::Get(browser_context)->EnableExtension(id);
++    }
++    return;
++  }
++
++  UnpackedInstaller::Create(browser_context)->Load(dir);
++  VLOG(1) << "UC-Sync: registrada la extensión integrada de " << dir.value();
++}
++
++}  // namespace extensions
+--- /dev/null
++++ b/chrome/browser/ui/webui/ucsync/BUILD.gn
+@@ -0,0 +1,18 @@
++# Copyright 2025 The Chromium Authors
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++assert(is_linux || is_chromeos || is_win || is_mac)
++
++source_set("ucsync") {
++  sources = [ "ucsync_ui.cc" ]
++  public = [ "ucsync_ui.h" ]
++  deps = [
++    "//base",
++    "//chrome/browser/ucsync:id",
++    "//content/public/browser",
++    "//extensions/common",
++    "//ui/base",
++    "//url",
++  ]
++}
+--- /dev/null
++++ b/chrome/browser/ui/webui/ucsync/ucsync_ui.h
+@@ -0,0 +1,34 @@
++// UC-Sync: `chrome://ucsync` es un atajo a la página de opciones de la extensión integrada.
++#ifndef CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
++#define CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
++
++#include "content/public/browser/webui_config.h"
++#include "content/public/browser/web_ui_controller.h"
++#include "content/public/common/url_constants.h"
++
++namespace ucsync {
++
++class UCSyncUI;
++
++// Config para chrome://ucsync.
++class UCSyncUIConfig : public content::DefaultWebUIConfig<UCSyncUI> {
++ public:
++  UCSyncUIConfig()
++      : DefaultWebUIConfig(content::kChromeUIScheme, "ucsync") {}
++};
++
++// Redirige al `options.html` de la extensión embebida; no sirve contenido propio.
++class UCSyncUI : public content::WebUIController {
++ public:
++  explicit UCSyncUI(content::WebUI* web_ui);
++
++  UCSyncUI(const UCSyncUI&) = delete;
++  UCSyncUI& operator=(const UCSyncUI&) = delete;
++
++  // WebUIController:
++  void WebUIPrimaryPageChanged(content::Page& page) override;
++};
++
++}  // namespace ucsync
++
++#endif  // CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
+--- /dev/null
++++ b/chrome/browser/ui/webui/ucsync/ucsync_ui.cc
+@@ -0,0 +1,36 @@
++// UC-Sync: redirección de chrome://ucsync. Ver el encabezado.
++#include "chrome/browser/ui/webui/ucsync/ucsync_ui.h"
++
++#include <string>
++
++#include "chrome/browser/ucsync/ucsync_constants.h"
++#include "content/public/browser/navigation_controller.h"
++#include "content/public/browser/page.h"
++#include "content/public/browser/web_contents.h"
++#include "content/public/browser/web_ui.h"
++#include "extensions/common/extension.h"
++#include "ui/base/page_transition_types.h"
++
++namespace ucsync {
++
++UCSyncUI::UCSyncUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {}
++
++void UCSyncUI::WebUIPrimaryPageChanged(content::Page& page) {
++  content::WebContents* contents = web_ui()->GetWebContents();
++  if (contents->GetLastCommittedURL().host() != "ucsync") {
++    return;  // Ya redirigimos; no vuelve a ocurrir, pero no cuesta comprobarlo.
++  }
++
++  const GURL target =
++      extensions::Extension::GetBaseURLFromExtensionId(
++          std::string(ucsync::kExtensionId))
++          .Resolve(std::string(ucsync::kOptionsPage));
++  content::NavigationController::LoadURLParams params(target);
++  params.transition_type = ui::PageTransitionFromInt(
++      ui::PAGE_TRANSITION_AUTO_TOPLEVEL | ui::PAGE_TRANSITION_CHAIN_START |
++      ui::PAGE_TRANSITION_CHAIN_END);
++  params.should_replace_current_entry = true;
++  contents->GetController().LoadURLWithParams(params);
++}
++
++}  // namespace ucsync

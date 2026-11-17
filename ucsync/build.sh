@@ -77,7 +77,22 @@ build() {
   cp "$ROOT/flags.gn" "$SRC/out/Default/args.gn"
   (cd "$SRC" && gn gen out/Default --fail-on-unused-args)
   (cd "$SRC" && ninja -C out/Default -j "$JOBS" chrome chromedriver chrome_sandbox)
+  install_ucsync_extension
   echo "[ucsync] Binario: $SRC/out/Default/chrome"
+}
+
+# UC-Sync va dentro del navegador: el loader (`ucsync_built_in_extension.cc`) busca la extensión
+# embebida en `<exe>/ucsync`, así que se coloca junto al binario.
+install_ucsync_extension() {
+  local embedded="$SRC/chrome/browser/resources/ucsync"
+  local dest="$SRC/out/Default/ucsync"
+  if [[ ! -f "$embedded/manifest.json" ]]; then
+    echo "[ucsync] No hay extensión embebida en $embedded (falta el parche 0003): navegador sin UC-Sync."
+    return
+  fi
+  rm -rf "$dest"
+  cp -a "$embedded" "$dest"
+  echo "[ucsync] UC-Sync embebido en $dest (ID lidfhdhmbifmhikiaklbiehnhnkhoghe)"
 }
 
 case "${1:-}" in
