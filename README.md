@@ -50,7 +50,7 @@ Sin clonar nada, sin tokens, sin compilar.
 librerías que faltan (`pacman -S --noconfirm`), instala en `~/.local/share/ucsync-chromium`, deja el
 lanzador `ucsync-chromium`, el icono y la entrada de aplicaciones, y comprueba el binario. Opciones
 por entorno: `UCSYNC_SYSTEM=1` (en `/opt` con `chrome_sandbox` setuid root → sandbox real, pide
-sudo), `UCSYNC_PREFIX`, `UCSYNC_NO_SANDBOX=1`, `UCSYNC_SKIP_DEPS=1`, `UCSYNC_UNINSTALL=1`. El perfil
+sudo), `UCSYNC_PREFIX`, `UCSYNC_NO_SANDBOX=1`, `UCSYNC_SKIP_DEPS=1`, `UCSYNC_UNINSTALL=1`, `UCSYNC_SET_DEFAULT=1`. El perfil
 queda en `~/.config/ucsync-chromium` (`UCSYNC_PROFILE` para cambiarlo).
 
 **Publicar un binario nuevo** tras compilar:

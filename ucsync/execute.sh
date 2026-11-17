@@ -9,7 +9,8 @@
 #   bash -c "$(gh api repos/dr0per250/ungoogled-chromium-ucsync/contents/ucsync/execute.sh --jq .content | base64 -d)"
 #
 # Opciones por entorno: UCSYNC_SYSTEM=1 (en /opt con sandbox setuid, pide sudo),
-# UCSYNC_PREFIX, UCSYNC_NO_SANDBOX=1, UCSYNC_SKIP_DEPS=1, UCSYNC_UNINSTALL=1.
+# UCSYNC_PREFIX, UCSYNC_NO_SANDBOX=1, UCSYNC_SKIP_DEPS=1, UCSYNC_UNINSTALL=1,
+# UCSYNC_SET_DEFAULT=1 (lo deja como navegador por defecto del escritorio).
 set -euo pipefail
 REPO="dr0per250/ungoogled-chromium-ucsync"
 ASSET="ucsync-chromium-linux-x64.tar.gz"
@@ -113,7 +114,14 @@ printf '%s\n' "$DESKTOP" > "$HOME/.local/share/applications/io.ucsync.chromium.d
 [[ "$SYSTEM" == "1" ]] && { sudo_ mkdir -p /usr/share/applications; printf '%s\n' "$DESKTOP" | sudo_ tee /usr/share/applications/io.ucsync.chromium.desktop >/dev/null; }
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
+# Las líneas `Not implemented` de Wayland/ozone al arrancar son ruido conocido de Chromium
+# sobre Wayland; no indican que nada haya roto.
 "$LAUNCHER" --version || true
+if [[ "${UCSYNC_SET_DEFAULT:-0}" == "1" ]] && command -v xdg-settings >/dev/null 2>&1; then
+  xdg-settings set default-web-browser io.ucsync.chromium.desktop && say "Navegador por defecto: UC-Sync."
+  command -v xdg-mime >/dev/null 2>&1 && xdg-mime default io.ucsync.chromium.desktop x-scheme-handler/http x-scheme-handler/https 2>/dev/null || true
+fi
 say "Listo: ejecuta  ucsync-chromium   y abre chrome://ucsync"
+say "Sandbox: si ves '--no-sandbox' arriba, reinstala con UCSYNC_SYSTEM=1 para el sandbox real (setuid)."
 say "Perfil: ${UCSYNC_PROFILE:-$HOME/.config/ucsync-chromium}"
 case ":$PATH:" in *":$BIN_DIR:"*) ;; *) say "Añade $BIN_DIR al PATH para llamarlo por su nombre."; ;; esac
