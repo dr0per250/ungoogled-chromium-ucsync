@@ -88,8 +88,10 @@ def fetch(version, path, dest):
         return f"no se pudo descargar {path} ({url})"
     try:
         raw = base64.b64decode(result.stdout)
-    except Exception as err:  # noqa: BLE001 - el mensaje ya dice bastante
-        return f"respuesta inesperada para {path}: {err}"
+    except Exception:  # noqa: BLE001
+        # El fichero no está en el tag: lo crea un parche de upstream (p. ej. los de las
+        # banderas de ungoogled). No es un fallo; la base se construirá con esa sección.
+        return f"no existe en el tag: {path}"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(raw)
     return None
@@ -172,13 +174,19 @@ def main():
         for patch_path in patches:
             for path in new_files(patch_path):
                 (src / path).parent.mkdir(parents=True, exist_ok=True)
+        missing = []
         for path in all_files:
             error = fetch(version, path, src / path)
             if error:
+                if error.startswith("no existe en el tag:"):
+                    missing.append(path)
+                    continue
                 print(f"[ucsync] {error}", file=sys.stderr)
                 return 1
+        if missing:
+            print(f"[ucsync] {len(missing)} ficheros los crea un parche de upstream: {', '.join(missing)}")
         apply_upstream_baseline(src, all_files)
-        print(f"[ucsync] {len(all_files)} ficheros descargados: {', '.join(all_files)}")
+        print(f"[ucsync] {len(all_files) - len(missing)} ficheros descargados de upstream")
 
         for patch_path in patches:
             failure = apply_patch(src, patch_path)

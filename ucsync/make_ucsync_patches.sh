@@ -79,10 +79,12 @@ MODIFIED=(
   chrome/browser/extensions/BUILD.gn
   chrome/browser/extensions/chrome_content_browser_client_extensions_part.cc
   chrome/browser/extensions/extension_management.cc
+  chrome/browser/extensions/extension_management_unittest.cc
   chrome/browser/extensions/extension_service.cc
   chrome/browser/ui/webui/BUILD.gn
   chrome/browser/ui/webui/chrome_web_ui_configs.cc
   chrome/common/webui_url_constants.cc
+  chrome/browser/ungoogled_flag_choices.h
   chrome/common/webui_url_constants.h
   extensions/browser/api/messaging/message_service_bindings.cc
   extensions/browser/extension_util.cc
@@ -94,6 +96,8 @@ MODIFIED=(
   extensions/renderer/script_context_set.cc
 )
 NEW=(
+  chrome/browser/extensions/chromium_web_store_built_in_extension.h
+  chrome/browser/extensions/chromium_web_store_built_in_extension.cc
   chrome/browser/ucsync/BUILD.gn
   chrome/browser/ucsync/ucsync_constants.h
   chrome/browser/extensions/ucsync_built_in_extension.h
@@ -110,7 +114,12 @@ for path in "${MODIFIED[@]}"; do
   BASE="$WORK/base"
   rm -rf "$BASE"
   mkdir -p "$(dirname "$BASE/$path")"
-  git -C "$SRC" show "HEAD:$path" > "$BASE/$path"
+  if git -C "$SRC" cat-file -e "HEAD:$path" 2>/dev/null; then
+    git -C "$SRC" show "HEAD:$path" > "$BASE/$path"
+  else
+    # El fichero lo crea un parche de upstream: la base se construye aplicando esa sección.
+    : > "$BASE/$path"
+  fi
   # Se extrae de cada parche de upstream sólo la sección de este fichero y se aplica en el orden
   # de la serie: así la base coincide con el árbol real sobre el que se escribe el parche.
   for other in $(grep -v '^extra/ucsync/' patches/series); do
@@ -128,6 +137,23 @@ for path in "${NEW[@]}"; do
 done
 cp "$OUT" "$PATCH_DIR/0004-ucsync-browser-registration.patch"
 echo "[ucsync] 0004: $(grep -c '^+++ ' "$PATCH_DIR/0004-ucsync-browser-registration.patch") ficheros"
+fi
+
+# --- 0006: chromium-web-store vendida, en texto ---------------------------------------------
+WEBSTORE_SRC="$SRC/chrome/browser/resources/chromium-web-store"
+if [[ -z "$ONLY" || "$ONLY" == "0006" ]]; then
+  if [[ -d "$WEBSTORE_SRC" ]]; then
+    WSTAGE="$WORK/webstore/chrome/browser/resources/chromium-web-store"
+    mkdir -p "$WSTAGE"
+    rsync -a "$WEBSTORE_SRC/" "$WSTAGE/"
+    git -C "$WORK/webstore" init -q
+    git -C "$WORK/webstore" commit -q --allow-empty -m base
+    git -C "$WORK/webstore" add -A
+    git -C "$WORK/webstore" diff --cached > "$PATCH_DIR/0006-chromium-web-store-extension.patch"
+    echo "[webstore] 0006: $(grep -c '^diff --git' "$PATCH_DIR/0006-chromium-web-store-extension.patch") ficheros"
+  else
+    echo "[webstore] Aviso: no hay $WEBSTORE_SRC (ejecuta ucsync/vendor_webstore.sh)."
+  fi
 fi
 
 # --- 0005: branding Chromper ----------------------------------------------------------------
@@ -148,7 +174,12 @@ if [[ -z "$ONLY" || "$ONLY" == "0005" ]]; then
     BASE="$WORK/base5"
     rm -rf "$BASE"
     mkdir -p "$(dirname "$BASE/$path")"
-    git -C "$SRC" show "HEAD:$path" > "$BASE/$path"
+    if git -C "$SRC" cat-file -e "HEAD:$path" 2>/dev/null; then
+      git -C "$SRC" show "HEAD:$path" > "$BASE/$path"
+    else
+      # El fichero lo crea un parche de upstream: la base se construye aplicando esa sección.
+      : > "$BASE/$path"
+    fi
     for other in $(grep -v '^extra/ucsync/' patches/series); do
       if python3 "$FORK/ucsync/patch_sections.py" "patches/$other" "$path" --out "$WORK/section5.patch"; then
         patch -p1 -s -f --forward -i "$WORK/section5.patch" -d "$BASE" >/dev/null 2>&1 || true
@@ -163,7 +194,7 @@ fi
 # --- serie ----------------------------------------------------------------------------------
 SERIES="$FORK/patches/series"
 for entry in extra/ucsync/0003-ucsync-browser-extension.patch extra/ucsync/0004-ucsync-browser-registration.patch \
-             extra/ucsync/0005-chromper-branding.patch; do
+             extra/ucsync/0005-chromper-branding.patch extra/ucsync/0006-chromium-web-store-extension.patch; do
   grep -qxF "$entry" "$SERIES" || echo "$entry" >> "$SERIES"
 done
 echo "[ucsync] serie:"

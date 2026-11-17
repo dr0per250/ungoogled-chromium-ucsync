@@ -46,6 +46,10 @@ if (-not (Test-Path (Join-Path $pkg 'locales\en-US.pak'))) { throw 'Falta en-US.
 $embedded = Join-Path $Src 'chrome\browser\resources\ucsync'
 if (Test-Path $embedded) {
   Copy-Item -Recurse $embedded (Join-Path $pkg 'ucsync')
+}
+$webstore = Join-Path $Src 'chrome\browser\resources\chromium-web-store'
+if (Test-Path $webstore) {
+  Copy-Item -Recurse $webstore (Join-Path $pkg 'chromium-web-store')
 } else {
   Write-Warning 'No hay recursos de UC-Sync en el árbol (falta el parche 0003).'
 }

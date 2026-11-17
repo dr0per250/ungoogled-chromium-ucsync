@@ -178,7 +178,7 @@ El binario Linux se publica con `./ucsync/make_release.sh` (crea el release del 
 tarball). Para la extensión suelta, los releases de
 [uc-sync](https://github.com/dr0per250/uc-sync/releases).
 
-## Qué cambia en el navegador (detalle de los 5 parches)
+## Qué cambia en el navegador (detalle de los 6 parches)
 
 - **`0001-history-api-visit-time`** — `chrome.history.addUrl({url, visitTime})` acepta horas pasadas
   y rechaza las futuras con el mensaje
@@ -188,11 +188,34 @@ tarball). Para la extensión suelta, los releases de
   inválida se rechaza el lote entero.
 - **`0003-ucsync-browser-extension`** — el código de la extensión en
   `chrome/browser/resources/ucsync/` (texto puro; sin PNG, el logo es `logo.svg`).
-- **`0004-ucsync-browser-registration`** — `EnsureUCSyncBuiltInExtension()` registra la extensión en
-  cada perfil al arrancar, la exime de la política de extensiones sin empaquetar (si no, queda
-  desactivada por vivir como `kUnpacked`), y sirve la UI en `chrome://ucsync` con las APIs de
-  extensión concedidas a ese origen (decididas por el navegador, nunca reivindicadas por el renderer;
-  **no** hay `web_accessible_resources`).
+- **`0004-ucsync-browser-registration`** — registra las dos extensiones integradas en cada perfil al
+  arrancar (`EnsureUCSyncBuiltInExtension()` y `EnsureChromiumWebStoreBuiltInExtension()`), las exime
+  de la política de extensiones sin empaquetar (si no, quedarían desactivadas por vivir como
+  `kUnpacked`), sirve la UI en `chrome://ucsync` con las APIs de extensión concedidas a ese origen
+  (decididas por el navegador, nunca reivindicadas por el renderer; **no** hay
+  `web_accessible_resources`) y cambia el comportamiento del CRX: `IsOffstoreInstallAllowed()`
+  responde `true` cuando `chrome://flags/#extension-mime-request-handling` está sin tocar, y la lista
+  de esa bandera muestra «Always prompt for install (Chromper default)».
+- **`0005-chromper-branding`** — el nombre interno del producto es **Chromper**:
+  `chrome/app/theme/chromium/BRANDING` (`PRODUCT_FULLNAME`/`PRODUCT_SHORTNAME`), las cadenas del
+  navegador (`chrome/app/chromium_strings.grd`, `chrome/app/settings_chromium_strings.grdp`,
+  `chrome/app/settings_strings.grdp`) y sus traducciones al español (`chromium_strings_es*.xtb`,
+  `generated_resources_es*.xtb`). Se ve en `chromper --version`, el menú, `chrome://version`,
+  «Acerca de» y Ajustes. **La autoría se conserva**: `COMPANY_*`, el copyright y «Los creadores de
+  Chromium» siguen nombrando a *The Chromium Authors*, y el motor y las URLs internas (`chrome://…`)
+  mantienen el nombre Chromium. El `WM_CLASS` se fija con `--class=chromper` en el lanzador.
+- **`0006-chromium-web-store-extension`** — [chromium-web-store](https://github.com/NeverDecaf/chromium-web-store)
+  vendida en `chrome/browser/resources/chromium-web-store/`, con su `key` (ID estable
+  `ocaahdebbfolfmndjeplogmgcagdmblk`, el mismo del CRX oficial) y los PNG sustituidos por un SVG con
+  el icono en base64: `ucsync/vendor_webstore.sh` fija la versión y deja `ucsync/webstore.lock.json`.
+  Con la bandera de CRX por defecto, se pueden instalar extensiones de la Chrome Web Store sin
+  configurar nada.
+
+Las pruebas `ExtensionManagementMimeHandlingTest` (en `extension_management_unittest.cc`, dentro de
+`0004`) fijan ese comportamiento del CRX: por defecto se pregunta, con
+`always-prompt-for-install` se pregunta y con `download-as-regular-file` se descarga. Necesitan un
+checkout completo de Chromium (`third_party/test_fonts` y `chrome/test/data/webui`) para compilar el
+blanco de pruebas; en un árbol podado como el de esta máquina no se construyen.
 
 Las visitas se escriben con `SOURCE_EXTENSION`, no con `SOURCE_SYNCED`: Chrome Sync no las borra
 cuando se desactiva y `VisitItem.isLocal` sigue siendo `true` (se pueden borrar a mano).

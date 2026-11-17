@@ -105,18 +105,24 @@ build() {
   echo "[ucsync] Binario: $SRC/out/Default/chrome"
 }
 
-# UC-Sync va dentro del navegador: el loader (`ucsync_built_in_extension.cc`) busca la extensión
-# embebida en `<exe>/ucsync`, así que se coloca junto al binario.
-install_ucsync_extension() {
-  local embedded="$SRC/chrome/browser/resources/ucsync"
-  local dest="$SRC/out/Default/ucsync"
+# Las extensiones integradas van junto al binario: los loaders las buscan en `<exe>/ucsync` y
+# `<exe>/chromium-web-store`.
+install_embedded_extension() {
+  local name="$1" id="$2"
+  local embedded="$SRC/chrome/browser/resources/$name"
+  local dest="$SRC/out/Default/$name"
   if [[ ! -f "$embedded/manifest.json" ]]; then
-    echo "[ucsync] No hay extensión embebida en $embedded (falta el parche 0003): navegador sin UC-Sync."
+    echo "[ucsync] No hay extensión embebida en $embedded: el navegador arranca sin ella."
     return
   fi
   rm -rf "$dest"
   cp -a "$embedded" "$dest"
-  echo "[ucsync] UC-Sync embebido en $dest (ID lidfhdhmbifmhikiaklbiehnhnkhoghe)"
+  echo "[ucsync] $name embebida en $dest (ID $id)"
+}
+
+install_ucsync_extension() {
+  install_embedded_extension ucsync lidfhdhmbifmhikiaklbiehnhnkhoghe
+  install_embedded_extension chromium-web-store ocaahdebbfolfmndjeplogmgcagdmblk
 }
 
 case "${1:-}" in

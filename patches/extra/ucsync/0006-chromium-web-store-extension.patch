@@ -1,0 +1,4081 @@
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/de/messages.json b/chrome/browser/resources/chromium-web-store/_locales/de/messages.json
+new file mode 100644
+index 0000000..ccf2136
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/de/messages.json
+@@ -0,0 +1,130 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "The title of the extension, displayed in the Chrome Web Store."
++  },
++  "extension_Description": {
++    "message": "Ermöglicht die Installation und die halbautomatische Aktualisierung für Erweiterungen aus dem Chrome Web Store (oder aus anderen Quellen) auf Chromium-basierten Browsern.",
++    "description": "The description of the extension, displayed in the Chrome Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Aktualisiere Einstellungen",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Ignorierte Erweiterungen",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Import/Export",
++    "description": "MTL"
++  },
++  "options_autoUpdate": {
++    "message": "Automatisch nach Erweiterungs-Aktualisierung suchen",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Klicken Sie auf das Chromium Web Store-Abzeichen, um eine manuelle Aktualisierungsprüfung durchzuführen",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Nach Aktualisierung für Chrome Web Store-Erweiterungen suchen",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Wird Google kontaktieren, um nach Aktualisierungen zu suchen",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Nach Aktualisierung für Erweiterungen suchen, die nicht aus dem Chrome Web Store sind.",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Funktioniert nur, wenn die Erweiterung automatische Aktualisierungen unterstützt",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Nie nach Aktualisierungen für diese Erweiterung suchen",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Alle $delayInMinutes$ Minuten auf Aktualisierungen prüfen",
++    "description": "delayInMinutes will be a field that can be edited by the user",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Alle installieren",
++    "description": "MTL"
++  },
++  "popup_checkingForUpdates": {
++    "message": "Prüfe auf Aktualisierungen...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "Alle Erweiterungen sind auf dem neuesten Stand!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "$extName$: Aktualisierung fehlgeschlagen",
++    "description": "extName will be the name of the extension that failed to update.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Die folgenden Erweiterungen wurden aus dem Chrome Web Store entfernt",
++    "description": "Will be shown above list of removed extensions."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Diese Erweiterung könnte aufgrund eines Verstoßes gegen die Nutzungsbedingungen entfernt worden sein.",
++    "description": "Shown when hovering over popup_removedExtensions."
++  },
++  "contextMenu_updateAll": {
++    "message": "Alle Erweiterungen aktualisieren.",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Zu Chromium hinzufügen",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Aus Chromium entfernen",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Entwicklermodus aktivieren (oben rechts)\n2. Ziehen Sie .crx aus der Downloadleiste auf die Erweiterungsseite",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_title": {
++    "message": "Erweiterung heruntergeladen! Bitte manuell installieren:",
++    "description": "MTL"
++  },
++  "options_manuallyInstall": {
++    "message": "Laden Sie immer CRX-Dateien herunter",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Schalten Sie diese Option um, wenn Sie „CRX_REQUIRED_PROOF_MISSING“-Fehler erhalten",
++    "description": "MTL"
++  },
++  "options_advanced": { "message": "Fortschrittlich", "description": "MTL" },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Aktivieren Sie die Schaltflächen „Installieren/Deinstallieren“ im Chrome Web Store. (Könnte Informationen darüber offenlegen, welche Erweiterungen Sie an Google installiert haben.)",
++    "description": "MTL"
++  },
++  "options_webstoreIntegration": {
++    "message": "Aktivieren Sie die Chrome Web Store-Integration",
++    "description": "MTL"
++  },
++  "options_importExportDescription": {
++    "message": "Speichern Sie den Text hier in einer Datei zum Exportieren. Um den Text zu importieren, fügen Sie ihn hier ein und drücken Sie $installButton$",
++    "description": "MTL",
++    "placeholders": { "installButton": { "content": "$1" } }
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/en/messages.json b/chrome/browser/resources/chromium-web-store/_locales/en/messages.json
+new file mode 100644
+index 0000000..c8ebaaa
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/en/messages.json
+@@ -0,0 +1,138 @@
++{
++    "extension_Name": {
++        "message": "Chromium Web Store",
++        "description": "The title of the extension, displayed in the Chrome Web Store."
++    },
++    "extension_Description": {
++        "message": "Enables installation and semi-automatic updating for extensions from the Chrome Web Store (or elsewhere) on Chromium based browsers.",
++        "description": "The description of the extension, displayed in the Chrome Web Store."
++    },
++
++    "options_updateHeading": {
++        "message": "Update options",
++        "description": ""
++    },
++    "options_ignoredExtensionsHeading": {
++        "message": "Ignored extensions",
++        "description": ""
++    },
++    "options_importExportHeading": {
++        "message": "Import/Export",
++        "description": ""
++    },
++    "options_autoUpdate": {
++        "message": "Automatically check for extension updates",
++        "description": ""
++    },
++    "options_autoUpdateTooltip": {
++        "message": "Click the Chromium Web Store badge to perform a manual check",
++        "description": ""
++    },
++    "options_updateWebstore": {
++        "message": "Check for updates to Chrome Web Store extensions",
++        "description": ""
++    },
++    "options_updateWebstoreTooltip": {
++        "message": "Will contact Google to check for updates",
++        "description": ""
++    },
++    "options_updateNonWebstore": {
++        "message": "Check for updates to non-Chrome Web Store extensions",
++        "description": ""
++    },
++    "options_updateNonWebstoreTooltip": {
++        "message": "Only works if extension supports auto-updating",
++        "description": ""
++    },
++    "options_neverCheckTooltip": {
++        "message": "Never check for updates to this extension",
++        "description": ""
++    },
++    "options_updateDelay": {
++        "message": "Check for updates every $delayInMinutes$ minutes",
++        "description": "delayInMinutes will be a field that can be edited by the user",
++        "placeholders": {
++            "delayInMinutes": {
++                "content": "$1"
++            }
++        }
++    },
++    "options_advanced": {
++        "message": "Advanced",
++        "description": ""
++    },
++    "options_manuallyInstallTooltip": {
++        "message": "Toggle this option if you are getting 'CRX_REQUIRED_PROOF_MISSING' errors",
++        "description": ""
++    },
++    "options_manuallyInstall": {
++        "message": "Always download CRX files",
++        "description": ""
++    },
++    "options_webstoreIntegrationTooltip": {
++        "message": "Enable Install/Uninstall buttons on the Chrome Web Store. (Could expose information about which extensions you have installed to Google.)",
++        "description": ""
++    },
++    "options_webstoreIntegration": {
++        "message": "Enable Chrome Web Store Integration",
++        "description": ""
++    },
++    "options_importExportInstallAllButton": {
++        "message": "Install All",
++        "description": ""
++    },
++    "options_importExportDescription": {
++        "message": "Save the text here to a file to export. To import paste that text here and press $installButton$",
++        "description": "installButton is the text on the button, defined in options_importExportInstallAllButton",
++        "placeholders": {
++            "installButton": {
++                "content": "$1"
++            }
++        }
++    },
++    "popup_checkingForUpdates": {
++        "message": "Checking for updates...",
++        "description": ""
++    },
++    "popup_allUpToDate": {
++        "message": "All extensions are up to date!",
++        "description": ""
++    },
++    "popup_updateFailed": {
++        "message": "$extName$ Update Failed",
++        "description": "extName will be the name of the extension that failed to update.",
++        "placeholders": {
++            "extName": {
++                "content": "$1"
++            }
++        }
++    },
++    "popup_removedExtensions": {
++        "message": "The following extensions have been removed from the Chrome Web Store",
++        "description": "Will be shown above list of removed extensions."
++    },
++    "popup_removedExtensionsTooltip": {
++        "message": "These may have been removed due to a violation of the Terms of Service.",
++        "description": "Shown when hovering over popup_removedExtensions."
++    },
++    "contextMenu_updateAll": {
++        "message": "Update all extensions",
++        "description": ""
++    },
++    "webstore_addButton": {
++        "message": "Add to Chromium",
++        "description": ""
++    },
++    "webstore_removeButton": {
++        "message": "Remove from Chromium",
++        "description": ""
++    },
++    "notify_manuallyInstall_title": {
++        "message": "Extension downloaded! Please install manually:",
++        "description": ""
++    },
++    "notify_manuallyInstall_message": {
++        "message": "1. Enable Developer mode (top right)\n2. Drag .crx from downloads bar onto extensions page",
++        "description": ""
++    }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/es-419/messages.json b/chrome/browser/resources/chromium-web-store/_locales/es-419/messages.json
+new file mode 100644
+index 0000000..5edeb54
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/es-419/messages.json
+@@ -0,0 +1,134 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "The title of the extension, displayed in the Chrome Web Store."
++  },
++  "extension_Description": {
++    "message": "Permite instalar y actualizar de forma semiautomática las extensiones de Chrome Web Store (o de otros sitios) en navegadores basados en Chromium.",
++    "description": "The description of the extension, displayed in the Chrome Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Opciones de actualización",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Extensiones ignoradas",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Importar/Exportar",
++    "description": ""
++  },
++  "options_autoUpdate": {
++    "message": "Buscar automáticamente actualizaciones de las extensiones",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Haz clic en el icono de Chromium Web Store para comprobar las actualizaciones manualmente",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Comprobar actualizaciones de las extensiones de Chrome Web Store",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "La comprobación de actualizaciones contactará con Google",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Comprobar actualizaciones de extensiones ajenas a Chrome Web Store",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Solo funcionará si la extensión es compatible con las actualizaciones automáticas",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "No buscar actualizaciones para esta extensión",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Buscar actualizaciones cada $delayInMinutes$ minutos",
++    "description": "delayInMinutes will be a field that can be edited by the user",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Instalar todo",
++    "description": ""
++  },
++  "options_importExportDescription": {
++    "message": "Guarda este texto en un archivo exportado. Para importar un texto, pega aquí el texto que contiene y pulsa $installButton$",
++    "description": "installButton is the text on the button, defined in options_importExportInstallAllButton",
++    "placeholders": {
++      "installButton": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_checkingForUpdates": {
++    "message": "Buscando actualizaciones...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "¡Todas las extensiones están actualizadas!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "No se pudo actualizar $extName$",
++    "description": "extName will be the name of the extension that failed to update.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Estas extensiones fueron eliminadas de Chrome Web Store",
++    "description": "Will be shown above list of removed extensions."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Puede que se eliminaran por incumplir los términos del servicio.",
++    "description": "Shown when hovering over popup_removedExtensions."
++  },
++  "contextMenu_updateAll": {
++    "message": "Actualizar todas las extensiones",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Añadir a Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Quitar de Chromium",
++    "description": ""
++  },
++  "options_advanced": { "message": "Avanzado", "description": "MTL" },
++  "notify_manuallyInstall_title": {
++    "message": "¡Extensión descargada! Instale manualmente:",
++    "description": "MTL"
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Habilite los botones Instalar/Desinstalar en Chrome Web Store. (Podría exponer información sobre qué extensiones ha instalado en Google).",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Habilite el modo Desarrollador (arriba a la derecha)\n2. Arrastre .crx desde la barra de descargas a la página de extensiones",
++    "description": "MTL"
++  },
++  "options_manuallyInstall": {
++    "message": "Descargue siempre archivos CRX",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Cambie esta opción si recibe errores 'CRX_REQUIRED_PROOF_MISSING'",
++    "description": "MTL"
++  },
++  "options_webstoreIntegration": {
++    "message": "Habilitar la integración de Chrome Web Store",
++    "description": "MTL"
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/es/messages.json b/chrome/browser/resources/chromium-web-store/_locales/es/messages.json
+new file mode 100644
+index 0000000..b190abc
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/es/messages.json
+@@ -0,0 +1,134 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "The title of the extension, displayed in the Chrome Web Store."
++  },
++  "extension_Description": {
++    "message": "Permite instalar y actualizar de forma semiautomática las extensiones de Chrome Web Store (o de otros sitios) en navegadores basados en Chromium.",
++    "description": "The description of the extension, displayed in the Chrome Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Opciones de actualización",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Extensiones ignoradas",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Importar/Exportar",
++    "description": ""
++  },
++  "options_autoUpdate": {
++    "message": "Buscar automáticamente actualizaciones de las extensiones",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Haz clic en el icono de Chromium Web Store para comprobar las actualizaciones manualmente",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Comprobar actualizaciones de las extensiones de Chrome Web Store",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "La comprobación de actualizaciones contactará con Google",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Comprobar actualizaciones de extensiones ajenas a Chrome Web Store",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Solo funcionará si la extensión es compatible con las actualizaciones automáticas",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "No buscar actualizaciones para esta extensión",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Buscar actualizaciones cada $delayInMinutes$ minutos",
++    "description": "delayInMinutes will be a field that can be edited by the user",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Instalar todo",
++    "description": ""
++  },
++  "options_importExportDescription": {
++    "message": "Guarda este texto en un archivo exportado. Para importar un texto, pega aquí el texto que contiene y pulsa $installButton$",
++    "description": "installButton is the text on the button, defined in options_importExportInstallAllButton",
++    "placeholders": {
++      "installButton": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_checkingForUpdates": {
++    "message": "Buscando actualizaciones...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "¡Todas las extensiones están actualizadas!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "No se ha podido actualizar $extName$",
++    "description": "extName will be the name of the extension that failed to update.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Estas extensiones han sido eliminadas de Chrome Web Store",
++    "description": "Will be shown above list of removed extensions."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Puede que se hayan eliminado por incumplir los términos del servicio.",
++    "description": "Shown when hovering over popup_removedExtensions."
++  },
++  "contextMenu_updateAll": {
++    "message": "Actualizar todas las extensiones",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Añadir a Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Quitar de Chromium",
++    "description": ""
++  },
++  "options_advanced": { "message": "Avanzado", "description": "MTL" },
++  "notify_manuallyInstall_title": {
++    "message": "¡Extensión descargada! Instale manualmente:",
++    "description": "MTL"
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Habilite los botones Instalar/Desinstalar en Chrome Web Store. (Podría exponer información sobre qué extensiones ha instalado en Google).",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Habilite el modo Desarrollador (arriba a la derecha)\n2. Arrastre .crx desde la barra de descargas a la página de extensiones",
++    "description": "MTL"
++  },
++  "options_manuallyInstall": {
++    "message": "Descargue siempre archivos CRX",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Cambie esta opción si recibe errores 'CRX_REQUIRED_PROOF_MISSING'",
++    "description": "MTL"
++  },
++  "options_webstoreIntegration": {
++    "message": "Habilitar la integración de Chrome Web Store",
++    "description": "MTL"
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/fr/messages.json b/chrome/browser/resources/chromium-web-store/_locales/fr/messages.json
+new file mode 100644
+index 0000000..24d85e2
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/fr/messages.json
+@@ -0,0 +1,137 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "Le nom de l'extension, affiché dans le Chrome Web Store."
++  },
++  "extension_Description": {
++    "message": "Active l'installation et la mise à jour semi-automatique des extensions installées depuis le Chrome Web Store (ou d'ailleurs) sur les navigateurs basés sur Chromium.",
++    "description": "La description de l'extension, affichée dans le Chrome Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Options de mise à jour",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Extensions ignorées",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Importer/Exporter",
++    "description": "MTL"
++  },
++  "options_autoUpdate": {
++    "message": "Vérifier automatiquement les mises à jour des extensions",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Cliquez sur le badge Chromium Web Store pour lancer une vérification manuelle",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Rechercher des mises à jour pour les extensions installées depuis le Chrome Web Store",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Contactera Google pour rechercher des mises à jour",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Recherche des mises à jour pour les extensions installées hors du Chrome Web Store",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Ne fonctionne que si l'extension supporte les mises à jour automatiques",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Ne jamais rechercher de mise à jour pour cette extension",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Rechercher les mises à jour toutes les $delayInMinutes$ minutes",
++    "description": "delayInMinutes est le champ qui peut être édité par l'utilisateur",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_advanced": {
++    "message": "Avancé",
++    "decriptions": ""
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Changez cette option si vous avez des erreurs 'CRX_REQUIRED_PROOF_MISSING'",
++    "description": ""
++  },
++  "options_manuallyInstall": {
++    "message": "Toujours télécharger les fichiers CRX",
++    "description": ""
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Activer les boutons Ajouter/Supprimer dans le Chrome Web Store. (Peut exposer les informations sur quel extensions vous avez installer à Google.)",
++    "description": ""
++  },
++  "options_webstoreIntegration": {
++    "message": "Activer l'integration au Chrome Web Store",
++    "description": ""
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Tout installer",
++    "description": "MTL"
++  },
++  "options_importExportDescription": {
++    "message": "Sauvegardez le texte ici dans un fichier à exporter. Pour importer, collez le texte ici et appuyez sur $installButton",
++    "description": "installButton est le texte sur le bouton, défini dans options_importExportInstallAllButton",
++    "placeholders": {
++      "installButton": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_checkingForUpdates": {
++    "message": "Recherche de mises à jour...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "Toutes les extensions sont à jour!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "La mise à jour de $extName$ a échouée",
++    "description": "extName sera le nom de l'extension qui a échoué à être mis à jour.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Les extensions suivantes ont été retirées du Chrome Web Store",
++    "description": "Sera affiché au dessus de la liste des extensions retirées."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Ces extensions peuvent avoir été retirées à cause d'une violation des conditions générales d'utilisation.",
++    "description": "Affiché en survolant popup_removedExtensions."
++  },
++  "contextMenu_updateAll": {
++    "message": "Mettre à jour toutes les extensions",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Ajouter à Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Supprimer de Chromium",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_title": {
++    "message": "Extension téléchargées! Merci d'installer manuellement:",
++    "description": ""
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Activez le mode développeur (En haut à droite)\n2. Glissez .crx depuis la bar de téléchargements dans la page extensions",
++    "description": ""
++  }
++}
+\ No newline at end of file
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/it/messages.json b/chrome/browser/resources/chromium-web-store/_locales/it/messages.json
+new file mode 100644
+index 0000000..061c7f9
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/it/messages.json
+@@ -0,0 +1,130 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "Il titolo dell'estensione, mostrato nel Chrome Web Store."
++  },
++  "extension_Description": {
++    "message": "Permette di installare ed aggiornare in modo semiautomatico estensioni del Chrome Web Store",
++    "description": "La descrizione dell'estensione, mostrata nel Chrome Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Opzioni di aggiornamento",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Estensioni ignorate",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Importa/Esporta",
++    "description": ""
++  },
++  "options_autoUpdate": {
++    "message": "Controlla automaticamente se ci sono aggiornamenti delle estensioni",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Clicca sul badge del Chromium Web Store per fare un controllo manuale degli aggiornamenti",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Controlla gli aggiornamenti per estensioni del Chrome Web Store",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Contatterà Google per controllare gli aggiornamenti",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Controlla gli aggiornamenti per estensioni che non vengono dal Chrome Web Store",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Funziona solo se l'estensione supporta l'auto-aggiornamento",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Non controllare mai se ci sono aggiornamenti per questa estensione",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Controlla se ci sono aggiornamenti ogni $delayInMinutes$ minuti",
++    "description": "delayInMinutes sarà un valore che può essere modificato dall'utente",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Installa tutto",
++    "description": ""
++  },
++  "popup_checkingForUpdates": {
++    "message": "Controllando se ci sono aggiornamenti...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "Tutte le estensioni sono aggiornate!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "L'aggiornamento di $extName$ non è riuscito",
++    "description": "extName sarà il nome dell'estensione che non è stato possibile aggiornare.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Le seguenti estensioni sono state rimosse dal Chrome Web Store",
++    "description": "Sarà mostrato sopra alla lista delle estensioni rimosse."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Queste potrebbero essere state rimosse per una violazione dei Termini di Servizio",
++    "description": "Mostrato quando si passa sopra a popup_removedExtensions"
++  },
++  "contextMenu_updateAll": {
++    "message": "Aggiorna tutte le estensioni",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Aggiungi a Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Rimuovere da Chromium",
++    "description": "MTL"
++  },
++  "options_webstoreIntegration": {
++    "message": "Abilita l'integrazione del Chrome Web Store",
++    "description": "MTL"
++  },
++  "options_manuallyInstall": {
++    "message": "Scarica sempre i file CRX",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_title": {
++    "message": "Estensione scaricata! Si prega di installare manualmente:",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Abilita la modalità sviluppatore (in alto a destra)\n2. Trascina .crx dalla barra dei download sulla pagina delle estensioni",
++    "description": "MTL"
++  },
++  "options_importExportDescription": {
++    "message": "Salva il testo qui in un file da esportare. Per importare, incolla qui il testo e premi $installButton$",
++    "description": "MTL",
++    "placeholders": { "installButton": { "content": "$1" } }
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Abilita i pulsanti Installa/Disinstalla sul Chrome Web Store. (Potrebbe esporre a Google informazioni su quali estensioni hai installato.)",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Attiva questa opzione se ricevi errori 'CRX_REQUIRED_PROOF_MISSING'.",
++    "description": "MTL"
++  },
++  "options_advanced": { "message": "Avanzate", "description": "MTL" }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/ko/messages.json b/chrome/browser/resources/chromium-web-store/_locales/ko/messages.json
+new file mode 100644
+index 0000000..c46721a
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/ko/messages.json
+@@ -0,0 +1,138 @@
++{
++    "extension_Name": {
++        "message": "Chromium 웹 스토어",
++        "description": "Chrome 웹 스토어에 표시되는 확장 프로그램의 이름입니다."
++    },
++    "extension_Description": {
++        "message": "Chromium 기반 브라우저에서 Chrome 웹 스토어(또는 다른 곳)를 통해 확장 프로그램을 설치하고 반자동으로 업데이트할 수 있습니다.",
++        "description": "Chrome 웹 스토어에 표시되는 확장 프로그램의 개요입니다."
++    },
++
++    "options_updateHeading": {
++        "message": "업데이트 옵션",
++        "description": ""
++    },
++    "options_ignoredExtensionsHeading": {
++        "message": "제외할 확장 프로그램",
++        "description": ""
++    },
++    "options_importExportHeading": {
++        "message": "가져오기/내보내기",
++        "description": ""
++    },
++    "options_autoUpdate": {
++        "message": "확장 프로그램 업데이트를 자동으로 확인",
++        "description": ""
++    },
++    "options_autoUpdateTooltip": {
++        "message": "수동으로 확인하려면 Chromium 웹 스토어 배지를 클릭하세요.",
++        "description": ""
++    },
++    "options_updateWebstore": {
++        "message": "Chrome 웹 스토어에서 설치한 확장 프로그램의 업데이트 확인",
++        "description": ""
++    },
++    "options_updateWebstoreTooltip": {
++        "message": "업데이트 확인을 위해 Google에 접속합니다.",
++        "description": ""
++    },
++    "options_updateNonWebstore": {
++        "message": "다른 스토어에서 설치한 확장 프로그램의 업데이트 확인",
++        "description": ""
++    },
++    "options_updateNonWebstoreTooltip": {
++        "message": "해당 확장 프로그램이 자동 업데이트를 지원해야 합니다.",
++        "description": ""
++    },
++    "options_neverCheckTooltip": {
++        "message": "이 확장 프로그램의 업데이트를 확인하지 않습니다.",
++        "description": ""
++    },
++    "options_updateDelay": {
++        "message": "$delayInMinutes$ 분 간격으로 업데이트 확인",
++        "description": "delayInMinutes는 사용자가 편집할 수 있는 영역입니다.",
++        "placeholders": {
++            "delayInMinutes": {
++                "content": "$1"
++            }
++        }
++    },
++    "options_advanced": {
++        "message": "고급",
++        "description": ""
++    },
++    "options_manuallyInstallTooltip": {
++        "message": "'CRX_REQUIRED_PROOF_MISSING' 오류가 계속 발생하면 이 옵션을 켜세요.",
++        "description": ""
++    },
++    "options_manuallyInstall": {
++        "message": "항상 CRX 파일을 다운로드",
++        "description": ""
++    },
++    "options_webstoreIntegrationTooltip": {
++        "message": "Chrome 웹 스토어에서 추가/삭제 버튼을 활성화합니다. (확장 프로그램 설치 정보가 Google에 노출될 수 있습니다.)",
++        "description": ""
++    },
++    "options_webstoreIntegration": {
++        "message": "Chrome 웹 스토어 통합",
++        "description": ""
++    },
++    "options_importExportInstallAllButton": {
++        "message": "모두 설치",
++        "description": ""
++    },
++    "options_importExportDescription": {
++        "message": "내보낼 파일에 이곳의 텍스트를 저장합니다. 가져오려면 해당 텍스트를 여기에 붙여넣고 $installButton$을 누르세요.",
++        "description": "installButton은 options_importExportInstallAllButton에 정의된 버튼의 텍스트입니다.",
++        "placeholders": {
++            "installButton": {
++                "content": "$1"
++            }
++        }
++    },
++    "popup_checkingForUpdates": {
++        "message": "업데이트 확인 중...",
++        "description": ""
++    },
++    "popup_allUpToDate": {
++        "message": "모든 확장 프로그램이 최신 버전입니다!",
++        "description": ""
++    },
++    "popup_updateFailed": {
++        "message": "$extName$ 업데이트 실패",
++        "description": "extName은 업데이트에 실패한 확장 프로그램의 이름입니다.",
++        "placeholders": {
++            "extName": {
++                "content": "$1"
++            }
++        }
++    },
++    "popup_removedExtensions": {
++        "message": "다음 확장 프로그램이 Chrome 웹 스토어에서 제거되었습니다.",
++        "description": "제거된 확장 프로그램 목록 위에 표시됩니다."
++    },
++    "popup_removedExtensionsTooltip": {
++        "message": "서비스 약관 위반으로 인해 제거되었을 수 있습니다.",
++        "description": "popup_removedExtensions 위로 마우스를 가져가면 표시됩니다."
++    },
++    "contextMenu_updateAll": {
++        "message": "모든 확장 프로그램 업데이트",
++        "description": ""
++    },
++    "webstore_addButton": {
++        "message": "Chromium에 추가",
++        "description": ""
++    },
++    "webstore_removeButton": {
++        "message": "Chromium에서 삭제",
++        "description": ""
++    },
++    "notify_manuallyInstall_title": {
++        "message": "확장 프로그램이 다운로드되었습니다! 수동으로 설치하세요:",
++        "description": ""
++    },
++    "notify_manuallyInstall_message": {
++        "message": "1. 개발자 모드 활성화(오른쪽 상단)\n2. 다운로드 바에서 확장 프로그램 페이지로 .crx 파일을 드래그하세요.",
++        "description": ""
++    }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/no/messages.json b/chrome/browser/resources/chromium-web-store/_locales/no/messages.json
+new file mode 100644
+index 0000000..d4d18ff
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/no/messages.json
+@@ -0,0 +1,134 @@
++{
++  "extension_Name": {
++    "message": "Chromium Nettmarked",
++    "description": "The title of the extension, displayed in the Chrome Web Store."
++  },
++  "extension_Description": {
++    "message": "Aktiverer installasjon og halvautomatisk oppdatering for utvidelser fra Chrome Nettmarked (eller andre steder) for Chromium-baserte nettlesere.",
++    "description": "The description of the extension, displayed in the Chrome Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Oppdateringsalternativer",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Ignorerte utvidelser",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Importer/Eksporter",
++    "description": ""
++  },
++  "options_autoUpdate": {
++    "message": "Se etter utvidelsesoppdateringer automatisk",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Klikk på Chromium Nettmarked-merket for å utføre en manuell sjekk",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Se etter oppdateringer for Chrome Nettmarked-utvidelser",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Vil kontakte Google for å se etter oppdateringer",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Se etter oppdateringer for utvidelser som ikke er fra Chrome Nettmarked",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Fungerer bare hvis utvidelsen støtter auto-oppdatering",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Se aldri etter oppdateringer for denne utvidelsen",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Se etter oppdateringer hvert $delayInMinutes$ minutt",
++    "description": "delayInMinutes will be a field that can be edited by the user",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Installer alle",
++    "description": ""
++  },
++  "options_importExportDescription": {
++    "message": "Lagre teksten her til en fil for eksport. For å importere: lim inn teksten her og trykk $installButton$",
++    "description": "installButton is the text on the button, defined in options_importExportInstallAllButton",
++    "placeholders": {
++      "installButton": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_checkingForUpdates": {
++    "message": "Ser etter oppdateringer...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "Alle utvidelser er oppdatert!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "$extName$ Oppdatering mislyktes",
++    "description": "extName will be the name of the extension that failed to update.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Følgende utvidelser er fjernet fra Chrome Nettmarked",
++    "description": "Will be shown above list of removed extensions."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Disse kan ha blitt fjernet på grunn av brudd på vilkårene for bruk.",
++    "description": "Shown when hovering over popup_removedExtensions."
++  },
++  "contextMenu_updateAll": {
++    "message": "Oppdater alle utvidelser",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Legg til i Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Fjern fra Chromium",
++    "description": ""
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Aktiver Installer/Avinstaller-knapper på Chrome Nettmarked. (Kan avsløre informasjon om hvilke utvidelser du har installert for Google.)",
++    "description": "MTL"
++  },
++  "options_manuallyInstall": {
++    "message": "Last alltid ned CRX-filer",
++    "description": "MTL"
++  },
++  "options_advanced": { "message": "Avansert", "description": "MTL" },
++  "notify_manuallyInstall_title": {
++    "message": "Utvidelsen er lastet ned! Vennligst installer manuelt:",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Aktiver utviklermodus (øverst til høyre)\n2. Dra .crx fra nedlastingslinjen til utvidelsessiden",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Slå på dette alternativet hvis du får 'CRX_REQUIRED_PROOF_MISSING'-feil",
++    "description": "MTL"
++  },
++  "options_webstoreIntegration": {
++    "message": "Aktiver Chrome Nettmarked-integrasjon",
++    "description": "MTL"
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/pl/messages.json b/chrome/browser/resources/chromium-web-store/_locales/pl/messages.json
+new file mode 100644
+index 0000000..e3a64e4
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/pl/messages.json
+@@ -0,0 +1,130 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "Nazwa rozszerzenia, pokazywana w Chrome Web Store."
++  },
++  "extension_Description": {
++    "message": "Umożliwia instalację oraz półautomatyczną aktualizację dla rozszerzeń z Chrome Web Store (albo skądś indziej) na przeglądarkach bazujących na Chromium.",
++    "description": "Opis rozszerzenia, pokazywany w Chrome Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Zaktualizuj opcje",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Ignorowane rozszerzenia",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Import/Eksport",
++    "description": "MTL"
++  },
++  "options_autoUpdate": {
++    "message": "Automatycznie sprawdzaj aktualizacje rozszerzeń",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Kliknij na ikonę Chromium Web Store, aby manualnie sprawdzić",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Sprawdź aktualizacje rozszerzeń Chrome Web Store",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Skontaktujemy się z Google, aby sprawdzić aktualizacje",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Sprawdź aktualizacje dla rozszerzeń spoza Chrome Web Store",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Działa tylko wtedy, jeżeli rozszerzenie wspiera automatyczne aktualizacje",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Nigdy nie sprawdzaj aktualizacji dla tego rozszerzenia",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Sprawdzaj aktualizacje co $delayInMinutes$ minut",
++    "description": "MTL",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Zainstaluj wszystko",
++    "description": "MTL"
++  },
++  "popup_checkingForUpdates": {
++    "message": "Sprawdzanie aktualizacji...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "Wszystkie rozszerzenia są aktualne!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "Aktualizacja $extName$ nieudana",
++    "description": "extName będzie nazwą rozszerzenia, któremu nie udało się zaktualizować.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Następujące rozszerzenia zostały usunięte z Chrome Web Store",
++    "description": "MTL"
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Mogły zostać usunięte z powodu naruszenia Warunków korzystania z usługi.",
++    "description": "MTL"
++  },
++  "contextMenu_updateAll": {
++    "message": "Zaktualizuj wszystkie rozszerzenia",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Dodaj do Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Usuń z Chromium",
++    "description": "MTL"
++  },
++  "options_manuallyInstall": {
++    "message": "Zawsze pobieraj pliki CRX",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_title": {
++    "message": "Rozszerzenie pobrane! Zainstaluj ręcznie:",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Włącz tryb programisty (w prawym górnym rogu)\n2. Przeciągnij plik .crx z paska pobierania na stronę rozszerzeń",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Przełącz tę opcję, jeśli otrzymujesz błędy „CRX_REQUIRED_PROOF_MISSING”.",
++    "description": "MTL"
++  },
++  "options_importExportDescription": {
++    "message": "Zapisz tutaj tekst do pliku, który chcesz wyeksportować. Aby zaimportować, wklej tutaj ten tekst i naciśnij $installButton$",
++    "description": "MTL",
++    "placeholders": { "installButton": { "content": "$1" } }
++  },
++  "options_webstoreIntegration": {
++    "message": "Włącz integrację ze sklepem Chrome Web Store",
++    "description": "MTL"
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Włącz przyciski Instaluj/Odinstaluj w sklepie Chrome Web Store. (Może ujawnić Google informacje o zainstalowanych rozszerzeniach).",
++    "description": "MTL"
++  },
++  "options_advanced": { "message": "Zaawansowany", "description": "MTL" }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/pt_BR/messages.json b/chrome/browser/resources/chromium-web-store/_locales/pt_BR/messages.json
+new file mode 100644
+index 0000000..5acc8c1
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/pt_BR/messages.json
+@@ -0,0 +1,130 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "O título da extensão, exibido na Loja Web de Chrome."
++  },
++  "extension_Description": {
++    "message": "Permite a instalação e atualização semi-automática de extensões da Loja Web de Chrome (ou outra localidade) em navegadores baseados no Chromium.",
++    "description": "A descrição da extensão, exibida na Loja Web de Chrome."
++  },
++  "options_updateHeading": {
++    "message": "Opções de atualização",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Extensões ignoradas",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Importar/Exportar",
++    "description": "MTL"
++  },
++  "options_autoUpdate": {
++    "message": "Buscar automaticamente por atualizações de extensões",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Clique no ícone da Loja Web de Chromium para efectuar uma verificação manual",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Verificar se há atualizações das extensões na Loja Web de Chrome",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Conectará ao Google para buscar por atualizações",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Buscar por atualizações das extensões fora da Loja Web de Chrome",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Só funcionará se a extensão suportar a auto-atualização",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Nunca buscar por atualizações para esta extensão",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Buscar por atualizações a cada $delayInMinutes$ minutos",
++    "description": "delayInMinutes será um campo que pode ser editado pelo usuário",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Instalar tudo",
++    "description": "MTL"
++  },
++  "popup_checkingForUpdates": {
++    "message": "buscando por atualizações...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "Todas as extensões são atualizadas!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "Atualização de $extName$ falhou",
++    "description": "extName será o nome da extensão que não foi atualizada.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "As seguintes extensões foram removidas da Loja Web de Chrome",
++    "description": "MTL"
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Poderia ter sido devido à violação dos Termos de Serviço.",
++    "description": "MTL"
++  },
++  "contextMenu_updateAll": {
++    "message": "Atualizar todas as extensões",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Adicionar ao Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Remover do Chromium",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Alterne esta opção se você estiver recebendo erros 'CRX_REQUIRED_PROOF_MISSING'",
++    "description": "MTL"
++  },
++  "options_webstoreIntegration": {
++    "message": "Ativar integração com a Chrome Web Store",
++    "description": "MTL"
++  },
++  "options_advanced": { "message": "Avançado", "description": "MTL" },
++  "options_importExportDescription": {
++    "message": "Salve o texto aqui em um arquivo para exportar. Para importar cole esse texto aqui e pressione $installButton$",
++    "description": "MTL",
++    "placeholders": { "installButton": { "content": "$1" } }
++  },
++  "options_manuallyInstall": {
++    "message": "Sempre baixe arquivos CRX",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Ative o modo Desenvolvedor (canto superior direito)\n2. Arraste .crx da barra de downloads para a página de extensões",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_title": {
++    "message": "Extensão baixada! Instale manualmente:",
++    "description": "MTL"
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Ative os botões Instalar/Desinstalar na Chrome Web Store. (Poderia expor informações sobre quais extensões você instalou no Google.)",
++    "description": "MTL"
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/pt_PT/messages.json b/chrome/browser/resources/chromium-web-store/_locales/pt_PT/messages.json
+new file mode 100644
+index 0000000..db473d9
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/pt_PT/messages.json
+@@ -0,0 +1,130 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "The title of the extension, displayed in the Chrome Web Store."
++  },
++  "extension_Description": {
++    "message": "Permite a instalação e a atualização semi-automática das extensões a partir da Chrome Web Store (ou outra loja), nos navegadores baseados em Chromium.",
++    "description": "The description of the extension, displayed in the Chrome Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Opções de atualização",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Extensões ignoradas",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Importar/Exportar",
++    "description": ""
++  },
++  "options_autoUpdate": {
++    "message": "Procurar automaticamente por atualizações das extensões",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Clique no ícone Chromium Web Store para executar uma verificação manual",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Procurar atualizações na Chrome Web Store",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Ao executar esta ação, enviará dados à Google",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Procurar atualizações para as extensões que não pertençam à Chrome Web Store",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Apenas funcional se a extensão permitir a atualização automática",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Nunca procurar atualizações para esta extensão",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Procurar por atualizações a cada $delayInMinutes$ minutos",
++    "description": "delayInMinutes will be a field that can be edited by the user",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Instalar tudo",
++    "description": ""
++  },
++  "popup_checkingForUpdates": {
++    "message": "A procurar atualizações...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "As suas extensões estão atualizadas!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "Falha ao atualizar $extName$",
++    "description": "extName will be the name of the extension that failed to update.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "As extensões abaixo indicadas foram removidas da Chrome Web Store",
++    "description": "Will be shown above list of removed extensions."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "As extensões podem ter sido removidas por violarem os Termos do Serviço.",
++    "description": "Shown when hovering over popup_removedExtensions."
++  },
++  "contextMenu_updateAll": {
++    "message": "Atualizar todas as extensões",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Adicionar ao Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Remover do Chromium",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Alterne esta opção se você estiver recebendo erros 'CRX_REQUIRED_PROOF_MISSING'",
++    "description": "MTL"
++  },
++  "options_webstoreIntegration": {
++    "message": "Ativar integração com a Chrome Web Store",
++    "description": "MTL"
++  },
++  "options_advanced": { "message": "Avançado", "description": "MTL" },
++  "options_importExportDescription": {
++    "message": "Salve o texto aqui em um arquivo para exportar. Para importar cole esse texto aqui e pressione $installButton$",
++    "description": "MTL",
++    "placeholders": { "installButton": { "content": "$1" } }
++  },
++  "options_manuallyInstall": {
++    "message": "Sempre baixe arquivos CRX",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Ative o modo Desenvolvedor (canto superior direito)\n2. Arraste .crx da barra de downloads para a página de extensões",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_title": {
++    "message": "Extensão baixada! Instale manualmente:",
++    "description": "MTL"
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Ative os botões Instalar/Desinstalar na Chrome Web Store. (Poderia expor informações sobre quais extensões você instalou no Google.)",
++    "description": "MTL"
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/ru/messages.json b/chrome/browser/resources/chromium-web-store/_locales/ru/messages.json
+new file mode 100644
+index 0000000..c44f39d
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/ru/messages.json
+@@ -0,0 +1,130 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "Название расширения, отображаемое в Web Store."
++  },
++  "extension_Description": {
++    "message": "Включает установку и полуавтоматическое обновление расширений из Chrome Web Store (или других сайтов) в браузерах, основанных на Chromium.",
++    "description": "Описание расширения, отображаемое в Web Store."
++  },
++  "options_updateHeading": {
++    "message": "Настройки обновлений",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Исключенные расширения",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "Импорт/Экспорт",
++    "description": "MTL"
++  },
++  "options_autoUpdate": {
++    "message": "Автоматически проверять обновления расширений",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Нажмите на ярлык Chromium Web Store, чтобы выполнить ручную проверку",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Проверять обновления расширений из Web Store",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Для проверки обновлений требуется подключение к серверам Google",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Проверять обновления расширений не из Web Store",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Работает только в том случае, если расширение поддерживает автоматическое обновление",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Никогда не проверять обновления для этого расширения",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Проверять наличие обновлений каждые $delayInMinutes$ минут",
++    "description": "delayInMinutes - поле, содержимое которого может изменять пользователь",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Установить все",
++    "description": "MTL"
++  },
++  "popup_checkingForUpdates": {
++    "message": "Проверка обновлений...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "Обновлений расширений нет!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "$extName$: не удалось обновить",
++    "description": "extName - название расширения, которое не удалось обновить.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Данные расширения были удалены из Chrome Web Store",
++    "description": "Отображается вверху списка удаленных расширений."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Они могли быть удалены из-за нарушения Условий использования.",
++    "description": "Отображается при наведении на popup_removedExtensions."
++  },
++  "contextMenu_updateAll": {
++    "message": "Обновить все расширения",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Добавить в Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Удалить из Chromium",
++    "description": "MTL"
++  },
++  "options_manuallyInstall": {
++    "message": "Всегда скачивайте файлы CRX",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_title": {
++    "message": "Расширение скачано! Пожалуйста, установите вручную:",
++    "description": "MTL"
++  },
++  "options_webstoreIntegration": {
++    "message": "Включить интеграцию с Интернет-магазином Chrome",
++    "description": "MTL"
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Включите эту опцию, если вы получаете ошибки «CRX_REQUIRED_PROOF_MISSING».",
++    "description": "MTL"
++  },
++  "options_importExportDescription": {
++    "message": "Сохраните текст здесь в файл для экспорта. Чтобы импортировать, вставьте этот текст сюда и нажмите $installButton$.",
++    "description": "MTL",
++    "placeholders": { "installButton": { "content": "$1" } }
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Включите режим разработчика (вверху справа)\n2. Перетащите .crx с панели загрузок на страницу расширений.",
++    "description": "MTL"
++  },
++  "options_advanced": { "message": "Передовой", "description": "MTL" },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Включите кнопки «Установить/Удалить» в Интернет-магазине Chrome. (Может предоставить Google информацию о том, какие расширения вы установили.)",
++    "description": "MTL"
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/tr/messages.json b/chrome/browser/resources/chromium-web-store/_locales/tr/messages.json
+new file mode 100644
+index 0000000..45b5b45
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/tr/messages.json
+@@ -0,0 +1,138 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Mağazası",
++    "description": "Chrome Web Mağazası'nda görüntülenen uzantının başlığı."
++  },
++  "extension_Description": {
++    "message": "Chromium tabanlı tarayıcılarda Chrome Web Mağazası'ndan (veya başka bir yerden) uzantılar için yükleme ve yarı otomatik güncelleme sağlar.",
++    "description": "Chrome Web Mağazası'nda görüntülenen uzantının başlığı."
++  },
++
++  "options_updateHeading": {
++    "message": "Güncelleme seçenekleri",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "Yoksayılan uzantılar",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "İçe/Dışa Aktar",
++    "description": ""
++  },
++  "options_autoUpdate": {
++    "message": "Uzantı güncellemelerini otomatik olarak denetle",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "Elle kontrol yapmak için Chromium Web Mağazası rozetine tıklayın",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "Chrome Web Mağazası uzantılarında güncelleme olup olmadığını denetle",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "Güncellemeleri denetlemek için Google ile iletişime geçilecek",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "Chrome Web Mağazası'ndan olmayan uzantılara yönelik güncellemeleri denetle",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "Yalnızca uzantı otomatik güncellemeyi destekliyorsa çalışır",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "Bu uzantının güncellemelerini asla denetleme",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "Her $delayInMinutes$ dakikada bir güncellemeleri denetle",
++    "description": "delayInMinutes kullanıcı tarafından düzenlenebilen bir alan olacaktır",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_advanced": {
++    "message": "Gelişmiş",
++    "description": ""
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "Eğer 'CRX_REQUIRED_PROOF_MISSING' hataları alıyorsanız, bu seçeneği etkinleştirin",
++    "description": ""
++  },
++  "options_manuallyInstall": {
++    "message": "CRX dosyalarını her zaman indir",
++    "description": ""
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "Chrome Web Mağazası'nda Yükle/Kaldır düğmelerini etkinleştir. (Google'a hangi uzantıları yüklediğinize dair bilgileri ifşa edebilir.)",
++    "description": ""
++  },
++  "options_webstoreIntegration": {
++    "message": "Chrome Web Store Bağlantısını Etkinleştir",
++    "description": ""
++  },
++  "options_importExportInstallAllButton": {
++    "message": "Hepsini Yükle",
++    "description": ""
++  },
++  "options_importExportDescription": {
++    "message": "Metni dışa aktarmak için buraya bir dosyaya kaydedin. İçe aktarmak için bu metni buraya yapıştırın ve $installButton$'a basın",
++    "description": "installButton options_importExportInstallAllButton içinde tanımlanan düğme üzerindeki metindir",
++    "placeholders": {
++      "installButton": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_checkingForUpdates": {
++    "message": "Güncellemeler denetleniyor...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "Tüm uzantılar güncel!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "$extName$ Güncelleme başarısız oldu",
++    "description": "extName güncellenemeyen uzantının adı olacaktır.",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "Aşağıdaki uzantılar Chrome Web Mağazası'ndan kaldırıldı",
++    "description": "Kaldırılan uzantıların listesinin üstünde gösterilecektir."
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "Bunlar, Hizmet Koşulları'nın ihlali nedeniyle kaldırılmış olabilir.",
++    "description": "Popup_removedExtensions'ın üzerine gelindiğinde gösterilir."
++  },
++  "contextMenu_updateAll": {
++    "message": "Tüm uzantıları güncelle",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "Chromium'a ekle",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "Chromium'dan kaldır",
++    "description": ""
++  },
++  "notify_manuallyInstall_title": {
++    "message": "Eklenti indirildi! Lütfen elle yükleyin:",
++    "description": ""
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. Geliştirici Modu'nu etkinleştirin (sağ üstten) \n2. İndirilenler'den .crx dosyasını Uzantılar sayfasına sürükleyin",
++    "description": ""
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/zh_CN/messages.json b/chrome/browser/resources/chromium-web-store/_locales/zh_CN/messages.json
+new file mode 100644
+index 0000000..c82ec65
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/zh_CN/messages.json
+@@ -0,0 +1,137 @@
++{
++  "extension_Name": {
++    "message": "Chromium Web Store",
++    "description": "扩展的标题，显示在 Chrome Web Store 中。"
++  },
++  "extension_Description": {
++    "message": "在基于 Chromium 的浏览器上启用对来自 Chrome Web Store (或其它地方)的扩展的安装和半自动更新。",
++    "description": "扩展的说明，显示在 Chrome Web Store 中。"
++  },
++  "options_updateHeading": {
++    "message": "更新选项",
++    "description": ""
++  },
++  "options_ignoredExtensionsHeading": {
++    "message": "忽略的扩展",
++    "description": ""
++  },
++  "options_importExportHeading": {
++    "message": "导入/导出",
++    "description": ""
++  },
++  "options_autoUpdate": {
++    "message": "自动检查扩展更新",
++    "description": ""
++  },
++  "options_autoUpdateTooltip": {
++    "message": "点击 Chromium Web Store 标记来执行手动检查",
++    "description": ""
++  },
++  "options_updateWebstore": {
++    "message": "检查 Chrome Web Store 扩展的更新",
++    "description": ""
++  },
++  "options_updateWebstoreTooltip": {
++    "message": "将会联系 Google 检查更新",
++    "description": ""
++  },
++  "options_updateNonWebstore": {
++    "message": "检查非 Chrome Web Store 扩展的更新",
++    "description": ""
++  },
++  "options_updateNonWebstoreTooltip": {
++    "message": "仅支持自动更新的扩展有效",
++    "description": ""
++  },
++  "options_neverCheckTooltip": {
++    "message": "从不检查这个扩展的更新",
++    "description": ""
++  },
++  "options_updateDelay": {
++    "message": "每隔 $delayInMinutes$ 分钟检查一次更新",
++    "description": "delayInMinutes 将是用户可以编辑的一个字段",
++    "placeholders": {
++      "delayInMinutes": {
++        "content": "$1"
++      }
++    }
++  },
++  "options_advanced": {
++    "message": "高级",
++    "description": ""
++  },
++  "options_manuallyInstallTooltip": {
++    "message": "解除 Chrome 等浏览器对第三方插件源的 'CRX_REQUIRED_PROOF_MISSING' 屏蔽",
++    "description": ""
++  },
++  "options_manuallyInstall": {
++    "message": "手动安装",
++    "description": ""
++  },
++  "options_importExportInstallAllButton": {
++    "message": "安装全部",
++    "description": ""
++  },
++  "options_importExportDescription": {
++    "message": "保存这里的文本到一个用来导出的文件。 要导入则把文本粘贴到这里并按下 $installButton$",
++    "description": "installButton 是按钮上的文本，在 options_importExportInstallAllButton 中定义",
++    "placeholders": {
++      "installButton": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_checkingForUpdates": {
++    "message": "正在检查更新...",
++    "description": ""
++  },
++  "popup_allUpToDate": {
++    "message": "所有扩展都是最新的!",
++    "description": ""
++  },
++  "popup_updateFailed": {
++    "message": "$extName$ 更新失败",
++    "description": "extName 将是未能更新的扩展的名称。",
++    "placeholders": {
++      "extName": {
++        "content": "$1"
++      }
++    }
++  },
++  "popup_removedExtensions": {
++    "message": "下列扩展已从 Chrome Web Store 中移除",
++    "description": "将会显示在已移除扩展的列表上方。"
++  },
++  "popup_removedExtensionsTooltip": {
++    "message": "这些可能由于违反服务条款而被移除。",
++    "description": "当悬停在 popup_removedExtensions 时显示。"
++  },
++  "contextMenu_updateAll": {
++    "message": "更新所有扩展",
++    "description": ""
++  },
++  "webstore_addButton": {
++    "message": "添加到 Chromium",
++    "description": ""
++  },
++  "webstore_removeButton": {
++    "message": "从 Chromium 中删除",
++    "description": "MTL"
++  },
++  "notify_manuallyInstall_title": {
++    "message": "插件下载完成！请手动安装：",
++    "description": ""
++  },
++  "notify_manuallyInstall_message": {
++    "message": "1. 激活“开发者模式”\n2. 拖拽文件",
++    "description": ""
++  },
++  "options_webstoreIntegration": {
++    "message": "启用 Chrome 网上应用店集成",
++    "description": "MTL"
++  },
++  "options_webstoreIntegrationTooltip": {
++    "message": "启用 Chrome 网上应用店中的安装/卸载按钮。 （可能会向 Google 公开有关您安装的扩展程序的信息。）",
++    "description": "MTL"
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/_locales/zh_TW/messages.json b/chrome/browser/resources/chromium-web-store/_locales/zh_TW/messages.json
+new file mode 100644
+index 0000000..17def49
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/_locales/zh_TW/messages.json
+@@ -0,0 +1,138 @@
++{
++    "extension_Name": {
++        "message": "Chromium 線上應用程式商店",
++        "description": "The title of the extension, displayed in the Chrome Web Store."
++    },
++    "extension_Description": {
++        "message": "允許在基於 Chromium 的瀏覽器上安裝和半自動更新來自 Chrome 線上應用程式商店（或其他地方）的擴充功能。",
++        "description": "The description of the extension, displayed in the Chrome Web Store."
++    },
++
++    "options_updateHeading": {
++        "message": "更新選項",
++        "description": ""
++    },
++    "options_ignoredExtensionsHeading": {
++        "message": "已忽略的擴充功能",
++        "description": ""
++    },
++    "options_importExportHeading": {
++        "message": "匯入／匯出",
++        "description": ""
++    },
++    "options_autoUpdate": {
++        "message": "自動檢查擴充功能更新",
++        "description": ""
++    },
++    "options_autoUpdateTooltip": {
++        "message": "點擊 Chromium 線上應用程式商店徽章以執行手動檢查",
++        "description": ""
++    },
++    "options_updateWebstore": {
++        "message": "檢查 Chrome 線上應用程式商店擴充功能的更新",
++        "description": ""
++    },
++    "options_updateWebstoreTooltip": {
++        "message": "將接觸 Google 以檢查更新",
++        "description": ""
++    },
++    "options_updateNonWebstore": {
++        "message": "檢查非 Chrome 線上應用程式商店擴充功能的更新",
++        "description": ""
++    },
++    "options_updateNonWebstoreTooltip": {
++        "message": "僅當擴充功能支援自動更新時有效",
++        "description": ""
++    },
++    "options_neverCheckTooltip": {
++        "message": "從不檢查此擴充功能的更新",
++        "description": ""
++    },
++    "options_updateDelay": {
++        "message": "每 $delayInMinutes$ 分鐘檢查一次更新",
++        "description": "delayInMinutes will be a field that can be edited by the user",
++        "placeholders": {
++            "delayInMinutes": {
++                "content": "$1"
++            }
++        }
++    },
++    "options_advanced": {
++        "message": "進階",
++        "description": ""
++    },
++    "options_manuallyInstallTooltip": {
++        "message": "如果你遇到「CRX_REQUIRED_PROOF_MISSING」錯誤，請啟用此選項",
++        "description": ""
++    },
++    "options_manuallyInstall": {
++        "message": "總是下載 CRX 檔案",
++        "description": ""
++    },
++    "options_webstoreIntegrationTooltip": {
++        "message": "啟用 Chrome 線上應用程式商店中的安裝／解除安裝按鈕。（可能會向 Google 傳送有關你已安裝的擴充功能的資訊。）",
++        "description": ""
++    },
++    "options_webstoreIntegration": {
++        "message": "啟用 Chrome 線上應用程式商店整合",
++        "description": ""
++    },
++    "options_importExportInstallAllButton": {
++        "message": "安裝全部",
++        "description": ""
++    },
++    "options_importExportDescription": {
++        "message": "將此處的文字儲存至檔案以匯出。若要匯入，請將該文字貼上至此處並且點擊「$installButton$」",
++        "description": "installButton is the text on the button, defined in options_importExportInstallAllButton",
++        "placeholders": {
++            "installButton": {
++                "content": "$1"
++            }
++        }
++    },
++    "popup_checkingForUpdates": {
++        "message": "檢查更新中…",
++        "description": ""
++    },
++    "popup_allUpToDate": {
++        "message": "全部擴充功能都是最新的！",
++        "description": ""
++    },
++    "popup_updateFailed": {
++        "message": "「$extName$」更新失敗",
++        "description": "extName will be the name of the extension that failed to update.",
++        "placeholders": {
++            "extName": {
++                "content": "$1"
++            }
++        }
++    },
++    "popup_removedExtensions": {
++        "message": "以下擴充功能已從 Chrome 線上應用程式商店中移除",
++        "description": "Will be shown above list of removed extensions."
++    },
++    "popup_removedExtensionsTooltip": {
++        "message": "這些擴充功能可能因為違反服務條款而被移除。",
++        "description": "Shown when hovering over popup_removedExtensions."
++    },
++    "contextMenu_updateAll": {
++        "message": "更新全部擴充功能",
++        "description": ""
++    },
++    "webstore_addButton": {
++        "message": "增加至 Chromium",
++        "description": ""
++    },
++    "webstore_removeButton": {
++        "message": "從 Chromium 中移除",
++        "description": ""
++    },
++    "notify_manuallyInstall_title": {
++        "message": "擴充功能已下載！請手動安裝：",
++        "description": ""
++    },
++    "notify_manuallyInstall_message": {
++        "message": "1. 啟用開發者模式（右上角）\n2.將 .crx 從下載欄拖曳至擴充功能頁面",
++        "description": ""
++    }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/assets/icon/icon.svg b/chrome/browser/resources/chromium-web-store/assets/icon/icon.svg
+new file mode 100644
+index 0000000..193f46d
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/assets/icon/icon.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><image width="128" height="128" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAADQ1JREFUeNrtnVlwHNUVhv/b3bNoFs1IHkmWR7It27KFF8xmHMAOxiwOsdmyGPKAMam8hIIUS1FFKoQklaRIZakkRSBgCARCxTgOlBcwBuMVxxsEI4NsbNmyLGtfR9Is3dPLzYOMidxjaaTp7umR7l/VpdJIM/d2n++cPvf0mW5CKQXT+BXHDgEDgIkBwMQAYGIAMDEAmBgATAwAJgYAEwOAiQHANNYlpHqxubn5JnZoxpYopTQcDm9PCwBCyDZ2yMaWCCEaAJ6dApgYAEwMACYGABMDgIkBwABgYgAwMQCYGABM41FCjs+/G8AfOY7bIElSk6Wew3HlgiDcSSl9GEABA8B6HdU0bVk4HG7M0vg9AI60tLS8CuA9ALPYKcA6JXievz2Lxj+v0tLSM5qm3Q5AYgBYp9eKi4tP2WUy4XD4BIDXGQDWyXaXqwkh7zMArDvYXXabk6qqXQwAi0QpLbfbnHieL2cAWKc7bTinuxgAFh7s1tbW6+0ymebm5psopbcxACxMAyilb7W2tt5gB+MTQv4FgOTqgdS92NLSkiu3DaEANhFCNmiaZnVNoJzjuLsopStyxPhaaWkpP9YAYMoQAHYxaJyLAcAAYGIAMDEAmMa2KKWEATCORQhhADAxAJgYAEwMACYGABMDgIkBwMQAYAAwMQCYGABMDAAmBgATA4BpXEkYyzsXTwJ1XcDZCNAZBdqjBF0xClkliCYpNI2AEIAQCp+TwClQTPAQFPspQl6C8gKKikLA42QA2F6KBnzRBhxuBA43AbUdBC19gL7pmVzwM9VrX/0kBJiUD1QWAVeUU1weBmYVA/wYiZ053RYelYC9dQS7TgL76wd+H5lGt5t+F/C1qcDSSuCaioHfc0GlpaUk5wFQNWBfPbDxM4K9dRSymqWJnDtCAgcsqQTumDcABUcYAKZ5+/pPgXWHgY6ocQY0UiV+4J4rgG/NB3wuBoAh6o4Dr38MvFl9QYjP6gzpMKcIgm9fRnHvAoJgHgNgVBLlAW9/5QDQL1lnPCPlcQL3LiC472rAJeQQAA0NZ2k2XWxnLfCnXUBnLLsGNErFPuCRJQRfn5HVfB+TJ5enB0BPTw9N9brZ6ooDf9qexO5aFWNPFNdW8HjsZheKfFkwPyFaQUFBet8OjkQillv//WMqntqcRJ9IbWtAI+RzAb9Y4catc3ird0ALBoP2AyAhA7/emsRbhxXbG8/Ioe++yoEnljmtzA3sB0BbH8WD6yTUtGg5Z0AjNKuEw3Pfc6M0QLIGQNYKmtWNGr77UgI1Leq5ozzUlqEBM9lMHPx4m4p7XoqjujF7OU9WANhxXMV9r4nojNKcNqARg3dEKVa/msCek+r4AODdGhWPrJeQlKnJBqTZpidtSQrw0BsittYolgNgaXliY7WCn2yUoNF0DTh+JKsUj78lQqNufHOuMPYiwM7jCn66SYRG7eV95mSNo9tUjeLHG0TsrlXGFgAH61U8sl6Eoo1tAxqRsMoKxcPrEvikwfCcIDv3B2iKaHh0vYikmgvGs8eKQ1KAB99IoKFby+0IEE8CD6wV0ROnOeF92Rte/2GRuIYfrYsjIecwAE9uElHbruaU99lp8BNtGp7alMhNAN78RMbWGnlcG9AIvfOZjE3Vcm4BcKZLw9NbRWZAg/SrLSLO9mi5AQClwM/fFhFPjr2CTbYS1qik4cmNCZhxhd5wADZ8KuPgaWWMG8/6qPNRvYLNR4w/FRhacopKwO+3ibY2m9tBMDUkwOMk8LoIqiYKiEkaJJmiJaJkr8s4DX3whYJlc5xwCdSeAOw8LuDqqW68dzRhkQcOr5kTHVg8043rKt2YE3YiXCBctHWbAkhIFL0JoKOfoqOPot9mDSpNvTKmTZDsB0BPnGDfKR4FeV54XRJikpax8UaroIfD3Vf7sPJqLy6ZlP73uggAj4vA4wJKgwOU9MYpGrooznRqtogOZyMCJgVkuAVjkkLDGkLWfSTg4zMD/QYBj4R/Huq13PEn+Hj8cGk+Vi3ywecyNr1RVKCuXUNtm4akkl0IJuUrmFU84lMtDQaDnCkRoDdB8MlZ/rxtYpITkwsENPQoljg/IcB3rvLiZ3cVotBrTmlD4IGZpRwqijkca9Zwqk3LWgrb0i9gaiEHlwFRwBAAdp/gof7fXGSVYGmVH3/f12O6+5cEeDy7qgjXznAP+25Rpqjv1NDQpaErqiFxbqma5wQm+DhMnsBhaoiD23HxFi0HD1xazmFigODj0ypE2XoANAo09jow3YBcIGMARJngQB2nW6O29zmwsMKFg6cl01z/mhluvLC6CCH/xTts2/s0vPeZjL0nFNQ0DZ/lO3lgTpmARTMFfGOeAyF/6ohSnE+wdLaAgyfV9DqbDFZjRMDUwiR4ktnYGecA++s4/Pu/jtTnZK+GtYc6oJpwfG6Z68Hzq4su6q3HmlW88qGEPcflNBtQUhRJCLCkyoHVi12oKuUv6o2HTqlo6rEegtklIkrz005IUuYAGQPw5+0OnOm++HlX4GJ4+0jU0B2/7TIvnruvKOV39LuiFM9sS+DdI7KhlbMb5zjw+K15KPTpgaMUOJAFCIJ5Kq4qS2QEQEYZU3s/hzNd3JAFL7fgQcCdyTCDP/C6SheeuTeU0vgfHpex8tl+vFM94PVGFJm/3D6okbHyuX7sPaGkTEIXTudRkk+MHXSYLRLnEZczaynPCIAjjcO/PSoR3DY/H0aUTMMFAl78fgmcgn6n1+wS8dgbcfQlzPPC3jjFo2tj+NseKeXpYuF0Hh6XpQygvV/IHgCfN3NpTbIn7sKMYmcmjg8HR7Dm/mIEPZwu/P5uSwIv7hJBqfmHnFKK53ck8Iet+tDrFAYgsPImER3RLAHQJxI0dKUX8hQVuG5afkbXSh64MYDLp+jvuvDXHSLWHZIs9ToKYO0BCWt2iSmKUQQzSgZWRVZsEZFHUiHWA3CynRvRebalT8DiSs+o3D9cwOOhW4K6/9r2uYyX94iw3PrntjU7RWw9or/uPbeMg9cFSyZBKUV3grMegFPtI6eurMAPB0dG7P5PrCiExzl4vMZuDb/cFEe29Zt3EmiODK7I8RwwO8xZxmIkwWcBgM6R72BnjGD5fP+Ixpk8QcAdV3p1r/92SwIxiWbL+c9v/SLF05v1+cCUEAevy5pkoMdqAGSVoLV3dEsejXoQ8qWfuPzg+gCEC7KqD0/I+E+tDLto30kZ+08qulVBZQlnCYX9IgdNsxCA1l6Mep0dTwLL5gaGT/tBIXDAHVfqb6fx8h4p655/4fZCioRwSogDLCgNaBSIyZx1ALT0ZXbFrTPqxOxSJ4ZrkVpySR6KLqjzf96oovrsKK/HmmiFIw0KjjYNvtDgdmCgOGSBopKFALT1ZrZ0UVTgyqkFwxplSZV+1bD506Rte0e3pFgRTAxYsySMSsQ6AHoTJGOXaY4Q3DDLO+Q4187U32Rv1xey7cL/l9v2o/q8pMSau39AUkYXAUZVRookiCEOVejzweWIQ5L1GUyek2DmxMHVw/pOFe199u3abO1V0ditoazwK2MEvQQch0H9EmYoMcqz4ugiQNwYl+mJcVgxLz/lGNOKnbqSak2Talvv/3KraR5sCYKBO4eaPbBkZRIoGdgTF0t6MCmoD0QVIX2PQX2n/e8fWN+pd3Wfm5gOnqxZmAPImnE7JKnAkip9mTeYorevvU+D3UNAW6+W8iKR2bK0DiAb3BXb2ufE/DL3oCOZqqs3Jtne/ohJ+uxI4M0fV6EGAkApHbLn2OgljKYBVZMGF4e4FDNTNft/lUxO0f/GEYvoG1pi2gAQQpqH+iQjv5p0vrbQx+Pm2f7zOxOXUq8MzJQRNkhV/5dV822fxiNsmkZyCtgz1Cc5HebshNvph+dc6I+KWoq8gGTRgdJTQYrcxYrb4/DcsHuweyQR4B9DfZJbMMcCfQmC5ZcWAKBo7NYXVaYU8rZPAqZM0B/SaIKaXgkUho8Ar6cNQCAQ2EEIefeipwCHecewO+5CWYEDp9r0ZdXKEt72SeCMYv2lWTP7FM8nmkNHgLeDweCuEa0COI5bBaAu1d+8TvN2SFYJFlcVoqNfRUf/4Ng5r1yA2wHbmt/jBOaEB6/54kkKUTF/dMfFWwLqeJ6/f8TLQL/f36koyiJCyP4L/1bkMzekNXU7sKDCg/21gzt+HDywoMK+jzpcON0B4QJDtEaoJfx5nSkTjX2Koizy+/2do6oDhEKhlkAgsAjAakLIAQDawAUOc0MaBVBeGMC+E/pnxiyf77Jt+F8+X9/53GrRoxf8rvPjaOecdlUwGFwcCoVahnofGcmjYSKRSJBSWnY2QqbtO8lXmb1TeQ4ltnKh18vzg5dUf9mWQMxmtx31Ozk8cGPeoFCsAqg+rUKyYKqVRfRYHi+dJoQ0BoPBSLrvI9l4NhCTfcSeHs4AYGIAMDEAmBgATAwAJgYAEwOAiQHAxABgYgAwjXn9D7M3jq1ljQgAAAAAAElFTkSuQmCC"/></svg>
+diff --git a/chrome/browser/resources/chromium-web-store/managed_storage.json b/chrome/browser/resources/chromium-web-store/managed_storage.json
+new file mode 100644
+index 0000000..6563bc1
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/managed_storage.json
+@@ -0,0 +1,38 @@
++{
++    "type": "object",
++    "properties": {
++        "ignored_extensions": {
++            "title": "A list of appids of extensions which should not be checked for updates.",
++            "description": "Appids which are not installed will simply be ignored, it is safe to add them here.",
++            "type": "array",
++            "items": {
++                "type": "string"
++            }
++        },
++        "auto_update": {
++            "title": "Enable automatic updates in extension options.",
++            "description": "Default value is true",
++            "type": "boolean"
++        },
++        "check_store_apps": {
++            "title": "Enable updates for Chrome Web Store extensions in extension options.",
++            "description": "Default value is true",
++            "type": "boolean"
++        },
++        "check_external_apps": {
++            "title": "Enable updates for non-Chrome Web Store extensions in extension options.",
++            "description": "Default value is true",
++            "type": "boolean"
++        },
++        "update_period_in_minutes": {
++            "title": "Update check interval in minutes.",
++            "description": "Default is 60",
++            "type": "integer"
++        },
++        "manually_install": {
++            "title": "Manually install extensions.",
++            "description": "Default value is false, set to true if not using ungoogled chromium",
++            "type": "boolean"
++        }
++    }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/manifest.json b/chrome/browser/resources/chromium-web-store/manifest.json
+new file mode 100644
+index 0000000..5239b50
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/manifest.json
+@@ -0,0 +1,76 @@
++{
++  "author": "NeverDecaf",
++  "manifest_version": 3,
++  "name": "__MSG_extension_Name__",
++  "description": "__MSG_extension_Description__",
++  "default_locale": "en",
++  "version": "1.5.5.4",
++  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqF/d41Q7agjkUzYq8ZGbQr8XW8mmEIMXOnR1uCTnYLL+Dm9Z+LO50xZukOISNy6zFxpI8ts/OGLsm+I2x9+UprUU4/EVdmxuwegFE6NBoEhHoRNYY0gbXZkaU8YY/XwzjVY/k18DDhl5NYPEnF6uq4Oyidg+xtd3W4+iGYczuOLER1Tp5y614zOTphcvFYhvUkCijQ6HT1TtRq/34SlFoRQqo4SFiLriK451xWIcfwiMLIekWrdoQa1v8dqIlMA3r6CKc0QykJpSYbiyormWiZ0hl2HLpkZ85mD9V0eDQ5RCtb6vkybK7INcq4yKQV4YkXhr9NpX9U4re4dlFQjEJQIDAQAB",
++  "permissions": [
++    "management",
++    "storage",
++    "alarms",
++    "contextMenus",
++    "downloads"
++  ],
++  "host_permissions": [
++    "https://clients2.google.com/service/*"
++  ],
++  "optional_host_permissions": [
++    "<all_urls>"
++  ],
++  "action": {
++    "default_icon": "assets/icon/icon.svg",
++    "default_title": "__MSG_extension_Name__",
++    "default_popup": "popup.html#is_cws_popup"
++  },
++  "content_scripts": [
++    {
++      "matches": [
++        "https://chrome.google.com/webstore*",
++        "https://chromewebstore.google.com/*",
++        "https://addons.opera.com/*extensions/details/*",
++        "https://microsoftedge.microsoft.com/addons/*"
++      ],
++      "js": [
++        "scripts/util.js",
++        "scripts/inject.js"
++      ],
++      "run_at": "document_start"
++    }
++  ],
++  "background": {
++    "service_worker": "scripts/background.js"
++  },
++  "update_url": "https://raw.githubusercontent.com/NeverDecaf/chromium-web-store/master/updates.xml",
++  "icons": {
++    "16": "assets/icon/icon.svg",
++    "24": "assets/icon/icon.svg",
++    "32": "assets/icon/icon.svg",
++    "48": "assets/icon/icon.svg",
++    "64": "assets/icon/icon.svg",
++    "128": "assets/icon/icon.svg"
++  },
++  "homepage_url": "https://github.com/NeverDecaf/chromium-web-store",
++  "options_ui": {
++    "page": "options.html"
++  },
++  "storage": {
++    "managed_schema": "managed_storage.json"
++  },
++  "web_accessible_resources": [
++    {
++      "resources": [
++        "scripts/chromeApi.js"
++      ],
++      "matches": [
++        "https://chromewebstore.google.com/*"
++      ]
++    }
++  ],
++  "externally_connectable": {
++    "matches": [
++      "https://chromewebstore.google.com/*"
++    ]
++  }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/options.html b/chrome/browser/resources/chromium-web-store/options.html
+new file mode 100644
+index 0000000..7ff13cf
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/options.html
+@@ -0,0 +1,84 @@
++<!DOCTYPE html>
++<html lang="en">
++    <head>
++        <meta charset="UTF-8" />
++        <link rel="stylesheet" href="sheets/options.css" />
++    </head>
++    <body>
++        <div id="app">
++            <h2 data-localize="__MSG_options_updateHeading__">
++                Update Options
++            </h2>
++            <div>
++                <label title="__MSG_options_autoUpdateTooltip__">
++                    <input type="checkbox" id="auto_update" />
++                    <span data-localize="__MSG_options_autoUpdate__"
++                        >Automatically check for extension updates</span
++                    >
++                </label>
++                <label class="sub">
++                    <span
++                        data-localize="__MSG_options_updateDelay__"
++                        data-param1="<input id='update_period_in_minutes' type='number' value='60'/>"
++                        >Check for updates every
++                        <input
++                            id="update_period_in_minutes"
++                            type="number"
++                            value="60"
++                        />
++                        minutes</span
++                    >
++                </label>
++            </div>
++            <div>
++                <label title="__MSG_options_updateWebstoreTooltip__">
++                    <input type="checkbox" id="check_store_apps" />
++                    <span data-localize="__MSG_options_updateWebstore__"
++                        >Check for updates to web store extensions</span
++                    >
++                </label>
++            </div>
++            <div>
++                <label title="__MSG_options_updateNonWebstoreTooltip__">
++                    <input type="checkbox" id="check_external_apps" />
++                    <span data-localize="__MSG_options_updateNonWebstore__"
++                        >Check for updates to non-web store extensions</span
++                    >
++                </label>
++            </div>
++            <h2 data-localize="__MSG_options_ignoredExtensionsHeading__">
++                Ignored Extensions
++            </h2>
++            <div id="updatetoggle"></div>
++            <h2 data-localize="__MSG_options_advanced__">Advanced</h2>
++            <div>
++                <label title="__MSG_options_manuallyInstallTooltip__">
++                    <input type="checkbox" id="manually_install" />
++                    <span data-localize="__MSG_options_manuallyInstall__"
++                        >Always download CRX files</span
++                    > </label
++                ><br />
++                <label title="__MSG_options_webstoreIntegrationTooltip__">
++                    <input type="checkbox" id="webstore_integration" />
++                    <span data-localize="__MSG_options_webstoreIntegration__"
++                        >Enable Web Store Integration</span
++                    >
++                </label>
++            </div>
++            <h2 data-localize="__MSG_options_importExportHeading__">
++                Import / Export
++            </h2>
++            <div>
++                <textarea id="import_export_list"></textarea>
++                <input
++                    type="button"
++                    value="__MSG_options_importExportInstallAllButton__"
++                    id="import_all_button"
++                />
++            </div>
++        </div>
++        <script src="scripts/util.js"></script>
++        <script src="scripts/options.js"></script>
++        <script src="scripts/localize.js"></script>
++    </body>
++</html>
+diff --git a/chrome/browser/resources/chromium-web-store/popup.html b/chrome/browser/resources/chromium-web-store/popup.html
+new file mode 100644
+index 0000000..855e597
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/popup.html
+@@ -0,0 +1,14 @@
++<!DOCTYPE html>
++<html lang="en" style="min-width:280px;">
++    <head>
++        <meta charset="utf-8">
++        <link rel="stylesheet" href="sheets/base.css" />
++        <link rel="stylesheet" href="sheets/scrollbar.css" />
++        <link rel="stylesheet" href="sheets/popup.css" />
++    </head>
++    <body>
++        <div id="app"></div>
++        <script src="scripts/util.js"></script>
++        <script src="scripts/popup.js"></script>
++    </body>
++</html>
+diff --git a/chrome/browser/resources/chromium-web-store/scripts/background.js b/chrome/browser/resources/chromium-web-store/scripts/background.js
+new file mode 100644
+index 0000000..38c9ee5
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/scripts/background.js
+@@ -0,0 +1,312 @@
++importScripts("./util.js");
++const nonWebstoreExtensionsDownloading = new Set();
++const manualInstallExtensionsDownloading = new Set();
++const tabsAwaitingInstall = new Set();
++const extensionsTabId = {};
++function handleContextClick(info, tab) {
++    if (info.menuItemId == "updateAll")
++        checkForUpdates(function (
++            updateCheck,
++            installed_versions,
++            appid,
++            updatever,
++            is_webstore,
++        ) {
++            let crx_url = updateCheck["@codebase"];
++            promptInstall(crx_url, is_webstore, WEBSTORE.chrome, msgHandler);
++        });
++    else if (info.menuItemId == "installExt") {
++        let store = WEBSTORE.chrome;
++        [...WEBSTORE_MAP.keys()].some((k) => {
++            if (k.test(tab.url)) {
++                store = WEBSTORE_MAP.get(k);
++                return true;
++            }
++        });
++        promptInstall(buildExtensionUrl(tab.url), true, store, msgHandler);
++    } else if (info.menuItemId == "cws")
++        chrome.tabs.create({
++            url: "https://chrome.google.com/webstore/",
++        });
++}
++
++function updateBadge(modified_ext_id = null) {
++    checkForUpdates();
++}
++
++function startupTasks() {
++    chrome.storage.sync.get(DEFAULT_MANAGEMENT_OPTIONS, function (settings) {
++        chrome.storage.local.get(
++            {
++                badge_display: "",
++                last_scheduled_update: 0,
++            },
++            (localstore) => {
++                chrome.action.setBadgeText({
++                    text: localstore.badge_display,
++                });
++                chrome.alarms.create("cws_check_extension_updates", {
++                    delayInMinutes: Math.max(
++                        1,
++                        settings.update_period_in_minutes -
++                            Math.floor(
++                                (Date.now() -
++                                    localstore.last_scheduled_update) /
++                                    1000 /
++                                    60,
++                            ),
++                    ),
++                    periodInMinutes: settings.update_period_in_minutes,
++                });
++            },
++        );
++    });
++}
++chrome.action.setBadgeBackgroundColor({
++    color: "#FE0000",
++});
++chrome.management.onInstalled.addListener(function (ext) {
++    updateBadge(ext.id);
++    for (let tabid of tabsAwaitingInstall) {
++        chrome.tabs.sendMessage(
++            tabid,
++            {
++                action: "extInstalled",
++                extId: ext.id,
++            },
++            () => {
++                if (chrome.runtime.lastError) tabsAwaitingInstall.delete(tabid);
++            },
++        );
++    }
++});
++chrome.management.onUninstalled.addListener(function (ext) {
++    updateBadge(ext.id);
++});
++chrome.runtime.onStartup.addListener(function () {
++    startupTasks();
++});
++chrome.alarms.onAlarm.addListener(function (alarm) {
++    if (alarm.name == "cws_check_extension_updates")
++        chrome.storage.sync.get(
++            DEFAULT_MANAGEMENT_OPTIONS,
++            function (settings) {
++                if (settings.auto_update) {
++                    updateBadge();
++                    chrome.storage.local.set({
++                        last_scheduled_update: Date.now(),
++                    });
++                    chrome.alarms.create("cws_check_extension_updates", {
++                        delayInMinutes: settings.update_period_in_minutes,
++                        periodInMinutes: settings.update_period_in_minutes,
++                    });
++                }
++            },
++        );
++});
++chrome.runtime.onInstalled.addListener(function () {
++    startupTasks();
++    chrome.contextMenus.create({
++        title: chrome.i18n.getMessage("contextMenu_updateAll"),
++        id: "updateAll",
++        contexts: ["action"],
++    });
++    chrome.contextMenus.create({
++        title: "🔗 Chrome Web Store",
++        id: "cws",
++        contexts: ["action"],
++    });
++    chrome.contextMenus.create({
++        title: chrome.i18n.getMessage("webstore_addButton"),
++        id: "installExt",
++        documentUrlPatterns: [
++            "https://chrome.google.com/webstore/detail/*",
++            "https://chromewebstore.google.com/detail/*",
++            "https://addons.opera.com/*/extensions/details/*",
++            "https://microsoftedge.microsoft.com/addons/detail/*",
++        ],
++    });
++});
++const msgHandler = function (request, sender, sendResponse) {
++    if (request.nonWebstoreDownloadUrl) {
++        chrome.downloads.download(
++            {
++                url: request.nonWebstoreDownloadUrl,
++            },
++            (dlid) => {
++                nonWebstoreExtensionsDownloading.add(dlid);
++            },
++        );
++    }
++    if (request.manualInstallDownloadUrl) {
++        chrome.downloads.download(
++            {
++                url: request.manualInstallDownloadUrl,
++                saveAs: true, // required to suppress warning: "Apps, extensions and user scripts cannot be added from this website"
++            },
++            (dlid) => {
++                manualInstallExtensionsDownloading.add(dlid);
++            },
++        );
++    }
++    if (request.newTabUrl) {
++        chrome.tabs.create({ active: false, url: request.newTabUrl });
++    }
++    if (request.checkExtInstalledId) {
++        chrome.management.get(request.checkExtInstalledId, (extinfo) => {
++            sendResponse({
++                installed: !(chrome.runtime.lastError && !extinfo),
++            });
++        });
++        return true;
++    }
++    if (request.uninstallExt) {
++        chrome.management.uninstall(request.uninstallExt, () => {
++            sendResponse({ uninstalled: !chrome.runtime.lastError });
++        });
++        return true;
++    }
++    if (request.installExt) {
++        tabsAwaitingInstall.add(sender.tab.id);
++    }
++};
++chrome.runtime.onMessage.addListener(msgHandler);
++chrome.downloads.onChanged.addListener((d) => {
++    // open chrome://extensions if user has "Always download CRX files" checked, for easy drag-and-drop installation
++    if (d.endTime && manualInstallExtensionsDownloading.has(d.id)) {
++        manualInstallExtensionsDownloading.delete(d.id);
++        chrome.tabs.get(extensionsTabId?.id ?? 0, (tab) => {
++            if (!chrome.runtime.lastError)
++                chrome.tabs.highlight({
++                    tabs: tab.index,
++                    windowId: tab.windowId,
++                });
++            else
++                chrome.tabs.create(
++                    {
++                        url: "chrome://extensions/",
++                    },
++                    (tab) => {
++                        extensionsTabId.id = tab.id;
++                    },
++                );
++        });
++        // chrome.notifications.create("manually_install", {
++        //     type: "basic",
++        //     iconUrl: "assets/icon/icon_128.png",
++        //     title: chrome.i18n.getMessage("notify_manuallyInstall_title"),
++        //     message: chrome.i18n.getMessage("notify_manuallyInstall_message"),
++        // });
++    }
++});
++chrome.contextMenus.onClicked.addListener(handleContextClick);
++
++// below functions are for the new chrome web store:
++// port is used for functions with callbacks:
++chrome.runtime.onConnectExternal.addListener((port) => {
++    var port_disconnected = false;
++    port.onDisconnect.addListener(() => {
++        port_disconnected = true;
++    });
++    port.onMessage.addListener(function (msg, port) {
++        // console.log("recieved msg through port:", msg);
++        switch (msg.func) {
++            case "onInstalled":
++                var [callback, ..._] = msg.args;
++                chrome.management.onInstalled.addListener(function cb() {
++                    if (port_disconnected) {
++                        chrome.management.onInstalled.removeListener(cb);
++                        return;
++                    }
++                    port.postMessage({
++                        args: arguments,
++                        callbackIndex: callback,
++                        err: chrome.runtime.lastError,
++                    });
++                });
++                break;
++            case "onUninstalled":
++                var [callback, ..._] = msg.args;
++                chrome.management.onUninstalled.addListener(function cb() {
++                    if (port_disconnected) {
++                        chrome.management.onUninstalled.removeListener(cb);
++                        return;
++                    }
++                    port.postMessage({
++                        args: arguments,
++                        callbackIndex: callback,
++                        err: chrome.runtime.lastError,
++                    });
++                });
++                break;
++            case "uninstall":
++                var [ext_id, options, callback, ..._] = msg.args;
++                chrome.management.uninstall(ext_id, options, function () {
++                    port.postMessage({
++                        args: arguments,
++                        callbackIndex: callback,
++                        err: chrome.runtime.lastError,
++                    });
++                });
++                break;
++            case "setEnabled":
++                var [ext_id, enabled, callback, ..._] = msg.args;
++                chrome.management.setEnabled(ext_id, enabled, function () {
++                    port.postMessage({
++                        args: arguments,
++                        callbackIndex: callback,
++                        err: chrome.runtime.lastError,
++                    });
++                });
++                break;
++        }
++    });
++});
++chrome.runtime.onMessageExternal.addListener(function (
++    request,
++    sender,
++    sendResponse,
++) {
++    // console.log("recieved msg through runtime:", request);
++    switch (request.func) {
++        case "getExtensionStatus":
++            var [id, ext, ..._] = request.args;
++            chrome.management.getAll((exts) => {
++                const this_ext = exts.filter((extInfo) => extInfo.id === id);
++                if (!this_ext.length) {
++                    sendResponse({ args: ["installable"] });
++                } else {
++                    sendResponse({
++                        args: [this_ext[0].enabled ? "enabled" : "disabled"],
++                    });
++                }
++            });
++            return true;
++        case "getAll":
++            var [href, ..._] = request.args;
++            const target_ext = ncws_re.exec(href)?.[1];
++            chrome.management.getAll((exts) => {
++                // instead of exposing entire extension list, filter to only the relevant extension.
++                sendResponse({
++                    args: [exts.filter((extInfo) => extInfo.id === target_ext)],
++                });
++            });
++            return true;
++        case "beginInstallWithManifest3":
++            var [extInfo, href, ..._] = request.args;
++
++            promptInstall(
++                buildExtensionUrl(href),
++                true,
++                WEBSTORE.chrome,
++                msgHandler,
++            );
++            sendResponse({
++                // because a "cancel" in the context of chromium-web-store won't be detected,
++                // we must throw user_cancelled here to ensure the button doesn't get stuck on loading spinner.
++                // The behaviour of this is similar to sending success ("") so this should be fine.
++                args: ["user_cancelled"],
++            });
++            return true;
++    }
++});
+diff --git a/chrome/browser/resources/chromium-web-store/scripts/chromeApi.js b/chrome/browser/resources/chromium-web-store/scripts/chromeApi.js
+new file mode 100644
+index 0000000..164911d
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/scripts/chromeApi.js
+@@ -0,0 +1,95 @@
++// https://source.chromium.org/chromium/chromium/src/+/main:chrome/common/extensions/api/webstore_private.json
++const ncws_re = /.*detail(?:\/[^\/]+)?\/([a-z]{32})/i; // copied from util.js since it's out of context
++const EXT_ID = document.currentScript.getAttribute("extension_id");
++const port = chrome.runtime.connect(EXT_ID, { name: "windowchromeport" });
++const CALLBACKS = [];
++port.onMessage.addListener((msg, port) => {
++	if (msg.callbackIndex !== undefined) {
++		if (msg.err) {
++			// "throw" error
++			chrome.runtime.lastError = msg.err;
++		}
++		CALLBACKS[msg.callbackIndex].apply(...Array.from(msg.args));
++	}
++});
++window.chrome.webstorePrivate = {
++	getExtensionStatus: function (id, manifest, cb) {
++		chrome.runtime.sendMessage(
++			EXT_ID,
++			{ func: "getExtensionStatus", args: [id, manifest] },
++			(resp) => {
++				resp.args && cb(...resp.args);
++			},
++		);
++	},
++	beginInstallWithManifest3: function (extinfo, cb) {
++		chrome.runtime.sendMessage(
++			EXT_ID,
++			{
++				func: "beginInstallWithManifest3",
++				args: [extinfo, window.location.href],
++			},
++			(resp) => {
++				resp.args && cb(...resp.args);
++			},
++		);
++	},
++	isInIncognitoMode: (cb) => cb(false), // just return false since it's likely this extension isn't running in incognito
++	getReferrerChain: (cb) => cb("EgIIAA=="),
++	completeInstall: function (id, cb) {
++		// will never be called since we cancel all install attempts with "user_cancelled"
++		// instead we rely on the onInstalled listener to continue the flow correctly (behaviour might be slightly different,
++		// for example an extension installed tooltip will not show.)
++		cb(true);
++	},
++};
++window.chrome.management = {
++	setEnabled: function (extId, enabled, callback) {
++		port.postMessage({
++			func: "setEnabled",
++			args: [extId, enabled, CALLBACKS.length],
++		});
++		CALLBACKS.push(callback);
++	},
++	install: function () {
++		console.log(
++			"chrome.management.install not implemented, but called with args:",
++			arguments,
++		);
++	},
++	uninstall: function (extId, options, callback) {
++		port.postMessage({
++			func: "uninstall",
++			args: [extId, options, CALLBACKS.length],
++		});
++		CALLBACKS.push(callback);
++	},
++	getAll: function (cb) {
++		chrome.runtime.sendMessage(
++			EXT_ID,
++			{ func: "getAll", args: [window.location.href] },
++			(resp) => {
++				resp.args && cb(...resp.args);
++			},
++		);
++	},
++	onInstalled: {
++		addListener: function (callback) {
++			port.postMessage({
++				func: "onInstalled",
++				args: [CALLBACKS.length],
++			});
++			CALLBACKS.push(callback);
++		},
++	},
++	onUninstalled: {
++		addListener: function (callback) {
++			port.postMessage({
++				func: "onUninstalled",
++				args: [CALLBACKS.length],
++			});
++			CALLBACKS.push(callback);
++		},
++	},
++};
++// window.chrome.runtime.getManifest = () => true; // this is referenced in the CWS source but omitting it seems to have no effect
+diff --git a/chrome/browser/resources/chromium-web-store/scripts/inject.js b/chrome/browser/resources/chromium-web-store/scripts/inject.js
+new file mode 100644
+index 0000000..c68c588
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/scripts/inject.js
+@@ -0,0 +1,227 @@
++var dlBtn;
++
++function createButton(newParent, addBtn = true) {
++    const button_div = document.createElement("div");
++    button_div.setAttribute("role", "button");
++    button_div.setAttribute(
++        "class",
++        "dd-Va g-c-wb g-eg-ua-Uc-c-za g-c-Oc-td-jb-oa g-c",
++    );
++
++    button_div.setAttribute("tabindex", "0");
++    button_div.setAttribute("style", "user-select: none;");
++    var hf = document.createElement("div");
++    hf.setAttribute("class", "g-c-Hf");
++    button_div.appendChild(hf);
++    var x = document.createElement("div");
++    x.setAttribute("class", "g-c-x");
++    hf.appendChild(x);
++    const r = document.createElement("div");
++    r.setAttribute("class", "g-c-R  webstore-test-button-label");
++    x.appendChild(r);
++    button_div.toggleState = function (isInstall) {
++        isInstall
++            ? button_div.setAttribute("isInstallBtn", "")
++            : button_div.removeAttribute("isInstallBtn");
++        button_div.setAttribute(
++            "aria-label",
++            isInstall
++                ? chrome.i18n.getMessage("webstore_addButton")
++                : chrome.i18n.getMessage("webstore_removeButton"),
++        );
++        r.innerHTML = isInstall
++            ? chrome.i18n.getMessage("webstore_addButton")
++            : chrome.i18n.getMessage("webstore_removeButton");
++    };
++    if (addBtn) button_div.setAttribute("isInstallBtn", "");
++    button_div.toggleState(addBtn);
++    let dlurl = buildExtensionUrl(window.location.href);
++    button_div.id = getExtensionId(window.location.href);
++    button_div.addEventListener("click", function () {
++        if (button_div.hasAttribute("isInstallBtn")) {
++            chrome.runtime.sendMessage({
++                installExt: getExtensionId(window.location.href),
++            });
++            promptInstall(dlurl, true);
++        } else {
++            chrome.runtime.sendMessage(
++                {
++                    uninstallExt: getExtensionId(window.location.href),
++                },
++                (resp) => {
++                    if (resp.uninstalled) {
++                        button_div.toggleState(true);
++                    }
++                },
++            );
++        }
++    });
++    button_div.addEventListener("mouseover", function () {
++        this.classList.add("g-c-l");
++    });
++    button_div.addEventListener("mouseout", function () {
++        this.classList.remove("g-c-l");
++    });
++    newParent.innerHTML = "";
++    newParent.appendChild(button_div);
++    dlBtn = button_div;
++}
++function modifyNewCWSButton(button_div, addBtn = true) {
++    button_div.removeAttribute("disabled");
++    const label = button_div.querySelector("span.UywwFc-vQzf8d");
++    button_div.toggleState = function (isInstall) {
++        isInstall
++            ? button_div.setAttribute("isInstallBtn", "true")
++            : button_div.setAttribute("isInstallBtn", "false");
++        label.innerHTML = isInstall
++            ? chrome.i18n.getMessage("webstore_addButton")
++            : chrome.i18n.getMessage("webstore_removeButton");
++    };
++    button_div.toggleState(addBtn);
++    let dlurl = buildExtensionUrl(window.location.href);
++    button_div.id = getExtensionId(window.location.href);
++    button_div.addEventListener("click", function () {
++        if (button_div.getAttribute("isInstallBtn") == "true") {
++            chrome.runtime.sendMessage({
++                installExt: getExtensionId(window.location.href),
++            });
++            promptInstall(dlurl, true);
++        } else {
++            chrome.runtime.sendMessage(
++                {
++                    uninstallExt: getExtensionId(window.location.href),
++                },
++                (resp) => {
++                    if (resp.uninstalled) {
++                        button_div.toggleState(true);
++                    }
++                },
++            );
++        }
++    });
++}
++var modifyButtonObserver = new MutationObserver(function (mutations, observer) {
++    mutations.forEach(function (mutation) {
++        if (
++            mutation.addedNodes.length &&
++            !mutation.removedNodes.length &&
++            mutation.nextSibling == null &&
++            mutation.addedNodes[0].className == "f-rd"
++        ) {
++            var container_div = document.querySelector(".h-e-f-Ra-c");
++            if (container_div && null == container_div.firstChild) {
++                chrome.runtime.sendMessage(
++                    {
++                        checkExtInstalledId: getExtensionId(
++                            window.location.href,
++                        ),
++                    },
++                    (resp) => {
++                        createButton(container_div, !resp.installed);
++                    },
++                );
++            }
++        }
++    });
++});
++attachMainObserver = new MutationObserver(function (mutations, observer) {
++    mutations.forEach(function (mutation) {
++        modifyButtonObserver.observe(mutation.target.querySelector(".F-ia-k"), {
++            subtree: true,
++            childList: true,
++        });
++    });
++    observer.disconnect();
++});
++if (is_ews.test(window.location.href)) {
++    new MutationObserver(function (mutations, observer) {
++        mutations.forEach(function (mutation) {
++            mutation.target
++                .querySelectorAll('button[id^="getOrRemoveButton-"][disabled]')
++                .forEach((btn) => {
++                    btn.classList.remove(
++                        btn.className
++                            .split(" ")
++                            .sort(
++                                (a, b) =>
++                                    parseInt(b.slice(1)) - parseInt(a.slice(1)),
++                            )[btn.name == "GetButton" ? 1 : 0],
++                    );
++                    btn.removeAttribute("disabled");
++                    btn.addEventListener("click", () => {
++                        promptInstall(
++                            buildExtensionUrl(
++                                window.location.href,
++                                btn.id.split("-")[1],
++                            ),
++                            true,
++                            WEBSTORE.edge,
++                        );
++                    });
++                    dlBtn = btn;
++                });
++        });
++    }).observe(document.body, {
++        childList: true,
++        subtree: true,
++    });
++}
++if (is_cws.test(window.location.href)) {
++    attachMainObserver.observe(document.body, {
++        childList: true,
++    });
++}
++function injectScript(file_path, tag) {
++    var node = document.getElementsByTagName(tag)[0];
++    var script = document.createElement("script");
++    script.setAttribute("type", "text/javascript");
++    script.setAttribute("extension_id", chrome.runtime.id);
++    script.setAttribute("src", file_path);
++    node.appendChild(script);
++}
++
++if (
++    is_ows.test(window.location.href) &&
++    document.body.querySelector("#feedback-container") //built-ins don't have a feedback section
++) {
++    let installDiv = document.body.querySelector(".sidebar .get-opera");
++    let sidebar = installDiv.parentElement;
++    let wrapper = document.createElement("div");
++    wrapper.classList.add("wrapper-install");
++    dlBtn = document.createElement("a");
++    dlBtn.classList.add("btn-install");
++    dlBtn.classList.add("btn-with-plus");
++    dlBtn.innerHTML = chrome.i18n.getMessage("webstore_addButton");
++    sidebar.replaceChild(wrapper, installDiv);
++    wrapper.appendChild(dlBtn);
++    dlBtn.addEventListener("click", () =>
++        promptInstall(
++            buildExtensionUrl(window.location.href),
++            true,
++            WEBSTORE.opera,
++        ),
++    );
++}
++window.onload = () => {
++    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
++        switch (request.action) {
++            case "extInstalled":
++                if (request.extId == getExtensionId(window.location.href))
++                    document.getElementById(request.extId).toggleState(false);
++                break;
++        }
++    });
++};
++if (is_ncws.test(window.location.href)) {
++    chrome.storage.sync.get(
++        { webstore_integration: true },
++        function (stored_values) {
++            if (stored_values.webstore_integration) {
++                injectScript(
++                    chrome.runtime.getURL("scripts/chromeApi.js"),
++                    "head",
++                );
++            }
++        },
++    );
++}
+diff --git a/chrome/browser/resources/chromium-web-store/scripts/localize.js b/chrome/browser/resources/chromium-web-store/scripts/localize.js
+new file mode 100644
+index 0000000..208ad87
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/scripts/localize.js
+@@ -0,0 +1,31 @@
++function replace_i18n(obj, tag, param1) {
++    var msg = tag.replace(/__MSG_(\w+)__/g, function (match, v1) {
++        return v1 ? chrome.i18n.getMessage(v1, param1) : "";
++    });
++    if (msg != tag) obj.innerHTML = msg;
++}
++
++function localizeHtmlPage() {
++    // Localize using __MSG_***__ data tags
++    var data = document.querySelectorAll("[data-localize]");
++
++    for (var i in data)
++        if (data.hasOwnProperty(i)) {
++            var obj = data[i];
++            var tag = obj.getAttribute("data-localize");
++            var param1 = obj.getAttribute("data-param1");
++            replace_i18n(obj, tag, param1);
++        }
++
++    // Localize everything else by replacing all __MSG_***__ tags
++    var page = document.getElementsByTagName("html");
++
++    for (var j = 0; j < page.length; j++) {
++        var obj = page[j];
++        var tag = obj.innerHTML.toString();
++
++        replace_i18n(obj, tag);
++    }
++}
++
++localizeHtmlPage();
+diff --git a/chrome/browser/resources/chromium-web-store/scripts/options.js b/chrome/browser/resources/chromium-web-store/scripts/options.js
+new file mode 100644
+index 0000000..3779b73
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/scripts/options.js
+@@ -0,0 +1,178 @@
++function load_options() {
++    var maindiv = document.getElementById("updatetoggle");
++    var default_options = { ...DEFAULT_MANAGEMENT_OPTIONS };
++    chrome.management.getAll(function (e) {
++        e = e.filter((ex) => ex.updateUrl);
++        installed_extensions = e.map((ex) => ex.id);
++        e.forEach(function (ex) {
++            label = document.createElement("label");
++            label.setAttribute(
++                "title",
++                chrome.i18n.getMessage("options_neverCheckTooltip"),
++            );
++            span = document.createElement("span");
++            div = document.createElement("div");
++            img = document.createElement("img");
++            input = document.createElement("input");
++            input.setAttribute("type", "checkbox");
++            input.setAttribute("id", ex.id);
++            if (
++                Array.from(store_extensions.keys()).some(
++                    (x) =>
++                        x.test(ex.updateUrl) && store_extensions.get(x).ignore,
++                )
++            ) {
++                input.checked = true;
++                input.disabled = true;
++            }
++            img.setAttribute("alt", ex.name);
++            if (ex.icons)
++                img.setAttribute(
++                    "src",
++                    "chrome://extension-icon/" +
++                        ex.id +
++                        "/" +
++                        ex.icons[0].size +
++                        "/0",
++                );
++            else
++                img.setAttribute(
++                    "src",
++                    "chrome://extension-icon/" + ex.id + "/16/0",
++                );
++            span.innerHTML = ex.name;
++            label.appendChild(input);
++            label.appendChild(img);
++            label.appendChild(span);
++            div.appendChild(label);
++            maindiv.appendChild(div);
++            default_options[ex.id] = false;
++        });
++        document.getElementById("import_export_list").value = e
++            .map((ex) => {
++                for (const [re, updaterOptions] of store_extensions) {
++                    if (re.test(ex.updateUrl)) {
++                        if (!updaterOptions.ignore)
++                            return ex.name + "|" + ex.id;
++                        else return ex.name;
++                    }
++                }
++                return ex.name + "|" + ex.id + "|" + ex.updateUrl;
++            })
++            .join("\r\n");
++        document.getElementById("import_all_button").onclick = (event) => {
++            let extList = [];
++            for (const m of document
++                .getElementById("import_export_list")
++                .value.matchAll(/^(.*)\|([a-z]{32})(?:\||$)(.*)$/gim)) {
++                if (!event.ctrlKey && installed_extensions.includes(m[2]))
++                    continue;
++                if (m[3])
++                    extList.push({
++                        name: m[1],
++                        id: m[2],
++                        updateUrl: m[3],
++                        version: "0",
++                    });
++                else
++                    extList.push({
++                        name: m[1],
++                        id: m[2],
++                        updateUrl: googleUpdateUrl,
++                        version: "0",
++                    });
++            }
++            checkForUpdates(
++                function (
++                    updateCheck,
++                    installed_versions,
++                    appid,
++                    updatever,
++                    is_webstore,
++                ) {
++                    let crx_url = updateCheck["@codebase"];
++                    promptInstall(crx_url, is_webstore);
++                },
++                null,
++                null,
++                extList,
++            );
++        };
++        chrome.storage.sync.get(default_options, function (stored_values) {
++            stored_values["ignored_extensions"] = [];
++            chrome.storage.managed.get(stored_values, function (items) {
++                items.ignored_extensions.forEach((ignored_appid) => {
++                    if (ignored_appid in items) items[ignored_appid] = true;
++                });
++                delete items.ignored_extensions;
++                for (const [setting, value] of Object.entries(items)) {
++                    let node = document.getElementById(setting);
++                    if (node) {
++                        if (node.type == "checkbox") {
++                            if (!node.checked) node.checked = value;
++                            node.addEventListener("change", (e) => {
++                                const checked = e.target.checked;
++                                chrome.storage.sync.set(
++                                    {
++                                        [e.target.id]: checked,
++                                    },
++                                    function () {
++                                        if (chrome.runtime.lastError) {
++                                            node.checked = !checked;
++                                        }
++                                    },
++                                );
++                            });
++                        } else {
++                            node.value = value;
++                            node.addEventListener("input", (e) => {
++                                const val = parseInt(e.target.value) || 60;
++                                chrome.storage.sync.set(
++                                    {
++                                        [e.target.id]: Math.max(1, val),
++                                    },
++                                    function () {
++                                        if (chrome.runtime.lastError) {
++                                            node.value = "60";
++                                        }
++                                    },
++                                );
++                            });
++                        }
++                    }
++                }
++                document.querySelectorAll("label.sub").forEach((node) => {
++                    const target_node = node;
++                    let checkbox_input =
++                        target_node.previousElementSibling.getElementsByTagName(
++                            "input",
++                        )[0];
++                    checkbox_input.addEventListener("change", (e) => {
++                        if (e.target.checked) {
++                            target_node.classList.remove("disabled");
++                            for (let input of target_node.getElementsByTagName(
++                                "input",
++                            ))
++                                input.disabled = false;
++                        } else {
++                            target_node.classList.add("disabled");
++                            for (let input of target_node.getElementsByTagName(
++                                "input",
++                            ))
++                                input.disabled = true;
++                        }
++                    });
++                    if (!checkbox_input.checked) {
++                        target_node.classList.add("disabled");
++                        for (let input of target_node.getElementsByTagName(
++                            "input",
++                        ))
++                            input.disabled = true;
++                    }
++                });
++            });
++        });
++    });
++}
++
++document.addEventListener("DOMContentLoaded", load_options);
+diff --git a/chrome/browser/resources/chromium-web-store/scripts/popup.js b/chrome/browser/resources/chromium-web-store/scripts/popup.js
+new file mode 100644
+index 0000000..557cd05
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/scripts/popup.js
+@@ -0,0 +1,169 @@
++const container = document.getElementById("app");
++const appcontainer = document.createElement("ul");
++const removedcontainer = document.createElement("ul");
++const removed_status = document.createElement("div");
++const removed_text = document.createElement("p");
++const update_status = document.createElement("div");
++const update_text = document.createElement("p");
++update_text.innerHTML = chrome.i18n.getMessage("popup_checkingForUpdates");
++update_status.appendChild(update_text);
++update_status.setAttribute("class", "message");
++update_status.setAttribute("id", "updateStatus");
++removed_text.innerHTML = chrome.i18n.getMessage("popup_removedExtensions");
++removed_status.setAttribute(
++    "title",
++    chrome.i18n.getMessage("popup_removedExtensionsTooltip"),
++);
++removed_status.appendChild(removed_text);
++removed_status.setAttribute("id", "removedStatus");
++removed_status.setAttribute("class", "message");
++removed_status.classList.add("hidden");
++container.appendChild(update_status);
++container.appendChild(appcontainer);
++container.appendChild(removed_status);
++container.appendChild(removedcontainer);
++
++checkForUpdates(
++    function (updateCheck, installed_versions, appid, updatever, is_webstore) {
++        let li = document.createElement("li");
++        li.setAttribute(
++            "data-enabled",
++            installed_versions[appid].enabled ? "true" : "false",
++        );
++        let img = document.createElement("img");
++        img.setAttribute("alt", installed_versions[appid].name);
++        if (installed_versions[appid].icons)
++            img.setAttribute(
++                "src",
++                "chrome://extension-icon/" +
++                    appid +
++                    "/" +
++                    installed_versions[appid].icons[0].size +
++                    "/0",
++            );
++        else
++            img.setAttribute(
++                "src",
++                "chrome://extension-icon/" + appid + "/16/0",
++            );
++        li.appendChild(img);
++        span = document.createElement("span");
++        span.innerHTML = installed_versions[appid].name;
++        li.appendChild(span);
++        li.setAttribute(
++            "title",
++            installed_versions[appid].version + " ⇒ " + updatever,
++        );
++        storepage = document.createElement("a");
++        storepage.setAttribute("target", "_blank");
++        storepage.innerHTML =
++            '<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block;"><g><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"></path></g></svg>';
++        if (is_webstore) {
++            storepage.setAttribute(
++                "href",
++                "https://chrome.google.com/webstore/detail/" + appid,
++            );
++            li.appendChild(storepage);
++        } else if (installed_versions[appid].homepageUrl) {
++            storepage.setAttribute(
++                "href",
++                installed_versions[appid].homepageUrl,
++            );
++            li.appendChild(storepage);
++        }
++        li.setAttribute("crx_url", updateCheck["@codebase"]);
++        let crx_url = updateCheck["@codebase"];
++        li.addEventListener("click", function (evt) {
++            if (evt.target.tagName != "A") promptInstall(crx_url, is_webstore);
++        });
++        appcontainer.appendChild(li);
++        update_status.classList.add("hidden");
++    },
++    function (was_removed, extData) {
++        let li = document.createElement("li");
++        li.setAttribute("data-enabled", extData.enabled ? "true" : "false");
++        li.setAttribute("class", "updatefailure");
++        if ("icons" in extData) {
++            let img = document.createElement("img");
++            if (extData.icons)
++                img.setAttribute(
++                    "src",
++                    "chrome://extension-icon/" +
++                        extData.id +
++                        "/" +
++                        extData.icons[0].size +
++                        "/0",
++                );
++            else
++                img.setAttribute(
++                    "src",
++                    `chrome://extension-icon/${chrome.runtime.id}/16/0`,
++                );
++            li.appendChild(img);
++        }
++        let span = document.createElement("span");
++        li.appendChild(span);
++        if (was_removed) {
++            span.innerHTML = extData.name;
++            li.setAttribute("class", "removedext");
++            removedcontainer.appendChild(li);
++            removed_status.classList.remove("hidden");
++            close_button = document.createElement("a");
++            close_button.setAttribute("target", "_blank");
++            close_button.innerHTML =
++                '<svg class="svg-icon" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block;"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.804 11.804 0 0 0 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"></path></svg>';
++            li.appendChild(close_button);
++            close_button.onclick = () => {
++                let default_options = {
++                    removed_extensions: {},
++                };
++                chrome.storage.sync.get(
++                    default_options,
++                    function (stored_values) {
++                        stored_values["removed_extensions"][extData.id] = true;
++                        chrome.storage.sync.set({
++                            removed_extensions:
++                                stored_values["removed_extensions"],
++                        });
++                        li.remove();
++                        if (
++                            removedcontainer.getElementsByTagName("li")
++                                .length == 0
++                        )
++                            removed_status.classList.add("hidden");
++                    },
++                );
++            };
++        } else {
++            span.innerHTML = chrome.i18n.getMessage(
++                "popup_updateFailed",
++                extData.name,
++            );
++            appcontainer.appendChild(li);
++            if (extData.updateUrl) {
++                chrome.permissions.contains(
++                    {
++                        origins: [extData.updateUrl],
++                    },
++                    (e) => {
++                        if (!e) {
++                            fix_button = document.createElement("a");
++                            fix_button.setAttribute("target", "_blank");
++                            fix_button.innerHTML =
++                                '<svg class="svg-icon" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block;"><path d="M4.5.257l3.771 3.771c.409 1.889-2.33 4.66-4.242 4.242l-3.771-3.77c-.172.584-.258 1.188-.258 1.792 0 1.602.607 3.202 1.83 4.426 1.351 1.351 3.164 1.958 4.931 1.821.933-.072 1.852.269 2.514.931l9.662 9.662c.578.578 1.337.868 2.097.868 1.661 0 3.001-1.364 2.966-3.03-.016-.737-.306-1.47-.868-2.033l-9.662-9.663c-.662-.661-1.002-1.581-.931-2.514.137-1.767-.471-3.58-1.82-4.93-1.225-1.224-2.825-1.83-4.428-1.83-.603 0-1.207.086-1.791.257zm17.5 20.743c0 .553-.447 1-1 1-.553 0-1-.448-1-1s.447-1 1-1 1 .447 1 1z"></path></svg>';
++                            li.appendChild(fix_button);
++                            fix_button.onclick = () => {
++                                chrome.permissions.request({
++                                    origins: [extData.updateUrl],
++                                });
++                            };
++                        }
++                    },
++                );
++            }
++        }
++    },
++    function () {
++        update_text.innerHTML = chrome.i18n.getMessage("popup_allUpToDate");
++    },
++);
+diff --git a/chrome/browser/resources/chromium-web-store/scripts/util.js b/chrome/browser/resources/chromium-web-store/scripts/util.js
+new file mode 100644
+index 0000000..15ec447
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/scripts/util.js
+@@ -0,0 +1,353 @@
++const chromeVersion = /Chrome\/([0-9.]+)/.exec(navigator.userAgent)[1];
++const store_extensions = new Map();
++const googleUpdateUrl = "https://clients2.google.com/service/update2/crx";
++const WEBSTORE = { chrome: 0, edge: 1, opera: 2, chromenew: 3 };
++const DEFAULT_MANAGEMENT_OPTIONS = {
++    auto_update: true,
++    check_store_apps: true,
++    check_external_apps: true,
++    update_period_in_minutes: 60,
++    removed_extensions: {},
++    manually_install: false,
++    webstore_integration: true,
++};
++var fromXML;
++const UPDATE_API_LIMIT = 100; // this appears to be 179 from testing; using 100 to be safe.
++// prettier-ignore
++!function(r){var t={"&amp;":"&","&lt;":"<","&gt;":">","&apos;":"'","&quot;":'"'};function n(r){return r&&r.replace(/^\s+|\s+$/g,"")}function s(r){return r.replace(/(&(?:lt|gt|amp|apos|quot|#(?:\d{1,6}|x[0-9a-fA-F]{1,5}));)/g,(function(r){if("#"===r[1]){var n="x"===r[2]?parseInt(r.substr(3),16):parseInt(r.substr(2),10);if(n>-1)return String.fromCharCode(n)}return t[r]||r}))}function e(r,t){if("string"==typeof r)return r;var u=r.r;if(u)return u;var a,o=function(r,t){if(r.t){for(var e,u,a=r.t.split(/([^\s='"]+(?:\s*=\s*(?:'[\S\s]*?'|"[\S\s]*?"|[^\s'"]*))?)/),o=a.length,i=0;i<o;i++){var l=n(a[i]);if(l){e||(e={});var c=l.indexOf("=");if(c<0)l="@"+l,u=null;else{u=l.substr(c+1).replace(/^\s+/,""),l="@"+l.substr(0,c).replace(/\s+$/,"");var p=u[0];p!==u[u.length-1]||"'"!==p&&'"'!==p||(u=u.substr(1,u.length-2)),u=s(u)}t&&(u=t(l,u)),f(e,l,u)}}return e}}(r,t),i=r.f,l=i.length;if(o||l>1)a=o||{},i.forEach((function(r){"string"==typeof r?f(a,"#",r):f(a,r.n,e(r,t))}));else if(l){var c=i[0];if(a=e(c,t),c.n){var p={};p[c.n]=a,a=p}}else a=r.c?null:"";return t&&(a=t(r.n||"",a)),a}function f(r,t,n){if(void 0!==n){var s=r[t];s instanceof Array?s.push(n):r[t]=t in r?[s,n]:n}}r.fromXML=fromXML=function(r,t){return e(function(r){for(var t=String.prototype.split.call(r,/<([^!<>?](?:'[\S\s]*?'|"[\S\s]*?"|[^'"<>])*|!(?:--[\S\s]*?--|\[[^\[\]'"<>]+\[[\S\s]*?]]|DOCTYPE[^\[<>]*?\[[\S\s]*?]|(?:ENTITY[^"<>]*?"[\S\s]*?")?[\S\s]*?)|\?[\S\s]*?\?)>/),e=t.length,f={f:[]},u=f,a=[],o=0;o<e;){var i=t[o++];i&&v(i);var l=t[o++];l&&c(l)}return f;function c(r){var t=r.length,n=r[0];if("/"===n)for(var s=r.replace(/^\/|[\s\/].*$/g,"").toLowerCase();a.length;){var e=u.n&&u.n.toLowerCase();if(u=a.pop(),e===s)break}else if("?"===n)p({n:"?",r:r.substr(1,t-2)});else if("!"===n)"[CDATA["===r.substr(1,7)&&"]]"===r.substr(-2)?v(r.substr(8,t-10)):p({n:"!",r:r.substr(1)});else{var f=function(r){var t={f:[]},n=(r=r.replace(/\s*\/?$/,"")).search(/[\s='"\/]/);n<0?t.n=r:(t.n=r.substr(0,n),t.t=r.substr(n));return t}(r);p(f),"/"===r[t-1]?f.c=1:(a.push(u),u=f)}}function p(r){u.f.push(r)}function v(r){(r=n(r))&&p(s(r))}}(r),t)}}("object"==typeof exports&&exports||{});
++store_extensions.set(/clients2\.google\.com\/service\/update2\/crx/, {
++    baseUrl:
++        "https://clients2.google.com/service/update2/crx?response=updatecheck&acceptformat=crx2,crx3&prodversion=",
++    name: "CWS Extensions",
++});
++// edge requires &v=<version> for each extension or else it returns empty results
++store_extensions.set(/edge\.microsoft\.com\/extensionwebstorebase\/v1\/crx/, {
++    baseUrl:
++        "https://edge.microsoft.com/extensionwebstorebase/v1/crx?os=win&arch=x64&os_arch=x86_64&nacl_arch=x86-64&prod=edgecrx&prodchannel=&lang=en-US&acceptformat=crx3&prodversion=",
++    name: "Edge Extensions",
++    ignore: true,
++});
++// opera requires an opera UA or else this request will return 404
++store_extensions.set(/extension-updates\.opera\.com\/api\/omaha\/update/, {
++    baseUrl:
++        "https://extension-updates.opera.com/api/omaha/update/?os=win&arch=x64&os_arch=x86_64&nacl_arch=x86-64&prod=chromiumcrx&prodchannel=Stable&lang=en-US&acceptformat=crx3&prodversion=",
++    name: "Opera Extensions",
++    userAgent: "foobar",
++    ignore: true,
++});
++
++const is_cws = /chrome.google.com\/webstore/i;
++const is_ncws = /chromewebstore.google.com\//i;
++const is_ows = /addons.opera.com\/.*extensions/i;
++const is_ews = /microsoftedge\.microsoft\.com\/addons\//i;
++const cws_re = /.*detail\/[^\/]*\/([a-z]{32})/i;
++const ncws_re = /.*detail(?:\/[^\/]+)?\/([a-z]{32})/i;
++const ows_re = /.*details\/([^\/?#]+)/i;
++const ews_re = /.*addons\/.+?\/([a-z]{32})/i;
++
++const WEBSTORE_MAP = new Map();
++WEBSTORE_MAP.set(is_cws, WEBSTORE.chrome);
++WEBSTORE_MAP.set(is_ews, WEBSTORE.edge);
++WEBSTORE_MAP.set(is_ows, WEBSTORE.opera);
++WEBSTORE_MAP.set(is_ncws, WEBSTORE.chromenew);
++
++function version_is_newer(current, available) {
++    let current_subvs = current.split(".");
++    let available_subvs = available.split(".");
++    for (let i = 0; i < 4; i++) {
++        let ver_diff =
++            (parseInt(available_subvs[i]) || 0) -
++            (parseInt(current_subvs[i]) || 0);
++        if (ver_diff > 0) return true;
++        else if (ver_diff < 0) return false;
++    }
++    return false;
++}
++
++function getExtensionId(url) {
++    return (cws_re.exec(url) ||
++        ncws_re.exec(url) ||
++        ows_re.exec(url) ||
++        ews_re.exec(url) || [undefined, undefined])[1];
++}
++
++function buildExtensionUrl(href, extensionId = undefined) {
++    extensionId = extensionId || getExtensionId(href);
++    if (extensionId == undefined) return;
++    if (is_cws.test(href) || is_ncws.test(href)) {
++        var chromeVersion = /Chrome\/([0-9.]+)/.exec(navigator.userAgent)[1];
++        return (
++            "https://clients2.google.com/service/update2/crx?response=redirect&acceptformat=crx2,crx3&prodversion=" +
++            chromeVersion +
++            "&x=id%3D" +
++            extensionId +
++            "%26installsource%3Dondemand%26uc"
++        );
++    }
++    if (is_ows.test(href)) {
++        return (
++            "https://addons.opera.com/extensions/download/" + extensionId + "/"
++        );
++    }
++    if (is_ews.test(href)) {
++        return (
++            "https://edge.microsoft.com/extensionwebstorebase/v1/crx?response=redirect&x=id%3D" +
++            extensionId +
++            "%26installsource%3Dondemand%26uc"
++        );
++    }
++}
++
++function promptInstall(
++    crx_url,
++    is_webstore,
++    browser = WEBSTORE.chrome,
++    custom_msg_handler = undefined,
++) {
++    chrome.storage.sync.get(DEFAULT_MANAGEMENT_OPTIONS, function (settings) {
++        var msgHandler = custom_msg_handler || chrome.runtime.sendMessage;
++        if (is_webstore && !settings.manually_install) {
++            switch (browser) {
++                case WEBSTORE.edge:
++                    // normal methods fail because microsoft's official web store redirects you from HTTPS to an insecure HTTP url.
++                    // instead use chrome.tabs to open the url in a new tab.
++                    msgHandler({
++                        newTabUrl: crx_url,
++                    });
++                    break;
++                case WEBSTORE.opera:
++                    // Opera extensions will always error with CRX_HEADER_INVALID, they must be "load unpacked"
++                    msgHandler({
++                        manualInstallDownloadUrl: crx_url,
++                    });
++                    break;
++                default:
++                    // copy the edge method instead of window.open(,_blank) so this works in the service worker (mv3)
++                    msgHandler({
++                        newTabUrl: crx_url,
++                    });
++                    break;
++            }
++            return;
++        }
++        if (settings.manually_install) {
++            msgHandler({
++                manualInstallDownloadUrl: crx_url,
++            });
++            return;
++        } else {
++            msgHandler({
++                nonWebstoreDownloadUrl: crx_url,
++            });
++            return;
++        }
++    });
++}
++
++function checkForUpdates(
++    update_callback = null,
++    failure_callback = null,
++    completed_callback = null,
++    custom_ext_list = [],
++) {
++    let badge_display = "";
++    chrome.management.getAll(function (e) {
++        e.push(...custom_ext_list);
++        let default_options = { ...DEFAULT_MANAGEMENT_OPTIONS };
++        e.forEach(function (ex) {
++            default_options[ex.id] = false;
++        });
++        chrome.storage.sync.get(default_options, function (stored_values) {
++            stored_values["ignored_extensions"] = [];
++            chrome.storage.managed.get(stored_values, function (settings) {
++                settings.ignored_extensions.forEach((ignored_appid) => {
++                    if (ignored_appid in settings)
++                        settings[ignored_appid] = true;
++                });
++                delete settings.ignored_extensions;
++                let updateUrl =
++                    "https://clients2.google.com/service/update2/crx?response=updatecheck&acceptformat=crx2,crx3&prodversion=" +
++                    chromeVersion;
++                let installed_versions = {};
++                let updateUrls = [];
++                Array.from(store_extensions.values()).forEach(
++                    (x) => delete x.updateUrl,
++                );
++                function _add_url(updateUrls, updaterOptions) {
++                    if (!settings.check_store_apps) return false;
++                    if (updaterOptions.ignore) return false;
++                    if (!("updateUrl" in updaterOptions)) return false;
++                    updateUrls.push({
++                        url: updaterOptions.updateUrl,
++                        name: updaterOptions.name,
++                    });
++                    return true;
++                }
++                e.forEach(function (ex) {
++                    if (ex.updateUrl && !settings[ex.id]) {
++                        let is_from_store = false;
++                        for (const [re, updaterOptions] of store_extensions) {
++                            if (re.test(ex.updateUrl)) {
++                                is_from_store = true;
++                                updaterOptions.updateUrl =
++                                    updaterOptions.updateUrl ||
++                                    updaterOptions.baseUrl + chromeVersion;
++                                updaterOptions.updateUrl +=
++                                    "&x=id%3D" + ex.id + "%26uc";
++                            }
++                            updaterOptions.extCount =
++                                (updaterOptions.extCount ?? 0) + 1;
++                            if (
++                                updaterOptions.extCount >= UPDATE_API_LIMIT &&
++                                _add_url(updateUrls, updaterOptions)
++                            ) {
++                                delete updaterOptions.updateUrl;
++                                updaterOptions.extCount = 0;
++                            }
++                        }
++                        if (!is_from_store && settings.check_external_apps) {
++                            updateUrls.push({
++                                url: ex.updateUrl,
++                                name: ex.name,
++                                id: ex.id,
++                            });
++                        }
++                        installed_versions[ex.id] = ex;
++                    }
++                });
++                for (const [re, updaterOptions] of store_extensions) {
++                    _add_url(updateUrls, updaterOptions);
++                }
++                function update_extension(ext_url, ext_id, ext_name) {
++                    let is_webstore = Array.from(store_extensions.keys()).some(
++                        (x) => x.test(ext_url),
++                    );
++                    return new Promise((resolve, reject) => {
++                        fetch(ext_url)
++                            .then((r) => {
++                                if (r.status != 200) {
++                                    return Promise.reject();
++                                } else return r.text();
++                            })
++                            .then((txt) => {
++                                let xml = fromXML(txt);
++                                if (xml.gupdate.app["@appid"]) {
++                                    // its a single ext, put into array of size 1
++                                    xml.gupdate.app = [xml.gupdate.app];
++                                }
++                                return xml;
++                            })
++                            .then((data) => {
++                                let updateCount = 0;
++                                for (extinfo of data?.gupdate?.app ?? []) {
++                                    if (!extinfo.updatecheck) continue;
++                                    let updatever =
++                                        extinfo.updatecheck["@version"];
++                                    let appid = extinfo["@appid"];
++                                    let updatestatus =
++                                        extinfo.updatecheck["@status"];
++                                    if (
++                                        (updatestatus == "ok" ||
++                                            !is_webstore) &&
++                                        updatever &&
++                                        installed_versions[appid] !==
++                                            undefined &&
++                                        version_is_newer(
++                                            installed_versions[appid].version,
++                                            updatever,
++                                        )
++                                    ) {
++                                        updateCount++;
++                                        if (update_callback)
++                                            update_callback(
++                                                extinfo.updatecheck,
++                                                installed_versions,
++                                                appid,
++                                                updatever,
++                                                is_webstore,
++                                            );
++                                        if (
++                                            appid in
++                                            stored_values["removed_extensions"]
++                                        ) {
++                                            delete stored_values[
++                                                "removed_extensions"
++                                            ][appid];
++                                            chrome.storage.sync.set({
++                                                removed_extensions:
++                                                    stored_values[
++                                                        "removed_extensions"
++                                                    ],
++                                            });
++                                        }
++                                    }
++                                    if (
++                                        failure_callback &&
++                                        updatestatus == "noupdate" &&
++                                        !(
++                                            appid in
++                                            stored_values["removed_extensions"]
++                                        )
++                                    )
++                                        failure_callback(
++                                            true,
++                                            installed_versions[appid],
++                                        );
++                                    // }
++                                }
++                                badge_display =
++                                    (updateCount || "") +
++                                    (parseInt(badge_display) || "") +
++                                    "";
++                                resolve();
++                            })
++                            .catch((e) => {
++                                reject();
++                                console.error(
++                                    `Error updating extension [${
++                                        ext_id || ext_name
++                                    }]:`,
++                                    e,
++                                );
++                                if (failure_callback) {
++                                    if (ext_id)
++                                        failure_callback(
++                                            false,
++                                            installed_versions[ext_id],
++                                        );
++                                    else
++                                        failure_callback(false, {
++                                            name: ext_name,
++                                        });
++                                }
++                            });
++                    });
++                }
++                let promises = updateUrls
++                    .filter((x) => x.url)
++                    .map((uurl) =>
++                        update_extension(uurl.url, uurl.id, uurl.name),
++                    );
++                Promise.allSettled(promises).then((plist) => {
++                    if (
++                        plist.some((x) => x.status == "rejected") &&
++                        !(parseInt(badge_display) > 0)
++                    ) {
++                        badge_display = "?";
++                    }
++                    chrome.action.setBadgeText(
++                        {
++                            text: badge_display,
++                        },
++                        () => {
++                            chrome.storage.local.set({
++                                badge_display: badge_display,
++                            });
++                        },
++                    );
++                    if (completed_callback) completed_callback();
++                });
++            });
++        });
++    });
++}
+diff --git a/chrome/browser/resources/chromium-web-store/sheets/base.css b/chrome/browser/resources/chromium-web-store/sheets/base.css
+new file mode 100644
+index 0000000..01dcd01
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/sheets/base.css
+@@ -0,0 +1,55 @@
++body {
++    margin: 0;
++    font-size: 1rem;
++    font-family: "Helvetica Neue", "Segoe UI", Arial, sans-serif;
++}
++
++h1,
++h2,
++h3,
++h4,
++h5,
++h6 {
++    margin-top: 0;
++    margin-bottom: 0;
++}
++
++ol,
++ul {
++    margin-top: 0;
++    margin-bottom: 0;
++    padding-left: 0;
++    list-style-type: none;
++}
++
++a {
++    outline-style: none;
++    text-decoration: none;
++}
++
++img {
++    vertical-align: middle;
++    border-style: none;
++}
++
++button,
++input,
++select {
++    font: inherit;
++    margin: 0;
++    outline-style: none;
++    overflow: visible;
++}
++
++textarea {
++    font: inherit;
++    margin: 0;
++    outline-style: none;
++    overflow: auto;
++    resize: none;
++}
++
++table {
++    border-collapse: collapse;
++    border-spacing: 0;
++}
+diff --git a/chrome/browser/resources/chromium-web-store/sheets/options.css b/chrome/browser/resources/chromium-web-store/sheets/options.css
+new file mode 100644
+index 0000000..26c00c6
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/sheets/options.css
+@@ -0,0 +1,69 @@
++body {
++    margin-bottom: 2rem;
++    width: 500px;
++    font-size: 81.25%;
++}
++
++h2 {
++    line-height: 1.8;
++    border-bottom: 1px solid #dbdbdb;
++    margin-bottom: 1rem;
++    padding-bottom: 0.4rem;
++}
++
++label {
++    display: inline-flex;
++    align-items: center;
++    margin-left: 1rem;
++    line-height: 1.8;
++}
++
++label.sub {
++    margin-left: 2.5rem;
++}
++
++label > span {
++    margin-left: 0.3rem;
++    user-select: none;
++}
++
++label > input {
++    flex: 0 0 auto;
++}
++
++label > img {
++    flex: 0 0 auto;
++    margin: auto 4px auto 8px;
++    width: 16px;
++    height: 16px;
++}
++
++input[type="number"] {
++    width: 3.8rem;
++    line-height: 1rem;
++}
++
++label.disabled {
++    color: grey;
++}
++
++textarea {
++    margin-left: 1rem;
++    width: calc(100% - 2rem);
++    resize: vertical;
++}
++
++#import_export_list {
++    height: 20em;
++}
++
++#import_all_button {
++    margin-left: 1rem;
++}
++
++@media (prefers-color-scheme: dark) {
++body,textarea {
++    background-color: #313131;
++    color: #bfbfbf;
++}
++}
+diff --git a/chrome/browser/resources/chromium-web-store/sheets/popup.css b/chrome/browser/resources/chromium-web-store/sheets/popup.css
+new file mode 100644
+index 0000000..4b9ca2c
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/sheets/popup.css
+@@ -0,0 +1,166 @@
++#app {
++    font-size: 14px;
++    color: #333;
++    user-select: none;
++}
++
++.message {
++    margin-top: 0;
++    margin-bottom: 0;
++    font-size: 14px;
++    font-weight: normal;
++    text-align: center;
++}
++
++ul {
++    margin-top: 0;
++    margin-bottom: 0;
++    padding-left: 0;
++    list-style-type: none;
++}
++
++.message,
++ul li {
++    margin: 6px 4px;
++    min-height: 32px;
++    border-radius: 2px;
++    box-shadow: 0 0 0 1px #e3e3e3, 0 0 2px 0 rgba(229, 233, 239, 0.3);
++    transition: background-color 0.15s;
++    overflow: hidden;
++}
++
++.message {
++    height:auto;
++    display: flex;
++    align-items: center;
++}
++
++ul li {
++    display: flex;
++    align-items: center;
++    cursor: pointer;
++}
++
++ul li[data-enabled="false"] {
++    background-color: #c2c2c2;
++}
++
++ul li:hover {
++    outline-color: #4d90fe;
++    outline-style: auto;
++    outline-width: 1px;
++}
++
++.message.hidden,
++ul li.hidden {
++    display: none;
++}
++
++img {
++    flex: 0 0 auto;
++    margin: auto 4px auto 8px;
++    width: 16px;
++    height: 16px;
++}
++
++span,
++.message p {
++    flex: 1 1 100%;
++    margin: auto 4px auto 4px;
++}
++
++span {
++    text-overflow: ellipsis;
++    white-space: nowrap;
++    overflow: hidden;
++}
++
++a,
++input {
++    flex: 0 0 auto;
++    margin: auto 8px auto 4px;
++}
++
++li > a {
++    cursor: pointer;
++}
++
++a:hover {
++    color: #e60000;
++}
++
++.updatefailure,
++.updatefailure:hover {
++    background-color: #ffcccb;
++}
++
++.updatefailure[data-enabled="false"] {
++    background-color: #e7b9b8;
++}
++
++#removedStatus {
++    box-shadow: 0 0 0 1px #e60000, 0 0 2px 0 #e60000;
++}
++
++.removedext,
++.removedext:hover,
++.updatefailure,
++.updatefailure:hover {
++    cursor: auto;
++    outline-style: none;
++}
++
++svg {
++    fill: rgb(95, 99, 104);
++    width: 20px;
++    height: 20px;
++}
++
++.removedext svg,
++.updatefailure svg {
++    width: 16px;
++    height: 16px;
++}
++
++a:hover > svg {
++    transform: scale(1.15);
++}
++
++@media (prefers-color-scheme: dark) {
++    body,
++    #app {
++        background-color: #313131;
++        color: #bfbfbf;
++    }
++
++    ul li[data-enabled="false"] {
++        background-color: initial;
++        color: #717171;
++        box-shadow: 0 0 0 1px #6d6d6d, 0 0 2px 0 rgba(89, 111, 144, 0.3);
++    }
++
++    ul li:hover {
++        outline: none;
++        filter: brightness(1.8);
++    }
++
++    ul li:hover img {
++        filter: brightness(.55555);
++    }
++
++    .removedext,
++    .removedext:hover,
++    .updatefailure,
++    .updatefailure:hover,
++    .removedext img,
++    .removedext:hover img,
++    .updatefailure img,
++    .updatefailure:hover img {
++        filter: none;
++    }
++
++    .updatefailure,
++    .updatefailure:hover {
++        color: #313131;
++    }
++}
+diff --git a/chrome/browser/resources/chromium-web-store/sheets/scrollbar.css b/chrome/browser/resources/chromium-web-store/sheets/scrollbar.css
+new file mode 100644
+index 0000000..e6089df
+--- /dev/null
++++ b/chrome/browser/resources/chromium-web-store/sheets/scrollbar.css
+@@ -0,0 +1,18 @@
++::-webkit-scrollbar {
++    width: 4px;
++    height: 4px;
++}
++
++::-webkit-scrollbar-track {
++    background-color: #f1f1f1;
++    border-radius: 2px;
++}
++
++::-webkit-scrollbar-thumb {
++    background-color: #bcbcbc;
++    border-radius: 2px;
++}
++
++::-webkit-scrollbar-thumb:hover {
++    background-color: #888;
++}

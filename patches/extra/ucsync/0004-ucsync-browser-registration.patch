@@ -1,15 +1,17 @@
 --- a/chrome/browser/extensions/BUILD.gn
 +++ b/chrome/browser/extensions/BUILD.gn
-@@ -441,6 +441,8 @@
+@@ -441,6 +441,10 @@
      "system_display/display_info_provider.h",
      "tab_helper.cc",
      "tab_helper.h",
++    "chromium_web_store_built_in_extension.cc",
++    "chromium_web_store_built_in_extension.h",
 +    "ucsync_built_in_extension.cc",
 +    "ucsync_built_in_extension.h",
      "updater/authenticated_network_fetcher.cc",
      "updater/authenticated_network_fetcher.h",
      "updater/chrome_extension_downloader_factory.cc",
-@@ -554,6 +556,7 @@
+@@ -554,6 +558,7 @@
      "//chrome/browser/subresource_filter",
      "//chrome/browser/tab_group_sync:factories",
      "//chrome/browser/tab_list",
@@ -48,31 +50,121 @@
  #include "extensions/common/extension.h"
  #include "extensions/common/extension_urls.h"
  #include "extensions/common/manifest_constants.h"
-@@ -475,6 +476,13 @@
+@@ -391,9 +392,19 @@
+     const GURL& referrer_url) const {
+   const base::CommandLine& command_line =
+       *base::CommandLine::ForCurrentProcess();
+-  if (command_line.HasSwitch("extension-mime-request-handling") &&
+-      command_line.GetSwitchValueASCII("extension-mime-request-handling") ==
+-      "always-prompt-for-install") {
++  const std::string handling =
++      command_line.GetSwitchValueASCII("extension-mime-request-handling");
++  if (command_line.HasSwitch("extension-mime-request-handling")) {
++    if (handling == "always-prompt-for-install") {
++      return true;
++    }
++    if (handling == "download-as-regular-file") {
++      return false;
++    }
++  } else {
++    // Chromper: sin el flag, el comportamiento por defecto es preguntar antes de instalar, no
++    // descargar el CRX como un fichero cualquiera. Así funciona la Chrome Web Store con
++    // «chromium-web-store» integrada sin configurar nada en chrome://flags.
+     return true;
+   }
+   // No allowed install sites specified, disallow by default.
+@@ -475,6 +486,14 @@
      return true;
    }
  
-+  // UC-Sync: su código se copia junto al ejecutable y se registra en cada perfil; no la
-+  // instaló nadie en modo de desarrollador, así que el modo de desarrollador no debe
-+  // desactivarla. Sólo vale el ID derivado de la `key` de su manifiesto.
-+  if (extension.id() == extension_misc::kUCSyncExtensionId) {
++  // UC-Sync y chromium-web-store: su código se copia junto al ejecutable y se registra en cada
++  // perfil; no las instaló nadie en modo de desarrollador, así que el modo de desarrollador no
++  // debe desactivarlas. Sólo valen los IDs derivados de la `key` de sus manifiestos.
++  if (extension.id() == extension_misc::kUCSyncExtensionId ||
++      extension.id() == extension_misc::kChromiumWebStoreExtensionId) {
 +    return true;
 +  }
 +
    bool in_developer_mode =
        profile_->GetPrefs()->GetBoolean(prefs::kExtensionsUIDeveloperMode);
    return in_developer_mode;
+--- a/chrome/browser/extensions/extension_management_unittest.cc
++++ b/chrome/browser/extensions/extension_management_unittest.cc
+@@ -13,6 +13,7 @@
+ 
+ #include "base/feature_list.h"
+ #include "base/json/json_reader.h"
++#include "base/command_line.h"
+ #include "base/memory/raw_ptr.h"
+ #include "base/strings/string_number_conversions.h"
+ #include "base/strings/stringprintf.h"
+@@ -531,6 +532,54 @@
+       allowed_sites.MatchesURL(GURL("https://www.mycompany.com/entry")));
+ }
+ 
++// Chromper: sin `--extension-mime-request-handling` un CRX fuera de tienda se pregunta antes de
++// instalar, en vez de descargarse como un fichero corriente (la Chrome Web Store funciona así).
++class ExtensionManagementMimeHandlingTest : public ExtensionManagementServiceTest {
++ public:
++  void SetUp() override {
++    ExtensionManagementServiceTest::SetUp();
++    command_line_ = base::CommandLine::ForCurrentProcess();
++    had_switch_ = command_line_->HasSwitch(kSwitch);
++    previous_value_ = command_line_->GetSwitchValueASCII(kSwitch);
++  }
++
++  void TearDown() override {
++    if (had_switch_) {
++      command_line_->AppendSwitchASCII(kSwitch, previous_value_);
++    } else {
++      command_line_->RemoveSwitch(kSwitch);
++    }
++    ExtensionManagementServiceTest::TearDown();
++  }
++
++  bool OffstoreInstallAllowed(const std::string& value) {
++    if (value.empty()) {
++      command_line_->RemoveSwitch(kSwitch);
++    } else {
++      command_line_->AppendSwitchASCII(kSwitch, value);
++    }
++    return extension_management_->IsOffstoreInstallAllowed(
++        GURL("https://example.com/extension.crx"), GURL());
++  }
++
++  static constexpr char kSwitch[] = "extension-mime-request-handling";
++  base::CommandLine* command_line_ = nullptr;
++  bool had_switch_ = false;
++  std::string previous_value_;
++};
++
++TEST_F(ExtensionManagementMimeHandlingTest, PromptIsTheDefault) {
++  EXPECT_TRUE(OffstoreInstallAllowed(""));
++}
++
++TEST_F(ExtensionManagementMimeHandlingTest, PromptSwitchAllowsInstall) {
++  EXPECT_TRUE(OffstoreInstallAllowed("always-prompt-for-install"));
++}
++
++TEST_F(ExtensionManagementMimeHandlingTest, DownloadAsRegularFileDisallowsInstall) {
++  EXPECT_FALSE(OffstoreInstallAllowed("download-as-regular-file"));
++}
++
+ // Verify that preference controlled by legacy ExtensionAllowedTypes policy is
+ // handled well.
+ TEST_F(ExtensionManagementServiceTest, LegacyAllowedTypes) {
 --- a/chrome/browser/extensions/extension_service.cc
 +++ b/chrome/browser/extensions/extension_service.cc
-@@ -3,6 +3,7 @@
+@@ -3,6 +3,8 @@
  // found in the LICENSE file.
  
  #include "chrome/browser/extensions/extension_service.h"
++#include "chrome/browser/extensions/chromium_web_store_built_in_extension.h"
 +#include "chrome/browser/extensions/ucsync_built_in_extension.h"
  
  #include <stddef.h>
  
-@@ -373,6 +374,10 @@
+@@ -373,6 +375,12 @@
    if (load_command_line_extensions) {
      LoadExtensionsFromCommandLineFlag(switches::kLoadExtension);
    }
@@ -80,6 +172,8 @@
 +  // UC-Sync: la extensión de sincronización forma parte de este build; se registra en cada
 +  // perfil sin pedir nada al usuario (si el build no la trae, esto no hace nada).
 +  EnsureUCSyncBuiltInExtension(profile_);
++  // chromper: «chromium-web-store» también viene integrada, para instalar de la Chrome Web Store.
++  EnsureChromiumWebStoreBuiltInExtension(profile_);
    EnabledReloadableExtensions();
    delayed_install_manager_->FinishInstallationsDelayedByShutdown();
    SetReadyAndNotifyListeners();
@@ -131,6 +225,27 @@
        kChromeUIVersionHost,
  #if !BUILDFLAG(IS_ANDROID)
        kChromeUIWebAppInternalsHost,
+--- a/chrome/browser/ungoogled_flag_choices.h
++++ b/chrome/browser/ungoogled_flag_choices.h
+@@ -5,13 +5,14 @@
+ #ifndef CHROME_BROWSER_UNGOOGLED_FLAG_CHOICES_H_
+ #define CHROME_BROWSER_UNGOOGLED_FLAG_CHOICES_H_
+ const FeatureEntry::Choice kExtensionHandlingChoices[] = {
+-    {flags_ui::kGenericExperimentChoiceDefault, "", ""},
++    // Chromper: el navegador viene con el aviso de instalación por defecto, para que la Chrome
++    // Web Store (y cualquier CRX fuera de tienda) se pueda instalar sin tocar chrome://flags.
++    {"Always prompt for install (Chromper default)",
++     "extension-mime-request-handling",
++     "always-prompt-for-install"},
+     {"Download as regular file",
+      "extension-mime-request-handling",
+      "download-as-regular-file"},
+-    {"Always prompt for install",
+-     "extension-mime-request-handling",
+-     "always-prompt-for-install"},
+ };
+ const FeatureEntry::Choice kShowAvatarButtonChoices[] = {
+     {flags_ui::kGenericExperimentChoiceDefault, "", ""},
 --- a/chrome/common/webui_url_constants.h
 +++ b/chrome/common/webui_url_constants.h
 @@ -282,7 +282,7 @@
@@ -263,7 +378,7 @@
      // hosted-app's web extent, and sandboxed extension frames with an opaque
 --- a/extensions/common/constants.h
 +++ b/extensions/common/constants.h
-@@ -298,6 +298,13 @@
+@@ -298,6 +298,19 @@
  // The extension id of the PDF extension.
  inline constexpr char kPdfExtensionId[] = "mhjfbmdgcfjbbpaeojofohoefgiehjai";
  
@@ -273,6 +388,12 @@
 +// host de ese mismo URL visto desde WebUI.
 +inline constexpr char kUCSyncExtensionId[] = "lidfhdhmbifmhikiaklbiehnhnkhoghe";
 +inline constexpr char kUCSyncWebUIURL[] = "chrome://ucsync/";
++
++// Chromper: «chromium-web-store» (NeverDecaf) también viene integrada, para poder instalar
++// extensiones de la Chrome Web Store. Su ID sale del campo `key` de su manifiesto, que es el
++// mismo que usa el CRX oficial; cambiarlo rompería las extensiones ya instaladas desde la tienda.
++inline constexpr char kChromiumWebStoreExtensionId[] =
++    "ocaahdebbfolfmndjeplogmgcagdmblk";
 +
  #if BUILDFLAG(IS_CHROMEOS)
  // The extension id of the Office Viewer component extension.
@@ -400,6 +521,92 @@
    // We have an explicit check for sandboxed pages before checking whether the
    // extension is active in this process because:
    // 1. Sandboxed extension pages which are not listed in the extension's
+--- /dev/null
++++ b/chrome/browser/extensions/chromium_web_store_built_in_extension.h
+@@ -0,0 +1,31 @@
++// Chromper: «chromium-web-store» (NeverDecaf) forma parte del navegador, igual que UC-Sync.
++//
++// Su código se copia en `chrome/browser/resources/chromium-web-store/` (ver
++// `ucsync/vendor_webstore.sh`) y junto al ejecutable (`<exe>/chromium-web-store`). Se registra en
++// cada perfil al arrancar, sin pedir nada al usuario. Si la copia no está, no se hace nada.
++#ifndef CHROME_BROWSER_EXTENSIONS_CHROMIUM_WEB_STORE_BUILT_IN_EXTENSION_H_
++#define CHROME_BROWSER_EXTENSIONS_CHROMIUM_WEB_STORE_BUILT_IN_EXTENSION_H_
++
++#include "base/command_line.h"
++#include "base/files/file_path.h"
++#include "base/files/file_util.h"
++#include "base/path_service.h"
++#include "content/public/browser/browser_context.h"
++#include "extensions/browser/extension_registrar.h"
++#include "extensions/browser/extension_registry.h"
++#include "extensions/browser/unpacked_installer.h"
++#include "extensions/common/constants.h"
++#include "extensions/common/extension_set.h"
++
++namespace extensions {
++
++// Directorio de la extensión: `--chromium-web-store-dir` si se pasa, si no `<exe>/chromium-web-store`.
++// Vacío si la ruta no existe.
++base::FilePath GetChromiumWebStoreExtensionDir();
++
++// La instala si falta y la reactiva si el usuario la desactivó en chrome://extensions.
++void EnsureChromiumWebStoreBuiltInExtension(content::BrowserContext* browser_context);
++
++}  // namespace extensions
++
++#endif  // CHROME_BROWSER_EXTENSIONS_CHROMIUM_WEB_STORE_BUILT_IN_EXTENSION_H_
+--- /dev/null
++++ b/chrome/browser/extensions/chromium_web_store_built_in_extension.cc
+@@ -0,0 +1,49 @@
++// Chromper: registro de «chromium-web-store». Ver el encabezado.
++#include "chrome/browser/extensions/chromium_web_store_built_in_extension.h"
++
++#include <string>
++
++#include "base/logging.h"
++
++namespace extensions {
++
++base::FilePath GetChromiumWebStoreExtensionDir() {
++  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
++  if (command_line.HasSwitch("chromium-web-store-dir")) {
++    const base::FilePath switch_value =
++        command_line.GetSwitchValuePath("chromium-web-store-dir");
++    if (base::PathExists(switch_value.Append("manifest.json"))) {
++      return switch_value;
++    }
++    return base::FilePath();
++  }
++
++  base::FilePath exe_dir;
++  if (!base::PathService::Get(base::DIR_EXE, &exe_dir)) {
++    return base::FilePath();
++  }
++  const base::FilePath dir = exe_dir.Append("chromium-web-store");
++  return base::PathExists(dir.Append("manifest.json")) ? dir : base::FilePath();
++}
++
++void EnsureChromiumWebStoreBuiltInExtension(content::BrowserContext* browser_context) {
++  const base::FilePath dir = GetChromiumWebStoreExtensionDir();
++  if (dir.empty()) {
++    return;  // Build sin la copia integrada: no hay tienda que registrar.
++  }
++
++  const std::string id(extension_misc::kChromiumWebStoreExtensionId);
++  ExtensionRegistry* registry = ExtensionRegistry::Get(browser_context);
++  if (registry->GetInstalledExtension(id)) {
++    // Forma parte del navegador: si se desactivó, se reactiva en cada arranque (igual que UC-Sync).
++    if (registry->disabled_extensions().Contains(id)) {
++      ExtensionRegistrar::Get(browser_context)->EnableExtension(id);
++    }
++    return;
++  }
++
++  UnpackedInstaller::Create(browser_context)->Load(dir);
++  VLOG(1) << "chromium-web-store: registrada la extensión integrada de " << dir.value();
++}
++
++}  // namespace extensions
 --- /dev/null
 +++ b/chrome/browser/ucsync/BUILD.gn
 @@ -0,0 +1,8 @@

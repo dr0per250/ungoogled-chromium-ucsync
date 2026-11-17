@@ -57,17 +57,23 @@ for loc in $LOCALES; do
 done
 [[ -f "$PKG/locales/en-US.pak" ]] || { echo "Falta en-US.pak: el navegador no arranca sin idioma base"; exit 1; }
 
-echo "[package] Extensión integrada"
+echo "[package] Extensiones integradas"
 if [[ -d "$SRC/chrome/browser/resources/ucsync" ]]; then
   cp -a "$SRC/chrome/browser/resources/ucsync" "$PKG/ucsync"
 else
   echo "[package] Aviso: no hay recursos de UC-Sync en el árbol (falta el parche 0003)."
+fi
+if [[ -d "$SRC/chrome/browser/resources/chromium-web-store" ]]; then
+  cp -a "$SRC/chrome/browser/resources/chromium-web-store" "$PKG/chromium-web-store"
+else
+  echo "[package] Aviso: no hay recursos de chromium-web-store en el árbol (falta el parche 0006)."
 fi
 
 cat > "$PKG/VERSION" <<TXT
 chromium=$VERSION
 fork=$(git -C "$FORK" rev-parse --short HEAD)
 ucsyncExtension=$(python3 -c "import json;print(json.load(open('$PKG/ucsync/manifest.json'))['version'])" 2>/dev/null || echo n/d)
+webstoreExtension=$(python3 -c "import json;print(json.load(open('$PKG/chromium-web-store/manifest.json'))['version'])" 2>/dev/null || echo n/d)
 buildId=$(git -C "$FORK" rev-parse --short HEAD)-$(date -u +%Y%m%d%H%M)
 TXT
 
