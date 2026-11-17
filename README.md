@@ -178,7 +178,7 @@ El binario Linux se publica con `./ucsync/make_release.sh` (crea el release del 
 tarball). Para la extensión suelta, los releases de
 [uc-sync](https://github.com/dr0per250/uc-sync/releases).
 
-## Qué cambia en el navegador (detalle de los 6 parches)
+## Qué cambia en el navegador (detalle de los 7 parches)
 
 - **`0001-history-api-visit-time`** — `chrome.history.addUrl({url, visitTime})` acepta horas pasadas
   y rechaza las futuras con el mensaje
@@ -216,6 +216,16 @@ Las pruebas `ExtensionManagementMimeHandlingTest` (en `extension_management_unit
 `always-prompt-for-install` se pregunta y con `download-as-regular-file` se descarga. Necesitan un
 checkout completo de Chromium (`third_party/test_fonts` y `chrome/test/data/webui`) para compilar el
 blanco de pruebas; en un árbol podado como el de esta máquina no se construyen.
+
+- **`0007-chromper-default-search-engine`** — **Google** como buscador por defecto. Deja el bloque
+  `google` de `third_party/search_engines_data/resources/definitions/prepopulated_engines.json` como
+  viene en upstream (ungoogled lo sustituye por el marcador «No Search», keyword `nosearch`), así los
+  perfiles nuevos arrancan con Google — los ajustes regionales (`ES`, `AR`, …) lo ponen primero en su
+  lista. Además limpia la preferencia del buscador por defecto cuando apunta a `nosearch`
+  (`components/search_engines/default_search_manager.cc`), para que los perfiles creados antes de este
+  cambio vuelvan a Google una sola vez; si después eliges otro motor en `chrome://settings/search`, no
+  se vuelve a tocar. `ucsync/make_search_patch.sh` regenera el parche y `--refresh-baseline` rehace la
+  base del JSON cuando el submódulo `external/search_engines_data` cambie.
 
 Las visitas se escriben con `SOURCE_EXTENSION`, no con `SOURCE_SYNCED`: Chrome Sync no las borra
 cuando se desactiva y `VisitItem.isLocal` sigue siendo `true` (se pueden borrar a mano).

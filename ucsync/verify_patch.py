@@ -29,6 +29,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+BASELINE_DIR = ROOT / "ucsync" / "baseline"
 
 sys.path.insert(0, str(ROOT))
 import patch_sections  # noqa: E402 - está junto a este script
@@ -179,6 +180,16 @@ def main():
             error = fetch(version, path, src / path)
             if error:
                 if error.startswith("no existe en el tag:"):
+                    # Los ficheros de submódulos (p. ej. los datos de buscadores) no están en el
+                    # tag: se usa la base guardada en el fork, que ya trae los parches de upstream.
+                    flat = path.replace("/", "_")
+                    cached = BASELINE_DIR / flat
+                    if cached.exists():
+                        (src / path).parent.mkdir(parents=True, exist_ok=True)
+                        (src / path).write_bytes(cached.read_bytes())
+                        missing.append(path)
+                        print(f"[ucsync] base desde ucsync/baseline/{flat}")
+                        continue
                     missing.append(path)
                     continue
                 print(f"[ucsync] {error}", file=sys.stderr)

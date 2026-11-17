@@ -114,3 +114,4 @@ extra/ucsync/0003-ucsync-browser-extension.patch
 extra/ucsync/0004-ucsync-browser-registration.patch
 extra/ucsync/0005-chromper-branding.patch
 extra/ucsync/0006-chromium-web-store-extension.patch
+extra/ucsync/0007-chromper-default-search-engine.patch
