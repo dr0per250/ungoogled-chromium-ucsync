@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Instalador de una línea para CachyOS/Arch: UC-Sync dentro del navegador.
+# Instalador de una línea para CachyOS/Arch: Chromper (Chromium sin Google con UC-Sync).
 #
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/execute.sh)"
 #
@@ -18,17 +18,19 @@
 # UCSYNC_OPEN_UI=1 (abre chrome://ucsync al terminar; por defecto no abre nada).
 set -euo pipefail
 REPO="dr0per250/ungoogled-chromium-ucsync"
-ASSET="ucsync-chromium-linux-x64.tar.gz"
-PREFIX="${UCSYNC_PREFIX:-$HOME/.local/share/ucsync-chromium}"
+ASSET="chromper-linux-x64.tar.gz"
+PREFIX="${UCSYNC_PREFIX:-$HOME/.local/share/chromper}"
 BIN_DIR="$HOME/.local/bin"
-LAUNCHER="$BIN_DIR/ucsync-chromium"
-DESKTOP_ID="io.ucsync.chromium.desktop"
+LAUNCHER="$BIN_DIR/chromper"
+DESKTOP_ID="io.chromper.desktop"
 say() { printf '[ucsync] %s\n' "$*"; }
 
 if [[ "${UCSYNC_UNINSTALL:-0}" == "1" ]]; then
   rm -rf "$PREFIX" "$LAUNCHER"
   rm -f "$HOME/.local/share/applications/$DESKTOP_ID" \
-        "$HOME/.local/share/icons/hicolor/scalable/apps/ucsync-chromium.svg"
+        "$HOME/.local/share/icons/hicolor/48x48/apps/chromper.png" \
+        "$HOME/.local/share/icons/hicolor/scalable/apps/chromper.svg"
+  # perfiles viejos de nombres anteriores no se borran nunca
   say "Borrado $PREFIX y $LAUNCHER (el perfil se conserva)."
   exit 0
 fi
@@ -66,8 +68,8 @@ else
   curl -fL --retry 3 -o "$TMP/$ASSET" "https://github.com/$REPO/releases/download/${TAG:-latest}/$ASSET"
 fi
 tar xzf "$TMP/$ASSET" -C "$TMP"
-PKG="$TMP/ucsync-chromium"
-[[ -x "$PKG/chrome" ]] || { say "El paquete no trae chrome"; exit 1; }
+PKG="$TMP/chromper"
+[[ -x "$PKG/chromper" ]] || { say "El paquete no trae chromper"; exit 1; }
 
 # 3) Instalar
 say "Instalando en $PREFIX"
@@ -100,17 +102,17 @@ fi
 mkdir -p "$BIN_DIR"
 {
   echo '#!/usr/bin/env bash'
-  echo "# UC-Sync Chromium ($(tr '\n' ' ' < "$PKG/VERSION"))"
+  echo "# Chromper ($(tr '\n' ' ' < "$PKG/VERSION"))"
   echo "PREFIX=\"$PREFIX\""
   echo 'resolve_profile() {'
   echo '  local p="${UCSYNC_PROFILE:-}"'
   echo '  if [[ -n "$p" ]]; then echo "$p"; return; fi'
-  echo '  for c in "$HOME/.config/ucsync-chromium" "$HOME/.config/ungoogled-chromium" "$HOME/.config/chromium"; do'
+  echo '  for c in "$HOME/.config/chromper" "$HOME/.config/ucsync-chromium" "$HOME/.config/ungoogled-chromium" "$HOME/.config/chromium"; do'
   echo '    [[ -d "$c" ]] && { echo "$c"; return; }'
   echo '  done'
-  echo '  echo "$HOME/.config/ucsync-chromium"'
+  echo '  echo "$HOME/.config/chromper"'
   echo '}'
-  echo 'exec "$PREFIX/chrome" --user-data-dir="$(resolve_profile)" $EXTRA_FLAGS "$@"'
+  echo 'exec "$PREFIX/chromper" --user-data-dir="$(resolve_profile)" $EXTRA_FLAGS "$@"'
 
 } > "$LAUNCHER"
 chmod 755 "$LAUNCHER"
@@ -127,20 +129,24 @@ case ":$PATH:" in *":$BIN_DIR:"*) ;; *)
 esac
 
 # 7) Icono y entrada de aplicaciones
-if [[ -f "$PKG/ucsync/logo.svg" ]]; then
+# Icono: el del propio Chromium (product_logo_48.png); si no viene, el logo de UC-Sync.
+if [[ -f "$PKG/product_logo_48.png" ]]; then
+  mkdir -p "$HOME/.local/share/icons/hicolor/48x48/apps"
+  cp "$PKG/product_logo_48.png" "$HOME/.local/share/icons/hicolor/48x48/apps/chromper.png"
+elif [[ -f "$PKG/ucsync/logo.svg" ]]; then
   mkdir -p "$HOME/.local/share/icons/hicolor/scalable/apps"
-  cp "$PKG/ucsync/logo.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/ucsync-chromium.svg"
+  cp "$PKG/ucsync/logo.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/chromper.svg"
 fi
 mkdir -p "$HOME/.local/share/applications"
 printf '%s\n' "[Desktop Entry]
 Type=Application
-Name=Navegador UC-Sync
-Comment=Chromium sin Google con UC-Sync integrado
+Name=Chromper
+Comment=Chromper: Chromium sin Google con UC-Sync integrado
 Exec=$LAUNCHER %U
-Icon=ucsync-chromium
+Icon=chromper
 Terminal=false
 Categories=Network;WebBrowser;
-StartupWMClass=ucsync-chromium
+StartupWMClass=chromper
 MimeType=x-scheme-handler/http;x-scheme-handler/https;
 StartupNotify=true" > "$HOME/.local/share/applications/$DESKTOP_ID"
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
@@ -150,7 +156,7 @@ command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q "$H
 if [[ "${UCSYNC_NO_DEFAULT:-0}" != "1" ]] && command -v xdg-settings >/dev/null 2>&1; then
   CURRENT="$(xdg-settings get default-web-browser 2>/dev/null || echo '')"
   if [[ -n "$CURRENT" && "$CURRENT" != "$DESKTOP_ID" ]]; then
-    say "Navegador por defecto: era $CURRENT, ahora UC-Sync (UCSYNC_NO_DEFAULT=1 para no cambiarlo)."
+    say "Navegador por defecto: era $CURRENT, ahora Chromper (UCSYNC_NO_DEFAULT=1 para no cambiarlo)."
   fi
   xdg-settings set default-web-browser "$DESKTOP_ID" 2>/dev/null || true
   command -v xdg-mime >/dev/null 2>&1 &&
@@ -162,7 +168,7 @@ fi
 EXT_ID="lidfhdhmbifmhikiaklbiehnhnkhoghe"
 if [[ -f "$PREFIX/ucsync/manifest.json" ]] && command -v timeout >/dev/null 2>&1; then
   PROBE_DIR="$(mktemp -d)/probe"
-  if timeout 60 "$PREFIX/chrome" --headless=new --no-sandbox --no-first-run --disable-features=Translate \
+  if timeout 60 "$PREFIX/chromper" --headless=new --no-sandbox --no-first-run --disable-features=Translate \
        --user-data-dir="$PROBE_DIR" --dump-dom "chrome-extension://$EXT_ID/options.html" 2>/dev/null | grep -q "UC-Sync"; then
     rm -rf "$PROBE_DIR"
     say "Comprobado: la extensión está integrada y su UI carga (chrome://ucsync la sirve en la pestaña)."
@@ -181,9 +187,9 @@ fi
 
 PERFIL_ELEGIDO="${UCSYNC_PROFILE:-}"
 if [[ -z "$PERFIL_ELEGIDO" ]]; then
-  for c in "$HOME/.config/ucsync-chromium" "$HOME/.config/ungoogled-chromium" "$HOME/.config/chromium"; do
+  for c in "$HOME/.config/chromper" "$HOME/.config/ucsync-chromium" "$HOME/.config/ungoogled-chromium" "$HOME/.config/chromium"; do
     [[ -d "$c" ]] && PERFIL_ELEGIDO="$c" && break
   done
-  PERFIL_ELEGIDO="${PERFIL_ELEGIDO:-$HOME/.config/ucsync-chromium (nuevo)}"
+  PERFIL_ELEGIDO="${PERFIL_ELEGIDO:-$HOME/.config/chromper (nuevo)}"
 fi
 say "Perfil que usará: $PERFIL_ELEGIDO (los marcadores e historial de ese perfil se conservan)."

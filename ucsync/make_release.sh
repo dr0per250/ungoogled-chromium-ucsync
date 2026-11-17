@@ -34,8 +34,8 @@ git -C "$FORK" rev-parse -q --verify "refs/tags/$TAG" >/dev/null || \
   git -C "$FORK" -c user.name=dr0per250 -c user.email=dr0per250@users.noreply.github.com \
       tag -a "$TAG" -m "Chromium $VERSION con los parches de UC-Sync"
 git -C "$FORK" push origin "$TAG" 2>/dev/null || true
-gh release create "$TAG" -R "$REPO" --title "Chromium $VERSION con UC-Sync integrado (Linux x64)" \
+gh release create "$TAG" -R "$REPO" --title "Chromper $VERSION (Chromium sin Google con UC-Sync, Linux x64)" \
   --notes "Build Linux x64 verificado: hora real en chrome://history, UI en chrome://ucsync y extensión integrada con ID fijo. Instálalo con una línea: \`ucsync/execute.sh\`." 2>/dev/null || true
-gh release upload "$TAG" "$OUT/ucsync-chromium-linux-x64.tar.gz" "$OUT/ucsync-chromium-linux-x64-$VERSION.tar.gz" \
+gh release upload "$TAG" "$OUT/chromper-linux-x64.tar.gz" "$OUT/chromper-linux-x64-$VERSION.tar.gz" \
   -R "$REPO" --clobber
 echo "[release] Subido a https://github.com/$REPO/releases/tag/$TAG"

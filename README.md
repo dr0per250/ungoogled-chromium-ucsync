@@ -1,8 +1,11 @@
-# ungoogled-chromium **UC-Sync**
+# **Chromper** — ungoogled-chromium con UC-Sync integrado
 
-Copia de [ungoogled-chromium](https://github.com/ungoogled-software/ungoogled-chromium) que sigue a
-upstream automáticamente y añade **UC-Sync dentro del navegador**: la extensión de sincronización
-cifrada de marcadores, historial y permisos por sitio viene integrada, y `chrome://ucsync` es su UI.
+**Chromper** es el navegador de este repo: un Chromium sin Google (ungoogled-chromium) con la
+extensión de sincronización cifrada **UC-Sync** integrada y su UI en `chrome://ucsync`. El nombre del
+producto es Chromper (`chromper` es el ejecutable y el lanzador); *Chromium* sigue nombrando el motor,
+y las URLs internas (`chrome://…`) mantienen su esquema. El repo se llama
+`ungoogled-chromium-ucsync` porque es una copia de ungoogled-chromium que sigue a upstream
+automáticamente.
 
 Por qué está integrado y no se instala: `chrome.history.addUrl()` sólo sabe crear visitas «ahora», así
 que la fecha real de cada visita exige parchear la API de historial de Chromium. Y para eso ya hay
@@ -21,7 +24,8 @@ que compilar el navegador, así que la extensión viaja con él.
 | Versión fijada | la de [`chromium_version.txt`](chromium_version.txt) (verificada compilando `157.0.8103.78`) |
 | ID de la extensión | `lidfhdhmbifmhikiaklbiehnhnkhoghe`, fijado por el campo `key` del manifiesto |
 | UI | `chrome://ucsync` (servida por el navegador desde los ficheros embebidos, con lista blanca) |
-| **Binarios** | Linux x64 publicado en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases) (`chromium-157.0.8103.78`). Windows: aún no hay binario (no se ha compilado aquí); está `package_windows.ps1` para producirlo. |
+| **Binarios** | Linux x64 publicado en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases) (`chromper-linux-x64.tar.gz` en el tag `chromium-157.0.8103.78`). Windows: aún no hay binario (no se ha compilado aquí); están `package_windows.ps1` e `install_windows.ps1`. |
+| Nombre del producto | **Chromper**: ejecutable `chromper`/`chromper.exe`, lanzador `chromper`, entrada `io.chromper.desktop` con el icono de Chromium, perfil `~/.config/chromper`. El motor sigue siendo Chromium. |
 | Bóveda y servidor | [dr0per250/uc-sync](https://github.com/dr0per250/uc-sync) — [Releases](https://github.com/dr0per250/uc-sync/releases) con el zip si quieres la extensión suelta |
 | Herramientas propias | [`ucsync/`](ucsync/README.md) (`build.sh`, `bump.sh`, `verify_patch.py`, `make_ucsync_patches.sh`, `verify_runtime.sh`) |
 | Pruebas de comportamiento | [`ucsync/VERIFICATION.md`](ucsync/VERIFICATION.md) |
@@ -33,7 +37,7 @@ Lo de ungoogled (objetivos, características, FAQ, construcción genérica) sigu
 
 ## Instalar el binario (CachyOS / Arch)
 
-El release `chromium-<versión>` trae `ucsync-chromium-linux-x64.tar.gz` (≈ 240 MB: navegador, recursos,
+El release `chromium-<versión>` trae `chromper-linux-x64.tar.gz` (≈ 240 MB: navegador, recursos,
 idiomas recortados y la extensión integrada). Los repos son **privados**, así que la descarga va con
 `gh` autenticado (`gh auth login`) o con `GH_TOKEN`.
 
@@ -41,7 +45,7 @@ Una línea y listo (estilo community-scripts):
 
 ```sh
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/execute.sh)"
-ucsync-chromium
+chromper
 ```
 
 Sin clonar nada, sin tokens, sin compilar y **sin pasos extra**: el script instala las librerías que
@@ -49,22 +53,22 @@ faltan, descarga el binario del último release, lo instala, deja lanzador + ico
 aplicaciones, pone `chrome_sandbox` setuid root con sudo (sandbox real; sólo pide la contraseña de
 sudo si no es sin contraseña), añade `~/.local/bin` al PATH si falta, registra UC-Sync como navegador
 por defecto y comprueba en headless que la UI carga. **No abre ninguna ventana**: cuando termine,
-lanza tú `ucsync-chromium` (o `UCSYNC_OPEN_UI=1` si quieres que lo abra el script).
+lanza tú `chromper` (o `UCSYNC_OPEN_UI=1` si quieres que lo abra el script).
 
-Reutiliza el perfil que ya exista, en este orden: `~/.config/ucsync-chromium`,
+Reutiliza el perfil que ya exista, en este orden: `~/.config/chromper`,
 `~/.config/ungoogled-chromium`, `~/.config/chromium`; si no hay ninguno, crea
-`~/.config/ucsync-chromium`. Así, si vienes de un ungoogled-chromium instalado con pacman/AUR,
+`~/.config/chromper`. Así, si vienes de un ungoogled-chromium instalado con pacman/AUR,
 marcadores, historial y el resto del perfil se conservan y UC-Sync se registra en ese mismo perfil.
 Reinstalar no toca el perfil: `chrome.storage` de la extensión (`Local Extension Settings`) y tus
 datos siguen ahí. Lo único que no puede hacer el script es escribir tu contraseña del servidor en la
 terminal: eso se pone una vez en la propia UI.
 
 `execute.sh` es un solo fichero autocontenido: descarga el tarball del último release, instala las
-librerías que faltan (`pacman -S --noconfirm`), instala en `~/.local/share/ucsync-chromium`, deja el
-lanzador `ucsync-chromium`, el icono y la entrada de aplicaciones, y comprueba el binario. Opciones
+librerías que faltan (`pacman -S --noconfirm`), instala en `~/.local/share/chromper`, deja el
+lanzador `chromper`, el icono y la entrada de aplicaciones, y comprueba el binario. Opciones
 por entorno: `UCSYNC_SYSTEM=1` (en `/opt` con `chrome_sandbox` setuid root → sandbox real, pide
 sudo), `UCSYNC_PREFIX`, `UCSYNC_NO_SANDBOX=1`, `UCSYNC_SKIP_DEPS=1`, `UCSYNC_UNINSTALL=1`, `UCSYNC_SET_DEFAULT=1`. El perfil
-queda en `~/.config/ucsync-chromium` (`UCSYNC_PROFILE` para cambiarlo).
+queda en `~/.config/chromper` (`UCSYNC_PROFILE` para cambiarlo).
 
 **Publicar un binario nuevo** tras compilar:
 
@@ -79,11 +83,11 @@ abajo o en un runner propio), empaquétalo e instálalo con los dos scripts:
 
 ```powershell
 .\ucsync\package_windows.ps1 -Src C:\ucbuild\src -Out C:\paquetes
-.\ucsync\install_windows.ps1 -Zip C:\paquetes\ucsync-chromium-windows-x64.zip
+.\ucsync\install_windows.ps1 -Zip C:\paquetes\chromper-windows-x64.zip
 # o, con gh autenticado y el asset publicado:  .\ucsync\install_windows.ps1
 ```
 
-El instalador coloca el navegador en `%LOCALAPPDATA%\ucsync-chromium`, crea el atajo de escritorio
+El instalador coloca el navegador en `%LOCALAPPDATA%\chromper`, crea el atajo de escritorio
 (con `--user-data-dir` propio), lo añade al `PATH` del usuario y comprueba `chrome.exe --version`.
 `-Uninstall` lo quita.
 

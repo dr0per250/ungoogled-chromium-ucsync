@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Empaqueta el navegador UC-Sync compilado (Linux x64) en un tar.gz listo para instalar.
+# Empaqueta Chromper (Chromium sin Google con UC-Sync integrado) para Linux x64.
 #
 # Coge del `out/Default` sólo lo que necesita el navegador en tiempo de ejecución, recorta los
 # idiomas y coloca la extensión integrada (`ucsync/`) junto al binario, que es donde
@@ -30,11 +30,13 @@ BUILD="$SRC/out/Default"
 mkdir -p "$OUT"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-PKG="$STAGE/ucsync-chromium"
+PKG="$STAGE/chromper"
 mkdir -p "$PKG"
 
 echo "[package] Binario y helpers"
-cp -a "$BUILD/chrome" "$PKG/"
+cp -a "$BUILD/chrome" "$PKG/chromper"
+ln -sf chromper "$PKG/chrome"           # compatibilidad: el motor busca vecinos por su nombre
+[[ -f "$BUILD/product_logo_48.png" ]] && cp -a "$BUILD/product_logo_48.png" "$PKG/"
 for f in chrome_sandbox chrome_crashpad_handler; do
   [[ -f "$BUILD/$f" ]] && cp -a "$BUILD/$f" "$PKG/"
 done
@@ -68,9 +70,9 @@ buildId=$(git -C "$FORK" rev-parse --short HEAD)-$(date -u +%Y%m%d%H%M)
 TXT
 
 # Nombre estable (lo usa el instalador con `releases/latest/download/…`) y nombre con versión.
-STABLE="$OUT/ucsync-chromium-linux-x64.tar.gz"
-VERSIONED="$OUT/ucsync-chromium-linux-x64-$VERSION.tar.gz"
-tar czf "$STABLE" -C "$STAGE" ucsync-chromium
+STABLE="$OUT/chromper-linux-x64.tar.gz"
+VERSIONED="$OUT/chromper-linux-x64-$VERSION.tar.gz"
+tar czf "$STABLE" -C "$STAGE" chromper
 cp "$STABLE" "$VERSIONED"
 echo "[package] $STABLE ($(du -h "$STABLE" | cut -f1))"
 echo "[package] $VERSIONED"

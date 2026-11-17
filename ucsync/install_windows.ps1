@@ -1,4 +1,4 @@
-# Instala el navegador UC-Sync en Windows 11 desde el último release de este fork.
+# Instala Chromper en Windows 11 desde el último release de este fork.
 #
 # Uso (PowerShell):
 #   .\install_windows.ps1                    # descarga el último zip y lo instala en %LOCALAPPDATA%
@@ -6,17 +6,17 @@
 #   .\install_windows.ps1 -Uninstall
 param(
   [string]$Zip = '',
-  [string]$Url = 'https://github.com/dr0per250/ungoogled-chromium-ucsync/releases/latest/download/ucsync-chromium-windows-x64.zip',
-  [string]$Prefix = "$env:LOCALAPPDATA\ucsync-chromium",
+  [string]$Url = 'https://github.com/dr0per250/ungoogled-chromium-ucsync/releases/latest/download/chromper-windows-x64.zip',
+  [string]$Prefix = "$env:LOCALAPPDATA\chromper",
   [switch]$Uninstall
 )
 $ErrorActionPreference = 'Stop'
 
 if ($Uninstall) {
   if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix }
-  $lnk = "$env:PUBLIC\Desktop\UC-Sync.lnk"
+  $lnk = "$env:PUBLIC\Desktop\Chromper.lnk"
   if (Test-Path $lnk) { Remove-Item -Force $lnk }
-  Write-Host "Borrado $Prefix (el perfil %LOCALAPPDATA%\ucsync-chromium-profile se conserva)."
+  Write-Host "Borrado $Prefix (el perfil %LOCALAPPDATA%\chromper-profile se conserva)."
   return
 }
 
@@ -28,18 +28,19 @@ try {
   } elseif (Get-Command gh -ErrorAction SilentlyContinue) {
     Write-Host 'Descargando con gh (repo privado)'
     $tag = gh release view -R dr0per250/ungoogled-chromium-ucsync --json tagName -q .tagName
-    Write-Host "Descargando ucsync-chromium-windows-x64.zip del release $tag"
-    gh release download $tag -R dr0per250/ungoogled-chromium-ucsync -p ucsync-chromium-windows-x64.zip --dir $tmp --clobber
-    Copy-Item (Join-Path $tmp 'ucsync-chromium-windows-x64.zip') (Join-Path $tmp 'pkg.zip')
+    Write-Host "Descargando chromper-windows-x64.zip del release $tag"
+    gh release download $tag -R dr0per250/ungoogled-chromium-ucsync -p chromper-windows-x64.zip --dir $tmp --clobber
+    Copy-Item (Join-Path $tmp 'chromper-windows-x64.zip') (Join-Path $tmp 'pkg.zip')
   } elseif ($env:GH_TOKEN) {
     Write-Host "Descargando con GH_TOKEN"
     Invoke-WebRequest -Uri $Url -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -OutFile (Join-Path $tmp 'pkg.zip')
   } else {
-    throw 'El repo del navegador es privado: autentica gh (`gh auth login`) o pasa -Zip C:\ruta\ucsync-chromium-windows-x64.zip'
+    throw 'El repo del navegador es privado: autentica gh (`gh auth login`) o pasa -Zip C:\ruta\chromper-windows-x64.zip'
   }
   Expand-Archive -Path (Join-Path $tmp 'pkg.zip') -DestinationPath $tmp -Force
-  $src = Join-Path $tmp 'ucsync-chromium'
+  $src = Join-Path $tmp 'chromper'
   if (-not (Test-Path (Join-Path $src 'chrome.exe'))) { throw 'El zip no trae chrome.exe' }
+  if (-not (Test-Path (Join-Path $src 'chromper.exe'))) { Copy-Item (Join-Path $src 'chrome.exe') (Join-Path $src 'chromper.exe') }
 
   New-Item -ItemType Directory -Path $Prefix -Force | Out-Null
   Copy-Item -Recurse -Force "$src\*" $Prefix
@@ -47,11 +48,11 @@ try {
 
   # Atajo de escritorio y en el menú de aplicaciones
   $shell = New-Object -ComObject WScript.Shell
-  $lnk = $shell.CreateShortcut("$env:PUBLIC\Desktop\UC-Sync.lnk")
-  $lnk.TargetPath = Join-Path $Prefix 'chrome.exe'
-  $lnk.Arguments = "--user-data-dir=`"$env:LOCALAPPDATA\ucsync-chromium-profile`""
-  $lnk.IconLocation = (Join-Path $Prefix 'chrome.exe') + ',0'
-  $lnk.Description = 'Chromium sin Google con UC-Sync integrado'
+  $lnk = $shell.CreateShortcut("$env:PUBLIC\Desktop\Chromper.lnk")
+  $lnk.TargetPath = Join-Path $Prefix 'chromper.exe'
+  $lnk.Arguments = "--user-data-dir=`"$env:LOCALAPPDATA\chromper-profile`""
+  $lnk.IconLocation = (Join-Path $Prefix 'chromper.exe') + ',0'
+  $lnk.Description = 'Chromper: Chromium sin Google con UC-Sync integrado'
   $lnk.Save()
 
   # En el PATH del usuario para poder lanzarlo desde la terminal
@@ -61,7 +62,7 @@ try {
     Write-Host "Añadido $Prefix al PATH del usuario (abre una terminal nueva)."
   }
 
-  & (Join-Path $Prefix 'chrome.exe') --version
+  & (Join-Path $Prefix 'chromper.exe') --version
   Write-Host 'Listo. Ábrelo y ve a chrome://ucsync para conectar con tu servidor.'
 } finally {
   Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue

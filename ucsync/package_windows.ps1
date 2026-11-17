@@ -1,4 +1,4 @@
-# Empaqueta el navegador UC-Sync compilado en Windows (x64) en un zip listo para instalar.
+# Empaqueta Chromper (Chromium sin Google con UC-Sync integrado) para Windows x64.
 #
 # Se ejecuta DESPUÉS de `ninja -C out\Release chrome`: coge del directorio de salida sólo lo que
 # el navegador necesita en tiempo de ejecución, recorta idiomas y coloca la extensión integrada
@@ -20,7 +20,7 @@ if (-not (Test-Path (Join-Path $build 'chrome.exe'))) {
 $version = (Get-Content (Join-Path $fork 'chromium_version.txt')).Trim()
 
 $stage = Join-Path $env:TEMP ("ucsync-win-" + [guid]::NewGuid().ToString('N'))
-$pkg = Join-Path $stage 'ucsync-chromium'
+$pkg = Join-Path $stage 'chromper'
 New-Item -ItemType Directory -Path $pkg | Out-Null
 
 $files = 'chrome.exe','resources.pak','chrome_100_percent.pak','chrome_200_percent.pak',
@@ -30,6 +30,7 @@ foreach ($f in $files) {
   $p = Join-Path $build $f
   if (Test-Path $p) { Copy-Item $p $pkg }
 }
+if (Test-Path (Join-Path $build 'product_logo_48.png')) { Copy-Item (Join-Path $build 'product_logo_48.png') $pkg }
 foreach ($f in 'libvk_swiftshader.dll','vk_swiftshader_icd.json') {
   $p = Join-Path $build $f
   if (Test-Path $p) { Copy-Item $p $pkg }
@@ -55,8 +56,8 @@ if (Test-Path $manifest) { $extVersion = (Get-Content $manifest -Raw | ConvertFr
 Set-Content -Path (Join-Path $pkg 'VERSION') -Value "chromium=$version", "ucsyncExtension=$extVersion", "builtAt=$((Get-Date).ToUniversalTime().ToString('yyyyMMddHHmm'))"
 
 New-Item -ItemType Directory -Path $Out | Out-Null
-$stable = Join-Path $Out 'ucsync-chromium-windows-x64.zip'
-$versioned = Join-Path $Out "ucsync-chromium-windows-x64-$version.zip"
+$stable = Join-Path $Out 'chromper-windows-x64.zip'
+$versioned = Join-Path $Out "chromper-windows-x64-$version.zip"
 Compress-Archive -Path $pkg -DestinationPath $stable -CompressionLevel Optimal
 Copy-Item $stable $versioned
 Remove-Item -Recurse -Force $stage
