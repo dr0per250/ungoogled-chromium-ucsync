@@ -12,8 +12,12 @@
 #
 # Uso:
 #   WORK=/IA/chromium-build ./ucsync/build.sh              # fuente + parches + compilación
-#   WORK=/IA/chromium-build ./ucsync/build.sh --prepare    # hasta parchear y domsub
-#   WORK=/IA/chromium-build ./ucsync/build.sh --chrome     # ninja chrome
+#   WORK=/IA/chromium-build ./ucsync/build.sh --prepare    # fuente + poda + parches + domsub
+#                                                          # (en git trae además los deps que
+#                                                          #  gclient se salta: clang-format,
+#                                                          #  esbuild de DevTools, el go de Dawn)
+#   WORK=/IA/chromium-build ./ucsync/build.sh --chrome     # gn gen + ninja + coloca /ucsync
+#   EXTRA_GN='target_cpu="x64"' WORK=... ./ucsync/build.sh # args GN extra
 #   PATH=/IA/chromium-build/depot_tools:$PATH WORK=/IA/chromium-build ./ucsync/build.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -49,6 +53,17 @@ prepare_git() {
 
   echo "[ucsync] gclient sync (third_party y toolchains: clang, rust)"
   (cd "$WORK" && gclient sync -D -j "$JOBS")
+  install_deps_git
+}
+
+# Con un checkout de git (`non_git_source = False`) gclient se salta las entradas de DEPS que
+# sólo trae el tarball oficial: los binarios de cipd/gcs (clang-format, gn, ninja) y dos 3pp
+# que la compilación exige (esbuild de DevTools y el go de Dawn).
+install_deps_git() {
+  echo "[ucsync] Dependencias de DEPS que gclient no trae en un checkout de git"
+  python3 "$ROOT/ucsync/install_deps.py" --src "$SRC" || echo "[ucsync] install_deps.py falló: repite con --filter <nombre> cuando haga falta"
+  bash "$ROOT/ucsync/fetch_esbuild.sh" "$SRC" || echo "[ucsync] No se pudo traer esbuild de DevTools"
+  bash "$ROOT/ucsync/fetch_dawn_go.sh" "$SRC" || echo "[ucsync] No se pudo traer el go de Dawn"
 }
 
 prepare_tarball() {
@@ -75,6 +90,15 @@ build() {
   require_tools
   mkdir -p "$SRC/out/Default"
   cp "$ROOT/flags.gn" "$SRC/out/Default/args.gn"
+  #Args verificados compilando aquí (sin símbolos: el binario con debug_info no cabe en 8 GB de RAM de enlace).
+  {
+    echo 'is_debug = false'
+    echo 'is_official_build = false'
+    echo 'symbol_level = 0'
+    echo 'v8_symbol_level = 0'
+    [[ "$(uname -s)" == "Linux" ]] && echo 'use_sysroot = true'
+    [[ -n "${EXTRA_GN:-}" ]] && echo "$EXTRA_GN"
+  } >> "$SRC/out/Default/args.gn"
   (cd "$SRC" && gn gen out/Default --fail-on-unused-args)
   (cd "$SRC" && ninja -C out/Default -j "$JOBS" chrome chromedriver chrome_sandbox)
   install_ucsync_extension
