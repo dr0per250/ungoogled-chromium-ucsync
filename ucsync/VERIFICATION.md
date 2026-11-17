@@ -35,11 +35,26 @@ Detalles del parche: las visitas se registran con `SOURCE_EXTENSION` (no `SOURCE
 
 ## UC-Sync embebido (sin extensión que instalar)
 
-Sobre el binario compilado con los parches 0003 y 0004, en un perfil nuevo sin cargar nada:
+Sobre el binario compilado con los parches 0003 y 0004, en un perfil nuevo y sin cargar nada:
 
-- `Secure Preferences`/`Preferences` listan la extensión `lidfhdhmbifmhikiaklbiehnhnkhoghe`
-  (registrada sola, con `location` de unpacked y permisos estáticos).
-- El loader deja en el log `UC-Sync: registrada la extensión integrada de <exe>/ucsync`.
-- Pendiente: `chrome://ucsync` aún no resuelve (el WebUI no llega a crear su controlador), y
-  navegar a `chrome-extension://<id>/options.html` desde una pestaña normal la bloquea Chrome
-  (`ERR_BLOCKED_BY_CLIENT`) mientras la página no sea accesible desde otros orígenes.
+- La extensión se registra sola: el log dice `UC-Sync: registrada la extensión integrada de
+  <exe>/ucsync` y `Preferences` lista `lidfhdhmbifmhikiaklbiehnhnkhoghe`.
+- `chrome://ucsync` **es** la página de opciones, servida por el navegador desde el directorio
+  embebido con lista blanca de ficheros (`chrome/browser/ui/webui/ucsync/ucsync_ui.cc`), y el
+  navegador le concede las APIs de esa misma extensión (origen leído del navegador, nunca del
+  renderer). Verificado en `Chromium 157.0.8103.78` con CDP sobre un perfil limpio:
+
+  | comprobación | resultado |
+  | --- | --- |
+  | `typeof chrome.history`, `chrome.bookmarks`, `chrome.storage`, `chrome.permissions`, `chrome.runtime` en `chrome://ucsync` | `object` |
+  | `chrome.history.addUrl({url, visitTime: ahora - 30 días})` | `getVisits` devuelve `1792321789653` (idéntico al pedido) |
+  | `typeof chrome.history.addUrls` | `function` |
+  | `chrome.permissions.contains({history, bookmarks, contentSettings})` | `true` |
+  | `chrome.runtime.sendMessage({type:'app:state'})` | responde el service worker MV3 |
+  | página en una pestaña normal (`about:blank`) | `chrome.history` **no** existe |
+  | `chrome://ucsync/manifest.json`, `background.js`, `popup.html`, `../../etc/passwd` | página de error (fuera de la lista blanca) |
+
+  La UI se ve (logo, título UC-Sync, campos y botones) y no hay `bad IPC message` en el log.
+- El bloqueo que impedía todo esto no era el WebUI sino la política de extensiones sin empaquetar:
+  `DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION` (`disable_reasons [16777216]`) desactivaba la extensión
+  porque vive como `kUnpacked`; `extension_management.cc` exime el ID de UC-Sync.

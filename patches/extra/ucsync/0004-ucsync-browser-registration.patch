@@ -1,3 +1,67 @@
+--- a/chrome/browser/extensions/BUILD.gn
++++ b/chrome/browser/extensions/BUILD.gn
+@@ -441,6 +441,8 @@
+     "system_display/display_info_provider.h",
+     "tab_helper.cc",
+     "tab_helper.h",
++    "ucsync_built_in_extension.cc",
++    "ucsync_built_in_extension.h",
+     "updater/authenticated_network_fetcher.cc",
+     "updater/authenticated_network_fetcher.h",
+     "updater/chrome_extension_downloader_factory.cc",
+@@ -554,6 +556,7 @@
+     "//chrome/browser/subresource_filter",
+     "//chrome/browser/tab_group_sync:factories",
+     "//chrome/browser/tab_list",
++    "//chrome/browser/ucsync:id",
+     "//chrome/browser/ui:accelerator_utils_headers",
+     "//chrome/browser/ui:browser_element_identifiers",
+     "//chrome/browser/ui:browser_live_tab_context",
+--- a/chrome/browser/extensions/chrome_content_browser_client_extensions_part.cc
++++ b/chrome/browser/extensions/chrome_content_browser_client_extensions_part.cc
+@@ -765,6 +765,18 @@
+     SiteInstance* site_instance) {
+   BrowserContext* context = site_instance->GetProcess()->GetBrowserContext();
+ 
++  // UC-Sync: su UI es una WebUI (chrome://ucsync), no una página de extensión, pero necesita
++  // sus APIs. Se registra su proceso como proceso de la extensión, que es lo que exige
++  // `ProcessMap::CanProcessHostContextType()` para aceptar sus llamadas a `chrome.*`. Las
++  // extensiones del perfil se cargan en él como en cualquier proceso no top-chrome
++  // (`RendererStartupHelper::OnRenderProcessHostCreated()`).
++  if (extension_urls::IsUCSyncWebUIURL(
++          site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL())) {
++    ProcessMap::Get(context)->Insert(extension_misc::kUCSyncExtensionId,
++                                     site_instance->GetProcess()->GetID());
++    return;
++  }
++
+   // Only add the process to the map if the SiteInstance's site URL is a
+   // chrome-extension:// URL. This includes hosted apps, except in rare cases
+   // that a URL in the hosted app's extent is not treated as a hosted app (e.g.,
+--- a/chrome/browser/extensions/extension_management.cc
++++ b/chrome/browser/extensions/extension_management.cc
+@@ -57,6 +57,7 @@
+ #include "extensions/browser/managed_installation_mode.h"
+ #include "extensions/browser/pref_names.h"
+ #include "extensions/buildflags/buildflags.h"
++#include "extensions/common/constants.h"
+ #include "extensions/common/extension.h"
+ #include "extensions/common/extension_urls.h"
+ #include "extensions/common/manifest_constants.h"
+@@ -475,6 +476,13 @@
+     return true;
+   }
+ 
++  // UC-Sync: su código se copia junto al ejecutable y se registra en cada perfil; no la
++  // instaló nadie en modo de desarrollador, así que el modo de desarrollador no debe
++  // desactivarla. Sólo vale el ID derivado de la `key` de su manifiesto.
++  if (extension.id() == extension_misc::kUCSyncExtensionId) {
++    return true;
++  }
++
+   bool in_developer_mode =
+       profile_->GetPrefs()->GetBoolean(prefs::kExtensionsUIDeveloperMode);
+   return in_developer_mode;
 --- a/chrome/browser/extensions/extension_service.cc
 +++ b/chrome/browser/extensions/extension_service.cc
 @@ -3,6 +3,7 @@
@@ -19,25 +83,16 @@
    EnabledReloadableExtensions();
    delayed_install_manager_->FinishInstallationsDelayedByShutdown();
    SetReadyAndNotifyListeners();
---- a/chrome/browser/extensions/BUILD.gn
-+++ b/chrome/browser/extensions/BUILD.gn
-@@ -441,6 +441,8 @@
-     "system_display/display_info_provider.h",
-     "tab_helper.cc",
-     "tab_helper.h",
-+    "ucsync_built_in_extension.cc",
-+    "ucsync_built_in_extension.h",
-     "updater/authenticated_network_fetcher.cc",
-     "updater/authenticated_network_fetcher.h",
-     "updater/chrome_extension_downloader_factory.cc",
-@@ -554,6 +556,7 @@
-     "//chrome/browser/subresource_filter",
-     "//chrome/browser/tab_group_sync:factories",
-     "//chrome/browser/tab_list",
-+    "//chrome/browser/ucsync:id",
-     "//chrome/browser/ui:accelerator_utils_headers",
-     "//chrome/browser/ui:browser_element_identifiers",
-     "//chrome/browser/ui:browser_live_tab_context",
+--- a/chrome/browser/ui/webui/BUILD.gn
++++ b/chrome/browser/ui/webui/BUILD.gn
+@@ -89,6 +89,7 @@
+     "//chrome/browser/ui/webui/suggest_internals",
+     "//chrome/browser/ui/webui/sync_internals",
+     "//chrome/browser/ui/webui/translate_internals",
++    "//chrome/browser/ui/webui/ucsync",
+     "//chrome/browser/ui/webui/usb_internals",
+     "//chrome/browser/ui/webui/version",
+     "//components/lens:buildflags",
 --- a/chrome/browser/ui/webui/chrome_web_ui_configs.cc
 +++ b/chrome/browser/ui/webui/chrome_web_ui_configs.cc
 @@ -3,6 +3,7 @@
@@ -66,43 +121,317 @@
    map.AddWebUIConfig(std::make_unique<AutofillInternalsUIConfig>());
    map.AddWebUIConfig(std::make_unique<BluetoothInternalsUIConfig>());
    map.AddWebUIConfig(
---- a/chrome/browser/ui/webui/BUILD.gn
-+++ b/chrome/browser/ui/webui/BUILD.gn
-@@ -89,6 +89,7 @@
-     "//chrome/browser/ui/webui/suggest_internals",
-     "//chrome/browser/ui/webui/sync_internals",
-     "//chrome/browser/ui/webui/translate_internals",
-+    "//chrome/browser/ui/webui/ucsync",
-     "//chrome/browser/ui/webui/usb_internals",
-     "//chrome/browser/ui/webui/version",
-     "//components/lens:buildflags",
+--- a/chrome/common/webui_url_constants.cc
++++ b/chrome/common/webui_url_constants.cc
+@@ -194,6 +194,7 @@
+ #endif
+       kChromeUIUsbInternalsHost,
+       kChromeUIUserActionsHost,
++      kChromeUIUcsyncHost,
+       kChromeUIVersionHost,
+ #if !BUILDFLAG(IS_ANDROID)
+       kChromeUIWebAppInternalsHost,
+--- a/chrome/common/webui_url_constants.h
++++ b/chrome/common/webui_url_constants.h
+@@ -282,7 +282,7 @@
+ inline constexpr char16_t kChromeUIPrivacySandboxFledgeURL[] =
+     u"chrome://settings/adPrivacy/sites";
+ inline constexpr char16_t kChromeUIPrivacySandboxManageTopicsLearnMoreURL[] =
+-    u"https://support.google.com/chrome?p=ad_privacy";
++    u"https://support.9oo91e.qjz9zk/chrome?p=ad_privacy";
+ inline constexpr char16_t kChromeUIPrivacySandboxTopicsURL[] =
+     u"chrome://settings/adPrivacy/interests";
+ inline constexpr char kChromeUIProfileInternalsHost[] = "profile-internals";
+@@ -363,6 +363,7 @@
+     "user-education-internals";
+ inline constexpr char kChromeUIUserEducationInternalsURL[] =
+     "chrome://user-education-internals";
++inline constexpr char kChromeUIUcsyncHost[] = "ucsync";
+ inline constexpr char kChromeUIVersionHost[] = "version";
+ inline constexpr char kChromeUIVersionURL[] = "chrome://version/";
+ inline constexpr char16_t kChromeUIVersionURL16[] = u"chrome://version/";
+--- a/extensions/browser/api/messaging/message_service_bindings.cc
++++ b/extensions/browser/api/messaging/message_service_bindings.cc
+@@ -95,6 +95,16 @@
+       return false;
+ 
+     case MessagingEndpoint::Type::kExtension:
++      // UC-Sync: su UI (chrome://ucsync) habla con su propio service worker aunque su proceso
++      // no aloje el origen chrome-extension://. `IsUCSyncUIFrame()` comprueba el origen desde
++      // el navegador, así que el renderer no puede reivindicar este permiso.
++      if (source_endpoint_extension_id.has_value() &&
++          *source_endpoint_extension_id == extension_misc::kUCSyncExtensionId &&
++          source_context.is_for_render_frame() &&
++          util::IsUCSyncUIFrame(content::RenderFrameHost::FromID(
++              process.GetDeprecatedID(), source_context.frame->routing_id))) {
++        return true;
++      }
+       if (!source_endpoint_extension_id.has_value()) {
+         if (!base::FeatureList::IsEnabled(
+                 extensions_features::kCheckingNoExtensionIdInExtensionIpcs)) {
+--- a/extensions/browser/extension_util.cc
++++ b/extensions/browser/extension_util.cc
+@@ -32,9 +32,11 @@
+ #include "extensions/browser/script_injection_tracker.h"
+ #include "extensions/browser/shared_module_service.h"
+ #include "extensions/browser/ui_util.h"
++#include "extensions/common/constants.h"
+ #include "extensions/common/extension.h"
+ #include "extensions/common/extension_id.h"
+ #include "extensions/common/extension_set.h"
++#include "extensions/common/extension_urls.h"
+ #include "extensions/common/feature_switch.h"
+ #include "extensions/common/features/feature.h"
+ #include "extensions/common/manifest.h"
+@@ -447,10 +449,31 @@
+   return ExtensionId(maybe_extension_id);
+ }
+ 
++bool IsUCSyncUIFrame(content::RenderFrameHost* render_frame_host) {
++  if (!render_frame_host) {
++    return false;
++  }
++  // La SiteInstance dice a qué proceso/principal pertenece el frame; la URL committed dice
++  // qué tiene dentro. Las dos las fija el navegador.
++  if (!extension_urls::IsUCSyncWebUIURL(
++          render_frame_host->GetSiteInstance()->GetSecurityPrincipal()
++              .GetDeprecatedSiteURL())) {
++    return false;
++  }
++  return extension_urls::IsUCSyncWebUIURL(
++      render_frame_host->GetLastCommittedURL());
++}
++
+ std::string GetExtensionIdFromFrame(
+     content::RenderFrameHost* render_frame_host) {
+   const content::SiteInstance* site_instance =
+       render_frame_host->GetSiteInstance();
++  // UC-Sync: su UI vive en chrome://ucsync, no en chrome-extension://. El origen lo aporta la
++  // SiteInstance, que es información del navegador.
++  if (extension_urls::IsUCSyncWebUIURL(
++          site_instance->GetSecurityPrincipal().GetDeprecatedSiteURL())) {
++    return std::string(extension_misc::kUCSyncExtensionId);
++  }
+   if (!site_instance->GetSecurityPrincipal().SchemeIs(kExtensionScheme)) {
+     return std::string();
+   }
+@@ -559,6 +582,15 @@
+     }
+   }
+ 
++  // UC-Sync: su UI en chrome://ucsync actúa en nombre de la extensión integrada aunque el
++  // proceso no aloje el origen chrome-extension://. La URL committed la fija el navegador, así
++  // que el renderer no puede reivindicar este permiso; el proceso además está registrado en
++  // `ProcessMap` (`SiteInstanceGotProcessAndSite()`).
++  if (extension_id == extension_misc::kUCSyncExtensionId &&
++      IsUCSyncUIFrame(render_frame_host)) {
++    return true;
++  }
++
+   // Disallow any other cases.
+   return false;
+ }
+--- a/extensions/browser/extension_util.h
++++ b/extensions/browser/extension_util.h
+@@ -146,6 +146,12 @@
+ // string is returned when `site_instance` is not associated with an extension.
+ ExtensionId GetExtensionIdForSiteInstance(content::SiteInstance& site_instance);
+ 
++// UC-Sync: true si `render_frame_host` es la UI de la extensión integrada
++// (`chrome://ucsync`). Es el único origen fuera de `chrome-extension://` al que se le
++// conceden las APIs de esa extensión; el origen sale de la SiteInstance y de la URL
++// committed, o sea del navegador, nunca del renderer.
++bool IsUCSyncUIFrame(content::RenderFrameHost* render_frame_host);
++
+ // Returns the extension id associated with the given `render_frame_host`, or
+ // the empty string if there is none.
+ std::string GetExtensionIdFromFrame(
+--- a/extensions/browser/extension_web_contents_observer.cc
++++ b/extensions/browser/extension_web_contents_observer.cc
+@@ -356,6 +356,12 @@
+   }
+ 
+   if (verify_url) {
++    // UC-Sync: su UI está en chrome://ucsync, no en el origen de la extensión, pero el
++    // navegador confirma el origen committed del frame.
++    if (extension_id == extension_misc::kUCSyncExtensionId &&
++        util::IsUCSyncUIFrame(render_frame_host)) {
++      return extension;
++    }
+     const url::Origin& origin(render_frame_host->GetLastCommittedOrigin());
+     // This check is needed to eliminate origins that are not within a
+     // hosted-app's web extent, and sandboxed extension frames with an opaque
+--- a/extensions/common/constants.h
++++ b/extensions/common/constants.h
+@@ -298,6 +298,13 @@
+ // The extension id of the PDF extension.
+ inline constexpr char kPdfExtensionId[] = "mhjfbmdgcfjbbpaeojofohoefgiehjai";
+ 
++// UC-Sync: la extensión de sincronización va integrada en el navegador. Su UI se sirve en
++// `kUCSyncWebUIURL` y usa las APIs de esta misma extensión; el navegador es quien autoriza
++// ese origen (`extension_util.cc`), nunca el renderer. `chrome::kChromeUIUcsyncHost` es el
++// host de ese mismo URL visto desde WebUI.
++inline constexpr char kUCSyncExtensionId[] = "lidfhdhmbifmhikiaklbiehnhnkhoghe";
++inline constexpr char kUCSyncWebUIURL[] = "chrome://ucsync/";
++
+ #if BUILDFLAG(IS_CHROMEOS)
+ // The extension id of the Office Viewer component extension.
+ inline constexpr char kQuickOfficeComponentExtensionId[] =
+--- a/extensions/common/extension_urls.cc
++++ b/extensions/common/extension_urls.cc
+@@ -38,14 +38,14 @@
+ 
+ }  // namespace
+ 
+-const char kChromeWebstoreBaseURL[] = "https://chrome.google.com/webstore";
+-const char kNewChromeWebstoreBaseURL[] = "https://chromewebstore.google.com/";
++const char kChromeWebstoreBaseURL[] = "https://chrome.9oo91e.qjz9zk/webstore";
++const char kNewChromeWebstoreBaseURL[] = "https://chromewebstore.9oo91e.qjz9zk/";
+ const char kModernWebGuidanceURL[] =
+-    "https://developer.chrome.com/docs/extensions/ai/"
++    "https://developer.ch40me.qjz9zk/docs/extensions/ai/"
+     "build-with-ai#modern_web_guidance";
+ const char kChromeWebstoreUpdateURL[] =
+-    "https://clients2.google.com/service/update2/crx";
+-const char kChromeWebstoreApiURL[] = "https://chromewebstore.googleapis.com/";
++    "https://clients2.9oo91e.qjz9zk/service/update2/crx";
++const char kChromeWebstoreApiURL[] = "https://chromewebstore.9oo91eapis.qjz9zk/";
+ 
+ const char kAppMenuUtmSource[] = "ext_app_menu";
+ const char kExtensionsMenuUtmSource[] = "ext_extensions_menu";
+@@ -143,6 +143,11 @@
+                                  extension_id.c_str()));
+ }
+ 
++bool IsUCSyncWebUIURL(const GURL& url) {
++  return url.DeprecatedGetOriginAsURL() ==
++         GURL(extension_misc::kUCSyncWebUIURL);
++}
++
+ bool IsWebstoreDomain(const GURL& url) {
+   return url.DomainIs(GetWebstoreLaunchURL().host()) ||
+          url.DomainIs(GetNewWebstoreLaunchURL().host());
+@@ -174,9 +179,9 @@
+ bool IsSafeBrowsingUrl(const GURL& url) {
+   url::Origin origin = url::Origin::Create(url);
+   std::string_view path = url.path();
+-  return origin.DomainIs("sb-ssl.google.com") ||
+-         origin.DomainIs("safebrowsing.googleapis.com") ||
+-         (origin.DomainIs("safebrowsing.google.com") &&
++  return origin.DomainIs("sb-ssl.9oo91e.qjz9zk") ||
++         origin.DomainIs("safebrowsing.9oo91eapis.qjz9zk") ||
++         (origin.DomainIs("safebrowsing.9oo91e.qjz9zk") &&
+           base::StartsWith(path, "/safebrowsing",
+                            base::CompareCase::SENSITIVE)) ||
+          (safe_browsing::hash_realtime_utils::
+--- a/extensions/common/extension_urls.h
++++ b/extensions/common/extension_urls.h
+@@ -20,7 +20,7 @@
+ namespace extensions {
+ 
+ // Determine whether or not a source came from an extension. `source` can link
+-// to a page or a script, and can be external (e.g., "http://www.google.com"),
++// to a page or a script, and can be external (e.g., "http://www.9oo91e.qjz9zk"),
+ // extension-related (e.g., "chrome-extension://<extension_id>/background.js"),
+ // or internal (e.g., "event_bindings" or "schemaUtils").
+ bool IsSourceFromAnExtension(const std::u16string& source);
+@@ -120,6 +120,10 @@
+ GURL GetNewWebstoreItemRecommendationsUrl(
+     const extensions::ExtensionId& extension_id);
+ 
++// UC-Sync: true si `url` es la UI de la extensión integrada (`chrome://ucsync`), el único
++// origen no `chrome-extension://` al que se le conceden las APIs de esa extensión.
++bool IsUCSyncWebUIURL(const GURL& url);
++
+ // Returns whether the URL's host matches or is in the same domain as any of the
+ // webstore URLs. Note: This includes any subdomains of the webstore URLs.
+ // TODO(crbug.com/40235977): We should move the domain checks for the webstore
+@@ -134,7 +138,7 @@
+ bool IsWebstoreUpdateUrl(const GURL& update_url);
+ 
+ // Returns whether the URL is the same origin with the Webstore API URL
+-// (https://chromewebstore.googleapis.com/).
++// (https://chromewebstore.9oo91eapis.qjz9zk/).
+ bool IsWebstoreApiUrl(const GURL& url);
+ 
+ // Returns true if the URL points to an extension blocklist.
+--- a/extensions/renderer/script_context_set.cc
++++ b/extensions/renderer/script_context_set.cc
+@@ -7,6 +7,7 @@
+ #include "base/compiler_specific.h"
+ #include "base/functional/bind.h"
+ #include "base/location.h"
++#include "base/logging.h"
+ #include "base/memory/raw_ptr.h"
+ #include "base/task/single_thread_task_runner.h"
+ #include "content/public/common/url_constants.h"
+@@ -15,6 +16,7 @@
+ #include "extensions/common/constants.h"
+ #include "extensions/common/extension.h"
+ #include "extensions/common/extension_id.h"
++#include "extensions/common/extension_urls.h"
+ #include "extensions/common/mojom/context_type.mojom.h"
+ #include "extensions/common/mojom/host_id.mojom.h"
+ #include "extensions/common/utils/extension_utils.h"
+@@ -235,6 +237,12 @@
+         frame, frame_url, use_effective_url);
+     extension_id =
+         RendererExtensionRegistry::Get()->GetExtensionOrAppIDByURL(frame_url);
++    // UC-Sync: su UI no vive en chrome-extension:// sino en chrome://ucsync, así que el URL
++    // por sí solo no la encuentra. El navegador comprueba el origen aparte en
++    // `util::CanRendererActOnBehalfOfExtension()`, así que esto no concede nada por sí solo.
++    if (extension_id.empty() && extension_urls::IsUCSyncWebUIURL(frame_url)) {
++      extension_id = std::string(extension_misc::kUCSyncExtensionId);
++    }
+   }
+ 
+   // There are conditions where despite a context being associated with an
+@@ -280,6 +288,13 @@
+                      : mojom::ContextType::kUnspecified;
+   }
+ 
++  // UC-Sync: su UI es contexto de la extensión integrada aunque el proceso sea una WebUI y
++  // la extensión no se haya activado todavía en él (la activación llega por IPC y puede
++  // llegar después del commit).
++  if (extension && extension_urls::IsUCSyncWebUIURL(url)) {
++    return mojom::ContextType::kPrivilegedExtension;
++  }
++
+   // We have an explicit check for sandboxed pages before checking whether the
+   // extension is active in this process because:
+   // 1. Sandboxed extension pages which are not listed in the extension's
 --- /dev/null
 +++ b/chrome/browser/ucsync/BUILD.gn
-@@ -0,0 +1,7 @@
+@@ -0,0 +1,8 @@
 +# Copyright 2025 The Chromium Authors
 +# Use of this source code is governed by a BSD-style license that can be
 +# found in the LICENSE file.
 +
 +source_set("id") {
 +  public = [ "ucsync_constants.h" ]
++  public_deps = [ "//extensions/common" ]
 +}
 --- /dev/null
 +++ b/chrome/browser/ucsync/ucsync_constants.h
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,23 @@
 +// UC-Sync: constantes compartidas entre el registro de la extensión embebida y `chrome://ucsync`.
 +#ifndef CHROME_BROWSER_UCSYNC_UCSYNC_CONSTANTS_H_
 +#define CHROME_BROWSER_UCSYNC_UCSYNC_CONSTANTS_H_
 +
 +#include <string_view>
 +
++#include "extensions/common/constants.h"
++
 +namespace ucsync {
 +
 +// ID de la extensión embebida, derivado del campo `key` de su manifiesto. Cambiarlo rompe
-+// `chrome://ucsync` y las claves que UC-Sync guarda en `chrome.storage`.
++// `chrome://ucsync` y las claves que UC-Sync guarda en `chrome.storage`. Una sola definición,
++// en `extensions/common` porque el renderer también la necesita.
 +inline constexpr std::string_view kExtensionId =
-+    "lidfhdhmbifmhikiaklbiehnhnkhoghe";
++    extension_misc::kUCSyncExtensionId;
 +
-+// Página de opciones de esa extensión (`options_ui.open_in_tab: true`).
++// Página de opciones de esa extensión (`options_ui.open_in_tab: true`), y la que sirve
++// `chrome://ucsync`.
 +inline constexpr std::string_view kOptionsPage = "options.html";
 +
 +}  // namespace ucsync
@@ -198,7 +527,7 @@
 +}  // namespace extensions
 --- /dev/null
 +++ b/chrome/browser/ui/webui/ucsync/BUILD.gn
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,19 @@
 +# Copyright 2025 The Chromium Authors
 +# Use of this source code is governed by a BSD-style license that can be
 +# found in the LICENSE file.
@@ -210,84 +539,46 @@
 +  public = [ "ucsync_ui.h" ]
 +  deps = [
 +    "//base",
++    "//chrome/browser/extensions",
 +    "//chrome/browser/ucsync:id",
 +    "//content/public/browser",
 +    "//extensions/common",
-+    "//ui/base",
++    "//services/network/public/mojom",
 +    "//url",
 +  ]
 +}
 --- /dev/null
 +++ b/chrome/browser/ui/webui/ucsync/ucsync_ui.h
-@@ -0,0 +1,73 @@
-+// UC-Sync: `chrome://ucsync` es un atajo a la página de opciones de la extensión integrada.
+@@ -0,0 +1,34 @@
++// UC-Sync: `chrome://ucsync` sirve la UI de la extensión integrada y le deja usar sus APIs.
 +#ifndef CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
 +#define CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
 +
 +#include "chrome/common/webui_url_constants.h"
-+#include "content/public/browser/navigation_handle.h"
-+#include "content/public/browser/url_data_source.h"
-+#include "content/public/browser/web_contents_observer.h"
 +#include "content/public/browser/webui_config.h"
 +#include "content/public/browser/web_ui_controller.h"
 +#include "content/public/common/url_constants.h"
-+
-+namespace content {
-+class Page;
-+}  // namespace content
 +
 +namespace ucsync {
 +
 +class UCSyncUI;
 +
-+// Config para chrome://ucsync.
-+// Registra la fuente de datos de chrome://ucsync. Hay que hacerlo antes de navegar: el
-+// cargador de chrome:// busca la fuente al empezar la petición, y el controlador WebUI se crea
-+// demasiado tarde (al comprometer la respuesta).
-+void RegisterRedirectDataSource(content::BrowserContext* browser_context);
-+
 +class UCSyncUIConfig : public content::DefaultWebUIConfig<UCSyncUI> {
 + public:
 +  UCSyncUIConfig()
-+      : DefaultWebUIConfig(content::kChromeUIScheme, chrome::kChromeUIUcsyncHost) {}
-+
-+  // content::WebUIConfig: sin fuente de datos registrada, la navegación a chrome://ucsync no
-+  // llega a crear el WebUI.
-+  void RegisterURLDataSource(content::BrowserContext* browser_context) override;
++      : content::DefaultWebUIConfig<UCSyncUI>(content::kChromeUIScheme,
++                                              chrome::kChromeUIUcsyncHost) {}
 +};
 +
-+// Sirve una página que redirige, por si la navegación programática no llegara a tiempo.
-+class UCSyncRedirectSource : public content::URLDataSource {
-+ public:
-+  UCSyncRedirectSource() = default;
-+  UCSyncRedirectSource(const UCSyncRedirectSource&) = delete;
-+  UCSyncRedirectSource& operator=(const UCSyncRedirectSource&) = delete;
-+
-+  // content::URLDataSource:
-+  std::string GetSource() override;
-+  std::string GetMimeType(const GURL& url) override;
-+  void StartDataRequest(const GURL& url,
-+                        const content::WebContents::Getter& wc_getter,
-+                        GotDataCallback callback) override;
-+};
-+
-+// Redirige al `options.html` de la extensión embebida; no sirve contenido propio.
-+class UCSyncUI : public content::WebUIController,
-+                 public content::WebContentsObserver {
++// Sirve los ficheros de la extensión embebida bajo `chrome://ucsync`. Las llamadas a
++// `chrome.*` se resuelven contra esa extensión en el navegador; ver
++// `util::CanRendererActOnBehalfOfExtension()` y `SiteInstanceGotProcessAndSite()`.
++class UCSyncUI : public content::WebUIController {
 + public:
 +  explicit UCSyncUI(content::WebUI* web_ui);
 +
 +  UCSyncUI(const UCSyncUI&) = delete;
 +  UCSyncUI& operator=(const UCSyncUI&) = delete;
-+
-+  // content::WebUIController:
-+  void WebUIPrimaryPageChanged(content::Page& page) override;
-+
-+  // content::WebContentsObserver:
-+  void DidFinishNavigation(content::NavigationHandle* handle) override;
-+
-+ private:
-+  void Redirect();
 +};
 +
 +}  // namespace ucsync
@@ -295,107 +586,131 @@
 +#endif  // CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
 --- /dev/null
 +++ b/chrome/browser/ui/webui/ucsync/ucsync_ui.cc
-@@ -0,0 +1,103 @@
-+// UC-Sync: redirección de chrome://ucsync. Ver el encabezado.
+@@ -0,0 +1,127 @@
++// UC-Sync: la UI de chrome://ucsync. Ver el encabezado.
 +#include "chrome/browser/ui/webui/ucsync/ucsync_ui.h"
 +
++#include <optional>
 +#include <string>
++#include <string_view>
 +
++#include "base/files/file_path.h"
++#include "base/files/file_util.h"
++#include "base/logging.h"
 +#include "base/memory/ref_counted_memory.h"
++#include "base/strings/string_util.h"
++#include "base/task/task_traits.h"
++#include "base/task/thread_pool.h"
++#include "chrome/browser/extensions/ucsync_built_in_extension.h"
 +#include "chrome/browser/ucsync/ucsync_constants.h"
 +#include "chrome/common/webui_url_constants.h"
-+#include "base/logging.h"
 +#include "content/public/browser/browser_context.h"
-+#include "content/public/browser/navigation_controller.h"
-+#include "content/public/browser/page.h"
 +#include "content/public/browser/web_contents.h"
 +#include "content/public/browser/web_ui.h"
-+#include "net/base/net_errors.h"
-+#include "extensions/common/extension.h"
-+#include "ui/base/page_transition_types.h"
++#include "content/public/browser/web_ui_data_source.h"
++#include "services/network/public/mojom/content_security_policy.mojom.h"
 +
 +namespace ucsync {
-+
 +namespace {
 +
-+// `chrome-extension://<id>/options.html` de la extensión embebida.
-+GURL OptionsURL() {
-+  return extensions::Extension::GetBaseURLFromExtensionId(
-+             std::string(ucsync::kExtensionId))
-+      .Resolve(std::string(ucsync::kOptionsPage));
++// Máximo de bytes por fichero: la UI de UC-Sync no pasa de ~90 KB en total.
++constexpr uint64_t kMaxFileBytes = 1024 * 1024;
++
++// Lista blanca de ficheros de la extensión que se sirven. Con ella no hay rutas arbitrarias
++// ni `..`: sólo lo que la página de opciones necesita.
++constexpr std::string_view kFiles[] = {
++    "options.html",
++    "options.js",
++    "styles.css",
++    "logo.svg",
++    "src/api.js",
++    "src/bookmarks.js",
++    "src/crypto.js",
++    "src/history.js",
++    "src/settings.js",
++    "src/state.js",
++    "src/sync.js",
++    "src/tree.js",
++    "src/util.js",
++};
++
++// El fichero de `path` (lo que `URLDataSource` quita del URL), o nada si no está en la lista.
++std::optional<std::string_view> AllowedFile(std::string_view path) {
++  if (path.empty() || path == "/") {
++    return kOptionsPage;  // `chrome://ucsync` es la página de opciones.
++  }
++  for (std::string_view file : kFiles) {
++    if (path == file) {
++      return file;
++    }
++  }
++  return std::nullopt;
++}
++
++// Lee un fichero de la extensión. Corre en un trabajador con MayBlock(): el origen de datos
++// de una WebUI se sirve en el hilo UI, donde está prohibido bloquear.
++std::optional<std::string> ReadFile(std::string file) {
++  const base::FilePath dir = extensions::GetUCSyncExtensionDir();
++  if (dir.empty()) {
++    return std::nullopt;  // Build sin la copia integrada.
++  }
++  std::string contents;
++  if (!base::ReadFileToStringWithMaxSize(dir.AppendASCII(file), &contents,
++                                         kMaxFileBytes)) {
++    VLOG(1) << "UC-Sync: no se pudo leer " << file << " de " << dir.value();
++    return std::nullopt;
++  }
++  return contents;
++}
++
++// `WebUIDataSource` filtra por path; lo que no está en la lista blanca cae en el manejo
++// normal, que no tiene ningún recurso y responde vacío.
++bool ShouldHandleRequest(const std::string& path) {
++  return AllowedFile(path).has_value();
++}
++
++void HandleRequest(const std::string& path,
++                   content::WebUIDataSource::GotDataCallback callback) {
++  std::optional<std::string_view> file = AllowedFile(path);
++  if (!file.has_value()) {
++    std::move(callback).Run(nullptr);
++    return;
++  }
++
++  base::ThreadPool::PostTaskAndReplyWithResult(
++      FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
++      base::BindOnce(&ReadFile, std::string(*file)),
++      base::BindOnce(
++          [](content::WebUIDataSource::GotDataCallback callback,
++             std::optional<std::string> contents) {
++            if (!contents.has_value()) {
++              std::move(callback).Run(nullptr);
++              return;
++            }
++            std::move(callback).Run(
++                base::MakeRefCounted<base::RefCountedString>(std::move(*contents)));
++          },
++          std::move(callback)));
 +}
 +
 +}  // namespace
 +
-+std::string UCSyncRedirectSource::GetSource() {
-+  return chrome::kChromeUIUcsyncHost;
-+}
-+
-+std::string UCSyncRedirectSource::GetMimeType(const GURL& url) {
-+  return "text/html";
-+}
-+
-+void UCSyncRedirectSource::StartDataRequest(
-+    const GURL& url,
-+    const content::WebContents::Getter& wc_getter,
-+    GotDataCallback callback) {
-+  // Refresco inmediato: si por lo que sea la navegación programática no se ejecutó, la página
-+  // misma lleva al destino.
-+  const std::string html =
-+      "<!doctype html><html lang=\"es\"><head><meta charset=\"utf-8\">"
-+      "<title>UC-Sync</title><meta http-equiv=\"refresh\" content=\"0;url=" +
-+      OptionsURL().spec() + "></head><body></body></html>";
-+  std::move(callback).Run(
-+      base::MakeRefCounted<base::RefCountedString>(std::move(html)));
-+}
-+
-+void RegisterRedirectDataSource(content::BrowserContext* browser_context) {
-+  content::URLDataSource::Add(browser_context,
-+                              std::make_unique<UCSyncRedirectSource>());
-+}
-+
-+void UCSyncUIConfig::RegisterURLDataSource(content::BrowserContext* browser_context) {
-+  content::URLDataSource::Add(browser_context,
-+                              std::make_unique<UCSyncRedirectSource>());
-+}
-+
 +UCSyncUI::UCSyncUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
-+  VLOG(1) << "UC-Sync: controller de chrome://ucsync creado";
-+  content::URLDataSource::Add(web_ui->GetWebContents()->GetBrowserContext(),
-+                              std::make_unique<UCSyncRedirectSource>());
-+}
++  content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
++      web_ui->GetWebContents()->GetBrowserContext(), chrome::kChromeUIUcsyncHost);
++  source->SetRequestFilter(base::BindRepeating(&ShouldHandleRequest),
++                           base::BindRepeating(&HandleRequest));
 +
-+void UCSyncUI::WebUIPrimaryPageChanged(content::Page& page) {
-+  Redirect();
-+}
++  // La UI es código de la extensión: nada de scripts inline ni de Trusted Types (usa
++  // innerHTML), y sólo recursos del propio origen.
++  source->DisableTrustedTypesCSP();
++  source->OverrideContentSecurityPolicy(
++      network::mojom::CSPDirectiveName::ScriptSrc, "script-src 'self';");
++  source->OverrideContentSecurityPolicy(
++      network::mojom::CSPDirectiveName::ObjectSrc, "object-src 'none';");
 +
-+void UCSyncUI::DidFinishNavigation(content::NavigationHandle* handle) {
-+  if (!handle->IsInMainFrame()) {
-+    return;
-+  }
-+  // Tanto si chrome://ucsync cargó como si se quedó en la página de error, hay que ir a la
-+  // extensión: sin recursos propios, la primera navegación puede no comprometerse.
-+  if (handle->GetURL().host() == chrome::kChromeUIUcsyncHost ||
-+      handle->GetNetErrorCode() != net::OK) {
-+    Redirect();
-+  }
-+}
-+
-+void UCSyncUI::Redirect() {
-+  VLOG(1) << "UC-Sync: redirigiendo chrome://ucsync";
-+  content::WebContents* contents = web_ui()->GetWebContents();
-+  const GURL target = OptionsURL();
-+  if (contents->GetLastCommittedURL() == target ||
-+      contents->GetVisibleURL() == target) {
-+    return;  // Ya estamos en la extensión.
-+  }
-+
-+  content::NavigationController::LoadURLParams params(target);
-+  params.transition_type = ui::PageTransitionFromInt(
-+      ui::PAGE_TRANSITION_AUTO_TOPLEVEL | ui::PAGE_TRANSITION_CHAIN_START |
-+      ui::PAGE_TRANSITION_CHAIN_END);
-+  params.should_replace_current_entry = true;
-+  contents->GetController().LoadURLWithParams(params);
++  VLOG(1) << "UC-Sync: chrome://" << chrome::kChromeUIUcsyncHost << " sirve "
++          << kOptionsPage << " y los recursos de la extensión embebida.";
 +}
 +
 +}  // namespace ucsync

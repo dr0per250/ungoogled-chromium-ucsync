@@ -123,7 +123,9 @@ Además de los parches de la API de historial, el fork embebe la extensión de U
   `chrome/browser/resources/ucsync/` (texto puro; sin PNG, el logo es `logo.svg`).
 - `0004-ucsync-browser-registration.patch`: `EnsureUCSyncBuiltInExtension()` registra la
   extensión en cada perfil al arrancar (ID fijo `lidfhdhmbifmhikiaklbiehnhnkhoghe`, derivado del
-  campo `key` del manifiesto) y `chrome://ucsync` apunta a su página de opciones.
+  campo `key` del manifiesto), y `chrome://ucsync` se sirve como página WebUI con los ficheros de
+  la extensión y sus APIs de extensión concedidas a ese origen. Incluye la exención en
+  `extension_management.cc` (si no, la extensión embebida queda desactivada por ser `kUnpacked`).
 - `ucsync/make_ucsync_patches.sh` regenera ambos: 0003 desde `--extension <carpeta>` y 0004 desde
   el árbol de Chromium modificado, comparando contra la base **ya parcheada de upstream**
   (`ucsync/patch_sections.py` extrae de cada parche previo sólo la sección del fichero que toca).

@@ -69,10 +69,22 @@ echo "[ucsync] 0003: $(grep -c '^diff --git' "$PATCH_DIR/0003-ucsync-browser-ext
 
 # --- 0004: registro en el navegador ----------------------------------------------------------
 MODIFIED=(
-  chrome/browser/extensions/extension_service.cc
   chrome/browser/extensions/BUILD.gn
-  chrome/browser/ui/webui/chrome_web_ui_configs.cc
+  chrome/browser/extensions/chrome_content_browser_client_extensions_part.cc
+  chrome/browser/extensions/extension_management.cc
+  chrome/browser/extensions/extension_service.cc
   chrome/browser/ui/webui/BUILD.gn
+  chrome/browser/ui/webui/chrome_web_ui_configs.cc
+  chrome/common/webui_url_constants.cc
+  chrome/common/webui_url_constants.h
+  extensions/browser/api/messaging/message_service_bindings.cc
+  extensions/browser/extension_util.cc
+  extensions/browser/extension_util.h
+  extensions/browser/extension_web_contents_observer.cc
+  extensions/common/constants.h
+  extensions/common/extension_urls.cc
+  extensions/common/extension_urls.h
+  extensions/renderer/script_context_set.cc
 )
 NEW=(
   chrome/browser/ucsync/BUILD.gn
