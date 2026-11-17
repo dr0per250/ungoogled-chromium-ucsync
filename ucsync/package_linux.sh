@@ -14,7 +14,9 @@ FORK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC=""
 OUT="$PWD"
 VERSION="$(cat "$FORK/chromium_version.txt")"
-LOCALES="${LOCALES:-es es-419 es-AR es-ES es-MX en-US pt-BR fr de it gl ca eu ja zh-CN zh-TW ru}"
+# Nombres de pak reales: el español de España es `es.pak` (no existe es-ES.pak; es-ES, es-MX y
+# es-AR se resuelven a es o es-419). en-US.pak es obligatorio como idioma base de reserva.
+LOCALES="${LOCALES:-es es-419 en-US pt-BR fr de it gl ca eu ja zh-CN zh-TW ru}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --src) SRC="$2"; shift 2;;
