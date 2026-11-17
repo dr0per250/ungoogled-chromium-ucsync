@@ -40,7 +40,12 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)" > /tmp/bump-state
           echo "VERSION_ANTES=$(cat chromium_version.txt)" >> /tmp/bump-state
           if [ -n "${{ github.event.inputs.version }}" ]; then
-            echo "${{ github.event.inputs.version }}" > chromium_version.txt
+            V="${{ github.event.inputs.version }}"
+            curl -sfI "https://commondatastorage.googleapis.com/chromium-browser-official/chromium-$V-lite.tar.xz.hashes" >/dev/null || {
+              echo "Chromium $V no tiene archivo oficial 'lite'; no se puede validar ni compilar con él." >&2
+              exit 1
+            }
+            echo "$V" > chromium_version.txt
             git add chromium_version.txt
             git -c user.name=ucsync-bot -c user.email=ucsync-bot@users.noreply.github.com \
               commit -m "chromium_version.txt: ${{ github.event.inputs.version }} (adelantando a upstream)"

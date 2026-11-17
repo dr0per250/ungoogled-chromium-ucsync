@@ -35,11 +35,21 @@ timeout 300 git fetch upstream --tags --prune
 BEFORE="$(git rev-parse HEAD)"
 OLD_VERSION="$(cat chromium_version.txt)"
 
+lite_available() {
+  # Sólo tiene sentido fijar una versión si existe el archivo oficial "lite": es la fuente con la
+  # que se construye (y la que usa el trabajo «apply completo» para validar la serie entera).
+  curl -sfI "https://commondatastorage.googleapis.com/chromium-browser-official/chromium-$1-lite.tar.xz.hashes" >/dev/null
+}
+
 if [[ -n "$TARGET" ]]; then
   # Adelantarse a upstream: sólo válido si el tag existe en chromium/src.
   if ! git ls-remote --tags https://chromium.googlesource.com/chromium/src.git "refs/tags/$TARGET" \
       | grep -q "refs/tags/$TARGET"; then
     echo "[bump] El tag $TARGET no existe en chromium/src"; exit 1
+  fi
+  if ! lite_available "$TARGET"; then
+    echo "[bump] $TARGET no tiene archivo oficial 'lite': no se puede validar la serie ni compilar con él."
+    exit 1
   fi
   echo "$TARGET" > chromium_version.txt
   git add chromium_version.txt

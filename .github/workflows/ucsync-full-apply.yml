@@ -22,13 +22,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Hay archivo lite para esta versión?
+        id: lite
+        run: |
+          V="$(cat chromium_version.txt)"
+          if curl -sfI "https://commondatastorage.googleapis.com/chromium-browser-official/chromium-$V-lite.tar.xz.hashes" >/dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "Chromium $V no tiene archivo oficial 'lite': se omite la validación de la serie completa."
+          fi
       - name: Descargar y desempaquetar el tarball lite
+        if: steps.lite.outputs.present == 'true'
         run: |
           set -eo pipefail
           mkdir -p build/download_cache work
           python3 utils/downloads.py retrieve -c build/download_cache -i downloads.ini
           python3 utils/downloads.py unpack -c build/download_cache -i downloads.ini -- work/src
       - name: Aplicar la serie completa
+        if: steps.lite.outputs.present == 'true'
         run: |
           set -eo pipefail
           python3 utils/prune_binaries.py work/src pruning.list
@@ -36,6 +48,7 @@ jobs:
           python3 utils/domain_substitution.py apply -r domain_regex.list \
             -f domain_substitution.list -c build/domsubcache.tar.gz work/src
       - name: Comprobar las piezas de UC-Sync
+        if: steps.lite.outputs.present == 'true'
         run: |
           set -eo pipefail
           src=work/src
@@ -48,6 +61,7 @@ jobs:
           grep -q "lidfhdhmbifmhikiaklbiehnhnkhoghe" "$src/extensions/common/constants.h"
           echo "OK: la serie aplica y UC-Sync queda integrado en $(cat chromium_version.txt)"
       - name: Avisar si rompe
+        if: steps.lite.outputs.present == 'true'
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
