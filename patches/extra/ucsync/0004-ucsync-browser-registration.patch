@@ -40,7 +40,15 @@
      "//chrome/browser/ui:browser_live_tab_context",
 --- a/chrome/browser/ui/webui/chrome_web_ui_configs.cc
 +++ b/chrome/browser/ui/webui/chrome_web_ui_configs.cc
-@@ -57,6 +57,7 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/webui/chrome_web_ui_configs.h"
++#include "base/logging.h"
+ 
+ #include "build/android_buildflags.h"
+ #include "build/branding_buildflags.h"
+@@ -57,6 +58,7 @@
  #include "chrome/browser/ui/webui/suggest_internals/suggest_internals_ui.h"
  #include "chrome/browser/ui/webui/sync_internals/sync_internals_ui.h"
  #include "chrome/browser/ui/webui/translate_internals/translate_internals_ui.h"
@@ -48,14 +56,16 @@
  #include "chrome/browser/ui/webui/ungoogled_first_run.h"
  #include "chrome/browser/ui/webui/usb_internals/usb_internals_ui.h"
  #include "chrome/browser/ui/webui/version/version_ui.h"
-@@ -522,6 +523,7 @@
- #endif
+@@ -271,6 +273,9 @@
  
- #if BUILDFLAG(IS_MAC)
+   auto& map = content::WebUIConfigMap::GetInstance();
+   map.AddWebUIConfig(std::make_unique<AccessibilityUIConfig>());
++  // UC-Sync: `chrome://ucsync` es un atajo a la extensión integrada.
 +  map.AddWebUIConfig(std::make_unique<ucsync::UCSyncUIConfig>());
-   map.AddWebUIConfig(std::make_unique<UnexportableKeysInternalsUIConfig>());
- #endif  // BUILDFLAG(IS_MAC)
- 
++  VLOG(1) << "UC-Sync: config registrada para chrome://" << chrome::kChromeUIUcsyncHost;
+   map.AddWebUIConfig(std::make_unique<AutofillInternalsUIConfig>());
+   map.AddWebUIConfig(std::make_unique<BluetoothInternalsUIConfig>());
+   map.AddWebUIConfig(
 --- a/chrome/browser/ui/webui/BUILD.gn
 +++ b/chrome/browser/ui/webui/BUILD.gn
 @@ -89,6 +89,7 @@
@@ -209,36 +219,75 @@
 +}
 --- /dev/null
 +++ b/chrome/browser/ui/webui/ucsync/ucsync_ui.h
-@@ -0,0 +1,34 @@
+@@ -0,0 +1,73 @@
 +// UC-Sync: `chrome://ucsync` es un atajo a la página de opciones de la extensión integrada.
 +#ifndef CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
 +#define CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
 +
++#include "chrome/common/webui_url_constants.h"
++#include "content/public/browser/navigation_handle.h"
++#include "content/public/browser/url_data_source.h"
++#include "content/public/browser/web_contents_observer.h"
 +#include "content/public/browser/webui_config.h"
 +#include "content/public/browser/web_ui_controller.h"
 +#include "content/public/common/url_constants.h"
++
++namespace content {
++class Page;
++}  // namespace content
 +
 +namespace ucsync {
 +
 +class UCSyncUI;
 +
 +// Config para chrome://ucsync.
++// Registra la fuente de datos de chrome://ucsync. Hay que hacerlo antes de navegar: el
++// cargador de chrome:// busca la fuente al empezar la petición, y el controlador WebUI se crea
++// demasiado tarde (al comprometer la respuesta).
++void RegisterRedirectDataSource(content::BrowserContext* browser_context);
++
 +class UCSyncUIConfig : public content::DefaultWebUIConfig<UCSyncUI> {
 + public:
 +  UCSyncUIConfig()
-+      : DefaultWebUIConfig(content::kChromeUIScheme, "ucsync") {}
++      : DefaultWebUIConfig(content::kChromeUIScheme, chrome::kChromeUIUcsyncHost) {}
++
++  // content::WebUIConfig: sin fuente de datos registrada, la navegación a chrome://ucsync no
++  // llega a crear el WebUI.
++  void RegisterURLDataSource(content::BrowserContext* browser_context) override;
++};
++
++// Sirve una página que redirige, por si la navegación programática no llegara a tiempo.
++class UCSyncRedirectSource : public content::URLDataSource {
++ public:
++  UCSyncRedirectSource() = default;
++  UCSyncRedirectSource(const UCSyncRedirectSource&) = delete;
++  UCSyncRedirectSource& operator=(const UCSyncRedirectSource&) = delete;
++
++  // content::URLDataSource:
++  std::string GetSource() override;
++  std::string GetMimeType(const GURL& url) override;
++  void StartDataRequest(const GURL& url,
++                        const content::WebContents::Getter& wc_getter,
++                        GotDataCallback callback) override;
 +};
 +
 +// Redirige al `options.html` de la extensión embebida; no sirve contenido propio.
-+class UCSyncUI : public content::WebUIController {
++class UCSyncUI : public content::WebUIController,
++                 public content::WebContentsObserver {
 + public:
 +  explicit UCSyncUI(content::WebUI* web_ui);
 +
 +  UCSyncUI(const UCSyncUI&) = delete;
 +  UCSyncUI& operator=(const UCSyncUI&) = delete;
 +
-+  // WebUIController:
++  // content::WebUIController:
 +  void WebUIPrimaryPageChanged(content::Page& page) override;
++
++  // content::WebContentsObserver:
++  void DidFinishNavigation(content::NavigationHandle* handle) override;
++
++ private:
++  void Redirect();
 +};
 +
 +}  // namespace ucsync
@@ -246,34 +295,101 @@
 +#endif  // CHROME_BROWSER_UI_WEBUI_UCSYNC_UCSYNC_UI_H_
 --- /dev/null
 +++ b/chrome/browser/ui/webui/ucsync/ucsync_ui.cc
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,103 @@
 +// UC-Sync: redirección de chrome://ucsync. Ver el encabezado.
 +#include "chrome/browser/ui/webui/ucsync/ucsync_ui.h"
 +
 +#include <string>
 +
++#include "base/memory/ref_counted_memory.h"
 +#include "chrome/browser/ucsync/ucsync_constants.h"
++#include "chrome/common/webui_url_constants.h"
++#include "base/logging.h"
++#include "content/public/browser/browser_context.h"
 +#include "content/public/browser/navigation_controller.h"
 +#include "content/public/browser/page.h"
 +#include "content/public/browser/web_contents.h"
 +#include "content/public/browser/web_ui.h"
++#include "net/base/net_errors.h"
 +#include "extensions/common/extension.h"
 +#include "ui/base/page_transition_types.h"
 +
 +namespace ucsync {
 +
-+UCSyncUI::UCSyncUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {}
++namespace {
++
++// `chrome-extension://<id>/options.html` de la extensión embebida.
++GURL OptionsURL() {
++  return extensions::Extension::GetBaseURLFromExtensionId(
++             std::string(ucsync::kExtensionId))
++      .Resolve(std::string(ucsync::kOptionsPage));
++}
++
++}  // namespace
++
++std::string UCSyncRedirectSource::GetSource() {
++  return chrome::kChromeUIUcsyncHost;
++}
++
++std::string UCSyncRedirectSource::GetMimeType(const GURL& url) {
++  return "text/html";
++}
++
++void UCSyncRedirectSource::StartDataRequest(
++    const GURL& url,
++    const content::WebContents::Getter& wc_getter,
++    GotDataCallback callback) {
++  // Refresco inmediato: si por lo que sea la navegación programática no se ejecutó, la página
++  // misma lleva al destino.
++  const std::string html =
++      "<!doctype html><html lang=\"es\"><head><meta charset=\"utf-8\">"
++      "<title>UC-Sync</title><meta http-equiv=\"refresh\" content=\"0;url=" +
++      OptionsURL().spec() + "></head><body></body></html>";
++  std::move(callback).Run(
++      base::MakeRefCounted<base::RefCountedString>(std::move(html)));
++}
++
++void RegisterRedirectDataSource(content::BrowserContext* browser_context) {
++  content::URLDataSource::Add(browser_context,
++                              std::make_unique<UCSyncRedirectSource>());
++}
++
++void UCSyncUIConfig::RegisterURLDataSource(content::BrowserContext* browser_context) {
++  content::URLDataSource::Add(browser_context,
++                              std::make_unique<UCSyncRedirectSource>());
++}
++
++UCSyncUI::UCSyncUI(content::WebUI* web_ui) : content::WebUIController(web_ui) {
++  VLOG(1) << "UC-Sync: controller de chrome://ucsync creado";
++  content::URLDataSource::Add(web_ui->GetWebContents()->GetBrowserContext(),
++                              std::make_unique<UCSyncRedirectSource>());
++}
 +
 +void UCSyncUI::WebUIPrimaryPageChanged(content::Page& page) {
++  Redirect();
++}
++
++void UCSyncUI::DidFinishNavigation(content::NavigationHandle* handle) {
++  if (!handle->IsInMainFrame()) {
++    return;
++  }
++  // Tanto si chrome://ucsync cargó como si se quedó en la página de error, hay que ir a la
++  // extensión: sin recursos propios, la primera navegación puede no comprometerse.
++  if (handle->GetURL().host() == chrome::kChromeUIUcsyncHost ||
++      handle->GetNetErrorCode() != net::OK) {
++    Redirect();
++  }
++}
++
++void UCSyncUI::Redirect() {
++  VLOG(1) << "UC-Sync: redirigiendo chrome://ucsync";
 +  content::WebContents* contents = web_ui()->GetWebContents();
-+  if (contents->GetLastCommittedURL().host() != "ucsync") {
-+    return;  // Ya redirigimos; no vuelve a ocurrir, pero no cuesta comprobarlo.
++  const GURL target = OptionsURL();
++  if (contents->GetLastCommittedURL() == target ||
++      contents->GetVisibleURL() == target) {
++    return;  // Ya estamos en la extensión.
 +  }
 +
-+  const GURL target =
-+      extensions::Extension::GetBaseURLFromExtensionId(
-+          std::string(ucsync::kExtensionId))
-+          .Resolve(std::string(ucsync::kOptionsPage));
 +  content::NavigationController::LoadURLParams params(target);
 +  params.transition_type = ui::PageTransitionFromInt(
 +      ui::PAGE_TRANSITION_AUTO_TOPLEVEL | ui::PAGE_TRANSITION_CHAIN_START |
