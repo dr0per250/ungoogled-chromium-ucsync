@@ -243,18 +243,46 @@ las rutas viejas siguen apuntando a los ficheros actuales. No se recarga la exte
 en caliente: quitarla y volverla a cargar en el arranque provoca un `DCHECK` en
 `toolbar_actions_model.cc` (estado de los botones fijados), por eso se resuelve en el disco.
 
-## Actualización contra upstream
+## Comprobaciones y actualización: todo en local
+GitHub no ejecuta nada de esto (el fork no tiene workflows). Sólo guarda los parches y publica los
+binarios ya compilados aquí; compilar Chromium siempre se hace en tu máquina (`ucsync/build.sh`).
 
-| Trabajo | Qué hace |
-| --- | --- |
-| **UC-Sync upstream bump** (diario + manual) | fusiona `upstream/master`, valida la serie y, si aplica, sube `master` y etiqueta `chromium-<versión>`; si rechaza, **revierte y abre un issue**. Sólo acepta versiones con archivo oficial `lite`. |
-| **UC-Sync apply completo** (diario) | aplica la serie entera sobre el tarball `lite` de la versión fijada y comprueba que tras parchear siguen `ParseVisitTime`, `HistoryAddUrlsFunction`, los recursos de UC-Sync, `ucsync_ui.cc` y el ID. |
-| **UC-Sync patch check** (push y manual) | validación rápida a nivel de fichero (`ucsync/verify_patch.py`), sin compilar. |
-| **UC-Sync vendor extensión** | re-vende `0003` desde el repo UC-Sync y escribe `ucsync/extension.lock.json` (commit, versión de la extensión, sha256 del parche). Necesita el secret `UCSYNC_PAT`. |
+```bash
+./ucsync/check_local.sh                     # todas las comprobaciones, sin compilar
+./ucsync/check_local.sh --src ~/chromium/src # además contra el árbol de trabajo
+./ucsync/check_upstream.sh                  # ¿hay Chromium o chromium-web-store nuevos?
+```
 
-Lo que **no** se automatiza: readaptar un parche cuando un hunk choca contra código nuevo de
-Chromium. Eso exige el árbol de trabajo y `ucsync/make_ucsync_patches.sh --src <árbol> --extension <uc-sync>`;
-el bot deja el issue con los rechazos y `master` queda intacto.
+`check_local.sh` revisa en un minuto:
+
+1. que los 7 parches propios aplican sobre la versión fijada (`ucsync/verify_patch.py`);
+2. que ninguna choice de `chrome://flags` rompe `FeatureEntry::IsValid()` (`ucsync/check_flag_choices.py`);
+3. que `patches/series` y los ficheros del disco coinciden;
+4. que las extensiones integradas no referencian `icons/*.png` y que `ucsync/extension.lock.json` y
+   `ucsync/webstore.lock.json` declaran su versión;
+5. con `--src`: que el árbol tiene las dos extensiones, el branding `Chromper`, la autoría de Chromium
+   intacta y Google con URL reales (`google.com`, no el dominio sustituido).
+
+`verify_patch.py` guarda en `~/.cache/ucsync-chromium-files` (variable `UCSYNC_FILE_CACHE`) los ficheros
+que descarga del tag: la primera vez baja 31 ficheros y después trabaja sin red (≈1,5 s). Además
+distingue un 404 real (el fichero lo crea un parche de upstream) de un corte de red; confundirlos era
+la causa de que esta comprobación fallara a veces sin motivo.
+
+Actualizar una versión de Chromium, en orden:
+
+```bash
+./ucsync/check_upstream.sh                       # qué hay nuevo
+./ucsync/verify_patch.py 158.0.8127.36           # los parches propios aplican sobre esa versión
+./ucsync/bump.sh --to 158.0.8127.36 --apply      # fusiona upstream y actualiza la fijación
+./ucsync/build.sh --prepare && ./ucsync/build.sh --chrome
+./ucsync/make_ucsync_patches.sh --src … --extension …   # 0001-0004 y 0006
+./ucsync/make_search_patch.sh --src …                  # 0005 branding y 0007 buscador
+./ucsync/check_local.sh --src …
+./ucsync/package_linux.sh --src … --out … && gh release upload chromium-<versión> …
+```
+
+Lo que sigue necesitando mano: readaptar un parche cuando un hunk choca contra código nuevo de Chromium.
+`verify_patch.py` dice qué ficheros tocan y `ucsync/rebuild_patches.sh` regenera los `.patch`.
 
 ## Clave de la extensión
 

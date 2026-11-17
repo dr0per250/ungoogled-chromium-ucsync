@@ -24,12 +24,15 @@ import base64
 import os
 import re
 import subprocess
+import time
 import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE_DIR = ROOT / "ucsync" / "baseline"
+# Caché de los ficheros de upstream: la primera vez descarga, después trabaja sin red.
+CACHE = Path(os.environ.get("UCSYNC_FILE_CACHE", Path.home() / ".cache" / "ucsync-chromium-files"))
 
 sys.path.insert(0, str(ROOT))
 import patch_sections  # noqa: E402 - está junto a este script
@@ -82,20 +85,41 @@ def new_files(patch_path):
 
 
 def fetch(version, path, dest):
+    """Descarga un fichero del tag; si ya está en la caché local, no toca la red.
+
+    Distingue el 404 real (el fichero lo crea un parche de upstream) de un fallo de red: si se
+    confunden, un fichero se queda sin base y el parche «no aplica» sin motivo. Es lo que hacía
+    fallar esta comprobación en GitHub de forma aleatoria.
+    """
+    guardado = CACHE / version / path
+    if guardado.exists():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(guardado.read_bytes())
+        return None
     url = SHOW_URL.format(version=version, path=path)
-    result = subprocess.run(["curl", "-sL", "--retry", "2", "--max-time", "90", url],
-                            capture_output=True, check=False)
-    if result.returncode != 0 or not result.stdout:
-        return f"no se pudo descargar {path} ({url})"
-    try:
-        raw = base64.b64decode(result.stdout)
-    except Exception:  # noqa: BLE001
-        # El fichero no está en el tag: lo crea un parche de upstream (p. ej. los de las
-        # banderas de ungoogled). No es un fallo; la base se construirá con esa sección.
-        return f"no existe en el tag: {path}"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(raw)
-    return None
+    ultima = None
+    for intento in range(4):
+        result = subprocess.run(
+            ["curl", "-s", "-w", "\n%{http_code}", "--max-time", "90", url],
+            capture_output=True, check=False)
+        cuerpo, _, codigo = result.stdout.rpartition(b"\n")
+        if codigo == b"404":
+            return f"no existe en el tag: {path}"
+        if result.returncode != 0:
+            ultima = f"curl {result.returncode}"
+        else:
+            try:
+                raw = base64.b64decode(cuerpo)
+            except Exception:  # noqa: BLE001
+                ultima = "respuesta que no es base64 (¿corte o límite de peticiones?)"
+            else:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(raw)
+                guardado.parent.mkdir(parents=True, exist_ok=True)
+                guardado.write_bytes(raw)
+                return None
+        time.sleep(2 * (intento + 1))
+    return f"no se pudo descargar {path} ({ultima}; {url})"
 
 
 def series_upstream_patches():
