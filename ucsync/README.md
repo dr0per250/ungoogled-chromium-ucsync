@@ -147,6 +147,11 @@ El fork sigue a `ungoogled-software/ungoogled-chromium` y se actualiza solo, con
 | «UC-Sync vendor extensión» (dispatch o `repository_dispatch`) | re-vende `0003` desde el repo UC-Sync y escribe `ucsync/extension.lock.json` (commit de UC-Sync, versión de la extensión y sha256 del parche). Necesita el secret `UCSYNC_PAT` para leer el repo privado. |
 | `ucsync/verify_patch.py` | validación rápida a nivel de fichero (sin compilar ni checkout de Chromium). |
 
+Regla que el bot aplica: sólo se fijan versiones con **archivo oficial `lite`** (la fuente con la
+que se construye y con la que se valida la serie completa). `157.0.8103.81` no lo tiene, y por eso
+el bump manual de prueba se revirtió a `157.0.8103.78` (el binario verificado). Cuando algo rompe,
+el trabajo abre un issue y deja `master` intacto — nunca actualiza a medias.
+
 Lo que **no** se automatiza: cuando un hunk rechaza hay que reescribir el parche contra el código
 nuevo de Chromium, y eso exige el árbol de trabajo (`make_ucsync_patches.sh` regenera `0004` desde
 `/IA/chromium-build/src`). El bot deja el issue con los rechazos; la readaptación es un paso de
