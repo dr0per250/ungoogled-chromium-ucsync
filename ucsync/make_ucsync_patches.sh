@@ -14,10 +14,12 @@ set -euo pipefail
 FORK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC=/IA/chromium-build/src
 EXT=/IA/uc-sync/extension
+ONLY=""            # vacío: 0003 y 0004; "0003": sólo la extensión (CI no tiene el árbol de Chromium)
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --src) SRC="$2"; shift 2;;
     --extension) EXT="$2"; shift 2;;
+    --only) ONLY="$2"; shift 2;;
     *) echo "opción desconocida: $1"; exit 1;;
   esac
 done
@@ -68,6 +70,13 @@ git -C "$WORK/stage" diff --cached > "$PATCH_DIR/0003-ucsync-browser-extension.p
 echo "[ucsync] 0003: $(grep -c '^diff --git' "$PATCH_DIR/0003-ucsync-browser-extension.patch") ficheros"
 
 # --- 0004: registro en el navegador ----------------------------------------------------------
+# 0004 se genera desde el árbol de Chromium ya modificado: sin árbol (CI) se omite.
+if [[ -n "$ONLY" && "$ONLY" != "0004" ]]; then
+  : > "$PATCH_DIR/0004-ucsync-browser-registration.patch.keep"
+  rm -f "$PATCH_DIR/0004-ucsync-browser-registration.patch.keep"
+  echo "[ucsync] --only $ONLY: se deja 0004 intacto (no hay árbol de Chromium)"
+fi
+if [[ -z "$ONLY" || "$ONLY" == "0004" ]]; then
 MODIFIED=(
   chrome/browser/extensions/BUILD.gn
   chrome/browser/extensions/chrome_content_browser_client_extensions_part.cc
@@ -121,6 +130,7 @@ for path in "${NEW[@]}"; do
 done
 cp "$OUT" "$PATCH_DIR/0004-ucsync-browser-registration.patch"
 echo "[ucsync] 0004: $(grep -c '^+++ ' "$PATCH_DIR/0004-ucsync-browser-registration.patch") ficheros"
+fi
 
 # --- serie ----------------------------------------------------------------------------------
 SERIES="$FORK/patches/series"

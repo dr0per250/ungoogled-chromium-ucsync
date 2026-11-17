@@ -135,3 +135,26 @@ Además de los parches de la API de historial, el fork embebe la extensión de U
 
 La clave privada que fija el ID está en `../ucsync-extension-key.pem` (fuera del fork): cambiarla
 cambia el ID y con él las claves de `chrome.storage` y el destino de `chrome://ucsync`.
+
+## Actualización autónoma contra upstream
+
+El fork sigue a `ungoogled-software/ungoogled-chromium` y se actualiza solo, con fallo ruidoso:
+
+| trabajo | qué hace |
+| --- | --- |
+| `ucsync/bump.sh` (workflow «UC-Sync upstream bump», diario + manual) | fusiona `upstream/master`, pasa `devutils/check_patch_files.py` y `ucsync/verify_patch.py`; si aplica, sube el merge y etiqueta `chromium-<versión>`; si rechaza, **revierte el merge y abre un issue** con los rechazos. `--to <versión>` fija una versión concreta para adelantarse a upstream. |
+| «UC-Sync apply completo» (diario) | descarga el tarball `lite` de la versión fijada y aplica la **serie entera** (`prune_binaries`, `patches.py apply`, `domain_substitution`) y comprueba que después de parchear siguen ahí `ParseVisitTime`, `HistoryAddUrlsFunction`, `chrome/browser/resources/ucsync/manifest.json`, `ucsync_ui.cc` y el ID de UC-Sync. Abre issue si rompe. |
+| «UC-Sync vendor extensión» (dispatch o `repository_dispatch`) | re-vende `0003` desde el repo UC-Sync y escribe `ucsync/extension.lock.json` (commit de UC-Sync, versión de la extensión y sha256 del parche). Necesita el secret `UCSYNC_PAT` para leer el repo privado. |
+| `ucsync/verify_patch.py` | validación rápida a nivel de fichero (sin compilar ni checkout de Chromium). |
+
+Lo que **no** se automatiza: cuando un hunk rechaza hay que reescribir el parche contra el código
+nuevo de Chromium, y eso exige el árbol de trabajo (`make_ucsync_patches.sh` regenera `0004` desde
+`/IA/chromium-build/src`). El bot deja el issue con los rechazos; la readaptación es un paso de
+agente o humana, y después se relanza el bump.
+
+```sh
+./ucsync/bump.sh                      # informativo: merge local + validación
+./ucsync/bump.sh --apply --issue      # sube si aplica; issue si no
+./ucsync/bump.sh --to 158.0.8413.4 --apply
+gh workflow run "UC-Sync apply completo" -R dr0per250/ungoogled-chromium-ucsync
+```
