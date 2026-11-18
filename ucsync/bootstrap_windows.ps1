@@ -19,7 +19,7 @@ param(
   [ValidateSet('check','install','paginacion','clone','build','package','publish','install-chromper','all')][string]$Step = 'check',
   [string]$Workspace = 'C:\chromper',
   [int]$Jobs = 0,
-  [switch]$Fresh
+  [switch]$Fresh,
   [string]$Fork = 'https://github.com/dr0per250/ungoogled-chromium-ucsync.git',
   [string]$ForkBranch = 'master',
   [string]$WindowsRepo = 'https://github.com/ungoogled-software/ungoogled-chromium-windows.git'

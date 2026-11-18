@@ -73,6 +73,19 @@ def revisar(ruta: pathlib.Path) -> list[str]:
             problemas.append(f"línea {numero}: comillas dobles sin cerrar")
     if texto.count("{") != texto.count("}"):
         problemas.append("llaves { y } desequilibradas")
+    # En la lista de parámetros falta coma entre declaraciones: PowerShell da errores en cascada.
+    lineas = texto.splitlines()
+    for i, l in enumerate(lineas):
+        if l.strip().startswith("param(") and l.count("(") > l.count(")"):
+            j = i
+            while j < len(lineas) and not lineas[j].strip().startswith(")"):
+                terminacion = lineas[j].rstrip()
+                siguiente = lineas[j + 1].strip() if j + 1 < len(lineas) else ')'
+                if terminacion and siguiente != ')' and not terminacion.endswith(',') and not terminacion.endswith('`') and not terminacion.endswith('param('):
+                    problemas.append(f"línea {j + 1}: en la lista de parámetros falta la coma final")
+                j += 1
+            if j >= len(lineas):
+                problemas.append("lista de parámetros sin cerrar")
     return problemas
 
 
