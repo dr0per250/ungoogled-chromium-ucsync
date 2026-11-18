@@ -1,4 +1,4 @@
-﻿# Consola LOCAL del estado de la compilacion, para ejecutarla en la propia maquina Windows
+# Consola LOCAL del estado de la compilacion, para ejecutarla en la propia maquina Windows
 # (no hace falta SSH). En el otro equipo usa tools/watch_windows.sh.
 #
 # Uso (PowerShell, sin administrador):
@@ -25,7 +25,8 @@ function Estado($ws) {
 
   $fase = 'sin empezar'
   if (Test-Path (Join-Path $src 'out\Default\chrome.exe')) { $fase = 'navegador compilado' }
-  elseif ($t -match 'cc_bindings_from_rs') { $fase = 'Crubit/bindgen (justo antes de ninja)' }
+  elseif ($t -match 'cc_bindings_from_rs') { $fase = 'Crubit: cc_bindings_from_rs (justo antes de ninja)' }
+  elseif ($t -match 'build_bindgen\.py|bindgen-host-build') { $fase = 'Rust: compilando bindgen (justo antes de ninja)' }
   elseif ($t -match 'ninja\.exe -C out') { $fase = 'ninja: compilando Chromium' }
   elseif ($t -match 'gn\.exe gen') { $fase = 'gn gen' }
   elseif (Test-Path (Join-Path $src 'BUILD.gn')) { $fase = 'parcheando y preparando el arbol' }
