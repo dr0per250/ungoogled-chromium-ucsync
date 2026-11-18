@@ -23,8 +23,9 @@ function Preparar-Path {
   }
 }
 function Buscar-Exe($exe, $raices) {
+  # El alias de la Tienda (WindowsApps\python.exe) no ejecuta nada: se ignoran esas rutas.
   $c = Get-Command $exe -ErrorAction SilentlyContinue
-  if ($c) { return $c.Source }
+  if ($c -and $c.Source -notlike '*WindowsApps*') { return $c.Source }
   foreach ($r in $raices) {
     if (-not $r -or -not (Test-Path $r)) { continue }
     $p = Get-ChildItem -Path (Join-Path $r $exe) -ErrorAction SilentlyContinue | Select-Object -First 1

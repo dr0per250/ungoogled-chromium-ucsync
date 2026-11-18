@@ -49,8 +49,9 @@ function Preparar-Path {
   }
 }
 function Buscar-Exe($exe, $raices) {
+  # El alias de la Tienda (WindowsApps\python.exe) no ejecuta nada: se ignoran esas rutas.
   $c = Get-Command $exe -ErrorAction SilentlyContinue
-  if ($c) { return $c.Source }
+  if ($c -and $c.Source -notlike '*WindowsApps*') { return $c.Source }
   foreach ($r in $raices) {
     if (-not $r -or -not (Test-Path $r)) { continue }
     $p = Get-ChildItem -Path (Join-Path $r $exe) -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -127,12 +128,18 @@ function Paso-Install {
     @('/quiet','InstallAllUsers=1','PrependPath=1','Include_test=0')
   Instalar '7zip.7zip' "$env:ProgramFiles\7-Zip\7z.exe" 'https://www.7-zip.org/a/7z2409-x64.exe' '7z-x64.exe' @('/S')
 
-  $py = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python312", "$env:LOCALAPPDATA\Programs\Python\Python312")
+  $py = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python312", "$env:ProgramFiles\Python313", "$env:LOCALAPPDATA\Programs\Python\Python312", "$env:LOCALAPPDATA\Programs\Python\Python313")
+  if (-not $py) {
+    $lanzador = Buscar-Exe 'py.exe' @("$env:LOCALAPPDATA\Programs\Python\Launcher", 'C:\Windows')
+    if ($lanzador) { $py = $lanzador }
+  }
   if ($py) {
-    Write-Host '  modulos de Python que usan los scripts de construccion:'
-    & $py -m pip install --upgrade pip | Out-Null
-    & $py -m pip install 'httplib2==0.22.0' 'clang==21.1.7'
-  } else { Write-Warning 'no se encontro python tras instalarlo: abre una terminal nueva y repite -Step install' }
+    Write-Host "  modulos de Python que usan los scripts de construccion ($py):"
+    if ($py -like '*py.exe') { & $py -3 -m pip install --upgrade pip | Out-Null; & $py -3 -m pip install 'httplib2==0.22.0' 'clang==21.1.7' }
+    else { & $py -m pip install --upgrade pip | Out-Null; & $py -m pip install 'httplib2==0.22.0' 'clang==21.1.7' }
+  } else {
+    Write-Warning 'Python instalado pero no localizado: busca C:\Program Files\Python312 o usa el lanzador py -3.'
+  }
 
   Preparar-Path
   Write-Host '  git:  ' (Buscar-Exe 'git.exe' @("$env:ProgramFiles\Git\cmd"))
