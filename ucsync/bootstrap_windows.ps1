@@ -393,9 +393,12 @@ function Descendientes($ids) {
 # $p.ExitCode queda vacio, asi que (a) el log del paso va a un fichero propio, (b) el bat escribe su
 # codigo en <log>.codigo y (c) se copia al registro lo que va saliendo, para la consola y para saber
 # si el paso se ha estampado: un paso colgado deja de escribir.
-function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxMinutos) {
+function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxMinutos, $logExtra = '') {
   $cod = "$logPaso.codigo"
   $err = "$logPaso.err"
+  # se borra el fallo del intento anterior: si no, la firma vieja hace creer al runner que el error
+  # se repite cuando en realidad este intento ni fallo.
+  Remove-Item "$logPaso.fallo", "$logPaso.fallo.err", "$logExtra.fallo", $logExtra -ErrorAction SilentlyContinue
   Remove-Item $logPaso, $err, $cod -ErrorAction SilentlyContinue
   $p = Start-Process cmd.exe -ArgumentList "/c `"$bat`"" -PassThru -WindowStyle Hidden -RedirectStandardOutput $logPaso -RedirectStandardError $err
   $inicio = Get-Date
@@ -411,6 +414,7 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
     if (((Get-Date) - $ultimoResumen).TotalMinutes -ge 1) {
       $ultimaResumen = Get-Date
       $cola = @(Get-Content $logPaso -Tail 1 -ErrorAction SilentlyContinue)
+      if ($logExtra -and (Test-Path $logExtra)) { $cola = @(Get-Content $logExtra -Tail 1 -ErrorAction SilentlyContinue) }
       $procs = @(Descendientes @($p.Id) | ForEach-Object { $_.Name } | Select-Object -Unique) -join ','
       Write-Host ('  avance: {0} | cpu acumulada {1} min | procesos: {2}' -f ($cola -join ''), [math]::Round($cpu / 60, 1), $procs)
     }
@@ -420,7 +424,7 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
       $mt = (Get-Item $logPaso -ErrorAction SilentlyContinue).LastWriteTime
       if ($mt -gt $ultimo) { $ultimo = $mt }
     }
-    foreach ($f in @($logPaso, $err)) {
+    foreach ($f in @($logPaso, $err, $logExtra)) {
       $mt = (Get-Item $f -ErrorAction SilentlyContinue).LastWriteTime
       if ($mt -gt $ultimo) { $ultimo = $mt }
     }
@@ -448,11 +452,14 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
     # puede leer que fallo (cmd solo vacia el buffer al salir).
     Copy-Item $logPaso "$logPaso.fallo" -Force -ErrorAction SilentlyContinue
     Copy-Item $err "$logPaso.fallo.err" -Force -ErrorAction SilentlyContinue
-    Get-Content "$logPaso.fallo" -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  | $_" }
+    if ($logExtra) { Copy-Item $logExtra "$logExtra.fallo" -Force -ErrorAction SilentlyContinue }
+    $fuenteFallo = $logPaso
+    if ($logExtra -and (Test-Path "$logExtra.fallo")) { $fuenteFallo = "$logExtra.fallo" }
+    Get-Content "$fuenteFallo" -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  | $_" }
     Get-Content "$logPaso.fallo.err" -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  ! $_" }
     # senal para el exterior: ALERTA.txt y firma.txt permiten que el runner pare tras dos fallos
     # iguales y que la consola/monitor remoto avise sin que nadie tenga que preguntar.
-    $candidatos = @(Select-String -Path "$logPaso.fallo" -Pattern 'FAILED:|fatal error|error C[0-9]+|error: ' | Select-Object -First 2 | ForEach-Object { $_.Line.Trim() })
+    $candidatos = @(Select-String -Path "$fuenteFallo" -Pattern 'FAILED:|fatal error|error C[0-9]+|error: ' | Select-Object -First 2 | ForEach-Object { $_.Line.Trim() })
     $firma = $candidatos -join ' ;; '
     if ($firma.Length -gt 300) { $firma = $firma.Substring(0, 300) }
     if ($firma -eq '') { $firma = ('codigo ' + $codigo + ' sin mensaje de error en ' + $logPaso) }
@@ -559,7 +566,7 @@ function Paso-Genbuild {
     # ninja se ejecuta dentro de powershell con Tee-Object: cmd bufferiza su salida y el log del paso
     # no se vacia hasta que ninja termina, asi que la consola no ve progreso (y el vigilador no puede
     # distinguir 'compilando' de 'congelado'). PowerShell si vacia linea a linea.
-    ('powershell -NoProfile -Command "& ''ninja.exe'' -C out\Default chrome -j ' + $Jobs + ' 2>&1 | Tee-Object -FilePath ''' + (Join-Path $workspace 'genbuild.log') + ''' ; exit $LASTEXITCODE"')
+    ('powershell -NoProfile -Command "& ''ninja.exe'' -C out\Default chrome -j ' + $Jobs + ' 2>&1 | Tee-Object -FilePath ''' + (Join-Path $workspace 'genbuild.ninja.log') + ''' ; exit $LASTEXITCODE"')
     'set RC=%errorlevel%'
     'goto fin'
     ':fallo'
@@ -569,7 +576,7 @@ function Paso-Genbuild {
     'exit /b %RC%'
   )
   Push-Location $src
-  try { Ejecutar-Con-Vigilancia $bat (Join-Path $workspace 'genbuild.log') $registro 12 600 } finally { Pop-Location }
+  try { Ejecutar-Con-Vigilancia $bat (Join-Path $workspace 'genbuild.log') $registro 12 600 (Join-Path $workspace 'genbuild.ninja.log') } finally { Pop-Location }
   $exe = Join-Path $out 'chrome.exe'
   if (-not (Test-Path $exe)) { throw 'no aparecio out\Default\chrome.exe' }
   Write-Host "  navegador compilado: $exe"

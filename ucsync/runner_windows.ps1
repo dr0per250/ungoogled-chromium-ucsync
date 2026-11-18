@@ -22,8 +22,11 @@ if ($yo -gt 2) { exit 0 }
 
 function Reg($t) { Add-Content -Path $log -Value ("[{0}] {1}" -f (Get-Date -Format 'HH:mm'), $t) }
 function FirmaActual {
-  if (-not (Test-Path (Join-Path $registro 'genbuild.log.fallo'))) { return '' }
-  $c = @(Select-String -Path (Join-Path $registro 'genbuild.log.fallo') -Pattern 'FAILED:|fatal error|error C[0-9]+|error: ' | Select-Object -First 2 | ForEach-Object { $_.Line.Trim() })
+  # el log de ninja es el que trae el FAILED: real; el del paso solo lleva el arranque
+  $ruta = Join-Path $registro 'genbuild.ninja.log.fallo'
+  if (-not (Test-Path $ruta)) { $ruta = Join-Path $registro 'genbuild.log.fallo' }
+  if (-not (Test-Path $ruta)) { return '' }
+  $c = @(Select-String -Path $ruta -Pattern 'FAILED:|fatal error|error C[0-9]+|error: ' | Select-Object -First 2 | ForEach-Object { $_.Line.Trim() })
   if ($c.Count -eq 0) { return '' }
   $s = $c -join ' ;; '
   if ($s.Length -gt 300) { $s = $s.Substring(0, 300) }
