@@ -8,6 +8,7 @@ param(
   [string]$Zip = '',
   [string]$Url = 'https://github.com/dr0per250/ungoogled-chromium-ucsync/releases/latest/download/chromper-windows-x64.zip',
   [string]$Prefix = "$env:LOCALAPPDATA\chromper",
+  [string]$UserDataDir = "$env:LOCALAPPDATA\chromper-profile",
   [switch]$Uninstall
 )
 $ErrorActionPreference = 'Stop'
@@ -35,12 +36,20 @@ try {
     Write-Host "Descargando con GH_TOKEN"
     Invoke-WebRequest -Uri $Url -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -OutFile (Join-Path $tmp 'pkg.zip')
   } else {
-    throw 'El repo del navegador es privado: autentica gh (`gh auth login`) o pasa -Zip C:\ruta\chromper-windows-x64.zip'
+    # El repo es público: basta una descarga normal.
+    Write-Host "Descargando $Url"
+    Invoke-WebRequest -Uri $Url -OutFile (Join-Path $tmp 'pkg.zip')
   }
   Expand-Archive -Path (Join-Path $tmp 'pkg.zip') -DestinationPath $tmp -Force
   $src = Join-Path $tmp 'chromper'
-  if (-not (Test-Path (Join-Path $src 'chrome.exe'))) { throw 'El zip no trae chrome.exe' }
+  if (-not (Test-Path (Join-Path $src 'chromper.exe')) -and -not (Test-Path (Join-Path $src 'chrome.exe'))) {
+    throw 'El zip no trae chromper.exe'
+  }
   if (-not (Test-Path (Join-Path $src 'chromper.exe'))) { Copy-Item (Join-Path $src 'chrome.exe') (Join-Path $src 'chromper.exe') }
+  if (-not (Test-Path (Join-Path $src 'chrome.exe'))) { Copy-Item (Join-Path $src 'chromper.exe') (Join-Path $src 'chrome.exe') }
+  foreach ($ext in 'ucsync','chromium-web-store') {
+    if (-not (Test-Path (Join-Path $src $ext))) { Write-Warning "El zip no trae $ext: la extensión integrada no aparecerá." }
+  }
 
   New-Item -ItemType Directory -Path $Prefix -Force | Out-Null
   Copy-Item -Recurse -Force "$src\*" $Prefix
@@ -50,7 +59,7 @@ try {
   $shell = New-Object -ComObject WScript.Shell
   $lnk = $shell.CreateShortcut("$env:PUBLIC\Desktop\Chromper.lnk")
   $lnk.TargetPath = Join-Path $Prefix 'chromper.exe'
-  $lnk.Arguments = "--user-data-dir=`"$env:LOCALAPPDATA\chromper-profile`""
+  $lnk.Arguments = "--user-data-dir=`"$UserDataDir`""
   $lnk.IconLocation = (Join-Path $Prefix 'chromper.exe') + ',0'
   $lnk.Description = 'Chromper: Chromium sin Google con UC-Sync integrado'
   $lnk.Save()
@@ -63,7 +72,9 @@ try {
   }
 
   & (Join-Path $Prefix 'chromper.exe') --version
+  Write-Host "Perfil: $UserDataDir"
   Write-Host 'Listo. Ábrelo y ve a chrome://ucsync para conectar con tu servidor.'
+  Write-Host 'Para traer marcadores e historial de Chrome: chrome://settings/importData.'
 } finally {
   Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }

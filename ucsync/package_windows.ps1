@@ -9,13 +9,20 @@
 param(
   [Parameter(Mandatory=$true)][string]$Src,
   [string]$Out = "$PWD",
-  [string]$Locales = "es-ES es-MX en-US pt-BR fr de it gl ca ja zh-CN ru"
+  [string]$BuildDir = '',
+  [string]$Locales = "es es-419 en-US pt-BR fr de it gl ca eu ja zh-CN zh-TW ru"
 )
 $ErrorActionPreference = 'Stop'
 $fork = Split-Path -Parent $PSScriptRoot
-$build = Join-Path $Src 'out\Release'
-if (-not (Test-Path (Join-Path $build 'chrome.exe'))) {
-  throw "No hay chrome.exe en $build (ejecuta gn gen + ninja -C out\Release chrome)"
+if ($BuildDir) {
+  $build = $BuildDir
+} else {
+  # build.py de Windows deja la salida en out\Default; otros flujos usan out\Release.
+  $build = @('out\Default','out\Release') | ForEach-Object { Join-Path $Src $_ } |
+    Where-Object { Test-Path (Join-Path $_ 'chrome.exe') } | Select-Object -First 1
+}
+if (-not $build -or -not (Test-Path (Join-Path $build 'chrome.exe'))) {
+  throw "No hay chrome.exe en $Src\out\Default ni $Src\out\Release (ejecuta primero el build: python build.py)"
 }
 $version = (Get-Content (Join-Path $fork 'chromium_version.txt')).Trim()
 
@@ -23,14 +30,19 @@ $stage = Join-Path $env:TEMP ("ucsync-win-" + [guid]::NewGuid().ToString('N'))
 $pkg = Join-Path $stage 'chromper'
 New-Item -ItemType Directory -Path $pkg | Out-Null
 
-$files = 'chrome.exe','resources.pak','chrome_100_percent.pak','chrome_200_percent.pak',
-         'icudtl.dat','v8_context_snapshot.bin','libEGL.dll','libGLESv2.dll',
-         'chrome_crashpad_handler.exe'
+$files = 'chrome.exe','chrome_proxy.exe','chrome_crashpad_handler.exe','product_logo_48.png',
+         'resources.pak','chrome_100_percent.pak','chrome_200_percent.pak','browser_resources.pak',
+         'chrome_elf.dll','libEGL.dll','libGLESv2.dll','d3dcompiler_47.dll',
+         'icudtl.dat','v8_context_snapshot.bin','vk_swiftshader_icd.json'
 foreach ($f in $files) {
   $p = Join-Path $build $f
   if (Test-Path $p) { Copy-Item $p $pkg }
 }
-if (Test-Path (Join-Path $build 'product_logo_48.png')) { Copy-Item (Join-Path $build 'product_logo_48.png') $pkg }
+# Cualquier DLL/PAK/DAT que el build haya puesto junto al ejecutable (el conjunto cambia entre
+# versiones de Chromium), salvo los binarios de test y las herramientas de gn/ninja.
+Get-ChildItem $build -File | Where-Object {
+  $_.Extension -in '.dll','.dat','.bin','.pak' -and $_.BaseName -notmatch '(_test$|^test_|^(gn|ninja)$)'
+} | ForEach-Object { Copy-Item $_.FullName $pkg }
 foreach ($f in 'libvk_swiftshader.dll','vk_swiftshader_icd.json') {
   $p = Join-Path $build $f
   if (Test-Path $p) { Copy-Item $p $pkg }
@@ -43,21 +55,30 @@ foreach ($loc in $Locales -split ' ') {
 }
 if (-not (Test-Path (Join-Path $pkg 'locales\en-US.pak'))) { throw 'Falta en-US.pak: el navegador no arranca sin idioma base' }
 
-$embedded = Join-Path $Src 'chrome\browser\resources\ucsync'
-if (Test-Path $embedded) {
-  Copy-Item -Recurse $embedded (Join-Path $pkg 'ucsync')
+function Colocar-extension($origen, $nombre) {
+  if (-not (Test-Path $origen)) { throw "No hay recursos de $nombre en $origen (falta su parche)." }
+  # El paquete va sólo con texto: si la UI pidiera icons/*.png saldría roto en chrome://extensions.
+  $png = @(Get-ChildItem (Join-Path $origen '*.html') | ForEach-Object {
+    Select-String -Path $_.FullName -Pattern 'icons/[a-z0-9_-]+\.png'
+  }).Count
+  if ($png -gt 0) { throw "$nombre referencia $png veces icons/*.png: usa logo.svg (este paquete no lleva PNG)." }
+  Copy-Item -Recurse $origen (Join-Path $pkg $nombre)
 }
-$webstore = Join-Path $Src 'chrome\browser\resources\chromium-web-store'
-if (Test-Path $webstore) {
-  Copy-Item -Recurse $webstore (Join-Path $pkg 'chromium-web-store')
-} else {
-  Write-Warning 'No hay recursos de UC-Sync en el árbol (falta el parche 0003).'
-}
+$rec = Join-Path $Src 'chrome\browser\resources'
+Colocar-extension (Join-Path $rec 'ucsync') 'ucsync'
+Colocar-extension (Join-Path $rec 'chromium-web-store') 'chromium-web-store'
 
-$extVersion = 'n/d'
-$manifest = Join-Path $pkg 'ucsync\manifest.json'
-if (Test-Path $manifest) { $extVersion = (Get-Content $manifest -Raw | ConvertFrom-Json).version }
-Set-Content -Path (Join-Path $pkg 'VERSION') -Value "chromium=$version", "ucsyncExtension=$extVersion", "builtAt=$((Get-Date).ToUniversalTime().ToString('yyyyMMddHHmm'))"
+function Version-de($dir) {
+  $m = Join-Path $dir 'manifest.json'
+  if (Test-Path $m) { (Get-Content $m -Raw | ConvertFrom-Json).version } else { 'n/d' }
+}
+$extVersion = Version-de (Join-Path $pkg 'ucsync')
+$wsVersion = Version-de (Join-Path $pkg 'chromium-web-store')
+Set-Content -Path (Join-Path $pkg 'VERSION') -Value "chromium=$version", "ucsyncExtension=$extVersion", "webstoreExtension=$wsVersion", "builtAt=$((Get-Date).ToUniversalTime().ToString('yyyyMMddHHmm'))"
+# El ejecutable se llama chromper.exe; install_windows.ps1 deja también chrome.exe en la instalación
+# por si algún componente busca al motor por su nombre original.
+if (Test-Path (Join-Path $pkg 'chrome.exe')) { Rename-Item (Join-Path $pkg 'chrome.exe') 'chromper.exe' }
+if (-not (Test-Path (Join-Path $pkg 'chromper.exe'))) { throw 'No hay chromper.exe en el paquete.' }
 
 New-Item -ItemType Directory -Path $Out | Out-Null
 $stable = Join-Path $Out 'chromper-windows-x64.zip'

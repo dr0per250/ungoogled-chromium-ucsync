@@ -78,18 +78,18 @@ queda en `~/.config/chromper` (`UCSYNC_PROFILE` para cambiarlo).
 
 ## Instalar el binario (Windows 11)
 
-Todavía **no hay binario publicado**: no se ha compilado en Windows. Cuando lo tengas (compilando
-abajo o en un runner propio), empaquétalo e instálalo con los dos scripts:
+Cuando el asset `chromper-windows-x64.zip` esté publicado, una línea (mientras tanto, `-Zip` con el
+zip que hayas construido):
 
 ```powershell
-.\ucsync\package_windows.ps1 -Src C:\ucbuild\src -Out C:\paquetes
-.\ucsync\install_windows.ps1 -Zip C:\paquetes\chromper-windows-x64.zip
-# o, con gh autenticado y el asset publicado:  .\ucsync\install_windows.ps1
+powershell -ExecutionPolicy Bypass -Command "iex (Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/install_windows.ps1).Content"
+# o con el zip local:  .\ucsync\install_windows.ps1 -Zip D:\chromper\pkg\chromper-windows-x64.zip
 ```
 
-El instalador coloca el navegador en `%LOCALAPPDATA%\chromper`, crea el atajo de escritorio
-(con `--user-data-dir` propio), lo añade al `PATH` del usuario y comprueba `chrome.exe --version`.
-`-Uninstall` lo quita.
+El instalador coloca el navegador en `%LOCALAPPDATA%\chromper`, crea el atajo de escritorio (con
+`--user-data-dir` propio, configurable con `-UserDataDir`), lo añade al `PATH` del usuario y comprueba
+`chromper.exe --version`. `-Uninstall` lo quita y el perfil se conserva. Para traer marcadores e
+historial de Chrome: `chrome://settings/importData`.
 
 ## Compilar en CachyOS / Arch
 
@@ -153,26 +153,36 @@ curl http://10.7.93.19:8443/v1/info                 # status online; hasVault tr
 
 ## Compilar en Windows 11
 
-**No lo hemos compilado aquí**: lo verificado es Linux. Los parches son C++/JSON independientes del
-sistema y el loader localiza la extensión con `base::DIR_EXE` (así que `<exe>\ucsync` funciona igual),
- pero la ventana de Windows no está probada.
+La ruta nativa usa el constructor oficial
+[ungoogled-chromium-windows](https://github.com/ungoogled-software/ungoogled-chromium-windows) y le
+apunta el submódulo `ungoogled-chromium` a **este fork**, así se aplican nuestros 7 parches con el
+mismo `patches/series`. Por pasos y reanudable:
 
-1. **WSL2** (lo más simple, son los mismos comandos de arriba): `wsl --install -d Ubuntu-24.04`,
-   `sudo apt install python3 git curl`, depot_tools y `build.sh`. WSLg abre la ventana.
-2. **Nativo**, con Visual Studio 2022 (*Desktop development with C++*), Windows SDK 10.0.22621 y
-   depot_tools (guía `build/win/README.md` del árbol de Chromium):
+```powershell
+git clone https://github.com/dr0per250/ungoogled-chromium-ucsync.git $env:USERPROFILE\chromper-fork
+cd $env:USERPROFILE\chromper-fork\ucsync
+powershell -ExecutionPolicy Bypass -File .\diagnose_windows.ps1 -Workspace D:\chromper   # qué tienes y qué falta
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step install           # VS Build Tools, Python, 7-Zip, rutas largas (admin)
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step clone -Workspace D:\chromper
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step build  -Workspace D:\chromper   # horas
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step package -Workspace D:\chromper
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step publish -Workspace D:\chromper   # gh release upload
+```
 
-   ```bat
-   set WORK=%USERPROFILE%\ucbuild
-   python uc-fork\utils\patches.py apply %WORK%\src uc-fork\patches
-   cd %WORK%\src
-   gn gen out\Release --args="is_debug=false is_official_build=false symbol_level=0"
-   ninja -C out\Release chrome chromedriver
-   xcopy /E /I chrome\browser\resources\ucsync out\Release\ucsync
-   ```
+`diagnose_windows.ps1` revisa: Windows 10 22H2+ x64, 16 GB de RAM, ~120 GB libres, Visual Studio 2022
+con la carga de trabajo *C++* y Windows SDK, Python 3.11+ con los módulos `httplib2` y `clang`, Git,
+7-Zip y `LongPathsEnabled=1`. El `build.py` del constructor de Windows llama a `vcvars64` y pone
+`DEPOT_TOOLS_WIN_TOOLCHAIN=0` (compila con el Visual Studio de tu máquina, no descarga el toolchain de
+Google) y deja la salida en `build\src\out\Default`.
 
-   Abre `out\Release\chrome.exe` y ve a `chrome://ucsync`. Si un hunk rechaza, abre un issue con el
-   rechazo exacto: la serie se valida contra la versión fijada en Linux.
+`package_windows.ps1` renombra el ejecutable a `chromper.exe`, recorta idiomas a
+`es es-419 en-US pt-BR fr de it gl ca eu ja zh-CN zh-TW ru`, coloca `ucsync\` y `chromium-web-store\`
+junto al ejecutable (donde los busca el loader con `base::DIR_EXE`) y escribe `VERSION` con la versión de
+Chromium y la de las dos extensiones. El registro de la construcción queda en `<Workspace>\registro.txt`:
+eso es lo que hay que pegar si un paso falla.
+
+Si no tienes 120 GB libres o el equipo es justo, la alternativa es **WSL2** con la guía de Linux de
+arriba (WSLg abre la ventana y el binario que sale es el de Linux).
 
 El binario Linux se publica con `./ucsync/make_release.sh` (crea el release del tag y sube el
 tarball). Para la extensión suelta, los releases de
