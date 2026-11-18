@@ -14,7 +14,7 @@ $ErrorActionPreference = 'SilentlyContinue'
 function Tiempo($ts) {
   if ($ts.TotalSeconds -lt 60) { return '{0} s' -f [int]$ts.TotalSeconds }
   if ($ts.TotalMinutes -lt 60) { return '{0} min' -f [int]$ts.TotalMinutes }
-  return '{0} h {1} min' -f [int]$ts.TotalHours, [int]($ts.TotalMinutes % 60)
+  return '{0} h {1} min' -f [int][Math]::Floor($ts.TotalHours), [int][Math]::Floor($ts.TotalMinutes % 60)
 }
 
 function Estado($ws) {
