@@ -72,6 +72,13 @@ function Estado($ws) {
   ("chrome.exe| {0}" -f $exeTxt)
   ("zip       | {0}" -f $zipTxt)
   ("marcadores| clone:{0} compilado:{1} paquete:{2}" -f ($t -match 'Resumen de la construccion'), ($t -match 'CHROMPER_COMPILADO'), ($t -match 'PAQUETE_HECHO'))
+  $regoMin = 0
+  if (Test-Path $log) { $regoMin = [math]::Round(((Get-Date) - (Get-Item $log).LastWriteTime).TotalMinutes) }
+  ("registro  | ultima escritura hace {0} min" -f $regoMin)
+  if ($fase -ne 'navegador compilado') {
+    if ($regoMin -ge 15) { ("estado    | ESTANCADO: el registro no crece hace {0} min" -f $regoMin) }
+    else { 'estado    | avanzando' }
+  }
   ("ultimo    | {0}" -f $ultima)
   if ($errs) { ("errores   | {0}" -f $errs) }
 }

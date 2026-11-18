@@ -375,6 +375,47 @@ function Preparar-Rust($arbol) {
   else { Write-Host '  bindgen.exe no viene hecho: se compilara con tools\rust\build_bindgen.py antes de ninja' }
 }
 
+# Watchdog: un paso que deja de escribir en el registro durante N minutos esta congelado (el git.bat
+# de depot_tools se quedo 2h24m esperando sin hacer nada). Se mata el arbol de procesos y se dice
+# exactamente que hijo estaba colgado, en vez de quedarse mirando.
+function Descendientes($ids) {
+  $lista = @()
+  foreach ($id in @($ids)) {
+    foreach ($c in @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$id" -ErrorAction SilentlyContinue)) {
+      $lista += $c
+      $lista += Descendientes @($c.ProcessId)
+    }
+  }
+  return $lista
+}
+
+function Ejecutar-Con-Vigilancia($bat, $registro, $minSinAvance, $maxMinutos) {
+  $p = Start-Process cmd.exe -ArgumentList "/c `"$bat`"" -PassThru -NoNewWindow
+  $inicio = Get-Date
+  $ultimo = Get-Date
+  while (-not $p.HasExited) {
+    Start-Sleep -Seconds 20
+    $mt = (Get-Item $registro -ErrorAction SilentlyContinue).LastWriteTime
+    if ($mt -gt $ultimo) { $ultimo = $mt }
+    $colgado = (Get-Date) - $ultimo
+    if ($colgado.TotalMinutes -ge $minSinAvance) {
+      $hijos = @(Descendientes @($p.Id))
+      $desc = 'ningun hijo vivo'
+      if ($hijos.Count -gt 0) { $desc = ($hijos | ForEach-Object { '{0} pid{1} :: {2}' -f $_.Name, $_.ProcessId, $_.CommandLine }) -join ' ;; ' }
+      Write-Warning ('sin avance hace {0} min: se mata el proceso colgado' -f [math]::Round($colgado.TotalMinutes))
+      foreach ($h in $hijos) { Stop-Process -Id $h.ProcessId -Force -ErrorAction SilentlyContinue }
+      Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+      throw "congelado $minSinAvance min sin escribir en $registro. Colgado: $desc"
+    }
+    if (((Get-Date) - $inicio).TotalMinutes -ge $maxMinutos) {
+      foreach ($h in @(Descendientes @($p.Id))) { Stop-Process -Id $h.ProcessId -Force -ErrorAction SilentlyContinue }
+      Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+      throw "el paso supero $maxMinutos min y se interrumpio (mira $registro)"
+    }
+  }
+  if ($p.ExitCode -ne 0) { throw "termino con codigo $($p.ExitCode) (mira $registro)" }
+}
+
 function Paso-Genbuild {
   Banner 'gn gen + ninja (sin volver a clonar: sirve para reanudar donde fallo la preparacion)'
   $src = Join-Path $windows 'build\src'
@@ -441,10 +482,7 @@ function Paso-Genbuild {
     'exit /b %errorlevel%'
   )
   Push-Location $src
-  try {
-    $p = Start-Process cmd.exe -ArgumentList "/c `"$bat`"" -Wait -PassThru -NoNewWindow
-    if ($p.ExitCode -ne 0) { throw "gen/ninja termino con codigo $($p.ExitCode) (mira $registro)" }
-  } finally { Pop-Location }
+  try { Ejecutar-Con-Vigilancia $bat $registro 12 600 } finally { Pop-Location }
   $exe = Join-Path $out 'chrome.exe'
   if (-not (Test-Path $exe)) { throw 'no aparecio out\Default\chrome.exe' }
   Write-Host "  navegador compilado: $exe"
@@ -516,8 +554,11 @@ function Paso-Build {
   try {
     # build.py llama a vcvars64 por su cuenta y usa DEPOT_TOOLS_WIN_TOOLCHAIN=0 (compila con el
     # Visual Studio instalado en esta maquina, no con el toolchain de Google).
-    if ($py -like '*py.exe*') { & py -3 build.py -j $Jobs } else { & $py build.py -j $Jobs }
-    if ($LASTEXITCODE -ne 0) {
+    $cmdBuild = 'py -3 build.py -j ' + $Jobs
+    if ($py -notlike '*py.exe*') { $cmdBuild = '"' + $py + '" build.py -j ' + $Jobs }
+    $batBuild = Join-Path $env:TEMP 'chromper_build_py.bat'
+    Set-Content -Path $batBuild -Encoding ascii -Value @('@echo off', $cmdBuild)
+    try { Ejecutar-Con-Vigilancia $batBuild $registro 25 720 } catch {
       # build.py peta en su propio gn gen cuando el SDK fijado en el arbol no esta instalado
       # (Chromium 157 pide 10.0.28000.0 y la maquina tiene 26100). Si gn.exe existe, la preparacion
       # (descargas, poda, parches, dominio, rust) si termino: -Step genbuild reanuda fijando
@@ -527,7 +568,7 @@ function Paso-Build {
         Write-Host '  continua con: -Step genbuild  (fija SDK_VERSION/INCLUDE/LIB y compila)'
         return
       }
-      throw "build.py termino con codigo $LASTEXITCODE (mira $registro)"
+      throw "build.py fallo (mira $registro)"
     }
   } finally { Pop-Location }
   $exe = Join-Path $windows 'build\src\out\Default\chrome.exe'
