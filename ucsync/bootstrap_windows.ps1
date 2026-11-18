@@ -400,9 +400,14 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
   $p = Start-Process cmd.exe -ArgumentList "/c `"$bat`"" -PassThru -WindowStyle Hidden -RedirectStandardOutput $logPaso -RedirectStandardError $err
   $inicio = Get-Date
   $ultimo = Get-Date
+  $ultimaCpu = 0.0
   $leido = 0
   while (-not $p.HasExited) {
     Start-Sleep -Seconds 20
+    # el CPU tambien es avance: con la salida redirigida a fichero el buffer puede tardar en vaciarse
+    $cpu = 0.0
+    foreach ($h in @(Descendientes @($p.Id))) { $cpu += $h.UserProcessorTime.TotalSeconds }
+    if ($cpu -gt $ultimaCpu) { $ultimo = Get-Date; $ultimaCpu = $cpu }
     if (Test-Path $logPaso) {
       $salidas = @(Get-Content $logPaso -ErrorAction SilentlyContinue)
       if ($salidas.Count -gt $leido) {
