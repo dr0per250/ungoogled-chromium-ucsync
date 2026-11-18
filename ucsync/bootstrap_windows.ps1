@@ -63,6 +63,16 @@ function Buscar-Exe($exe, $raices) {
 }
 Preparar-Path
 
+# Version del Windows SDK realmente instalada (con Include y Lib para x64), la mas alta disponible.
+function Elegir-SDK($kits) {
+  if (-not $kits) { return $null }
+  $candidatas = Get-ChildItem (Join-Path $kits 'Include') -Directory -ErrorAction SilentlyContinue |
+    Where-Object { Test-Path (Join-Path $kits "Lib\$($_.Name)\um\x64") } |
+    Sort-Object { [version]$_.Name } -Descending
+  if ($candidatas) { return $candidatas[0].Name }
+  return $null
+}
+
 # Chromium busca VS 2022 en C:\Program Files\Microsoft Visual Studio\2022\*, pero las Build Tools
 # quedan en C:\Program Files (x86)\..., y vs_toolchain.py aborta con "No supported Visual Studio can
 # be found". Se le pasa la ruta real con vs2022_install, la version con GYP_MSVS_VERSION y el SDK con
@@ -254,6 +264,26 @@ function Paso-Clone {
   Write-Host '  empaquetador de Chromper disponible '
 }
 
+# Chromium fija el SDK con el que compila en SDK_VERSION (en Chromium 157 es 10.0.28000.0). Si en
+# esta maquina ese SDK no esta instalado, setup_toolchain.py re-invoca vcvarsall pidiendo un SDK
+# inexistente y aborta. Se reescribe SDK_VERSION al SDK completo que hay en disco.
+function Corregir-SDKVersion($arbol, $ver) {
+  foreach ($f in @((Join-Path $arbol 'build\toolchain\win\setup_toolchain.py'), (Join-Path $arbol 'build\vs_toolchain.py'))) {
+    if (-not (Test-Path $f)) { continue }
+    $contenido = Get-Content $f -Raw
+    if ($contenido -match "SDK_VERSION = '([^']+)'") {
+      $actual = $Matches[1]
+      if ($actual -ne $ver) {
+        $contenido = $contenido -replace "SDK_VERSION = '[^']+'", "SDK_VERSION = '$ver'"
+        Set-Content -Path $f -Value $contenido -Encoding ascii -NoNewline
+        Write-Host "  SDK_VERSION: $actual -> $ver en $(Split-Path -Leaf $f)"
+      } else {
+        Write-Host "  SDK_VERSION ya es $ver en $(Split-Path -Leaf $f)"
+      }
+    }
+  }
+}
+
 function Paso-Genbuild {
   Banner 'gn gen + ninja (sin volver a clonar: sirve para reanudar donde fallo la preparacion)'
   $src = Join-Path $windows 'build\src'
@@ -265,13 +295,7 @@ function Paso-Genbuild {
   # pero no carpeta Include), setup_toolchain.py aborta con "Path ...\10.0.28000.0\um does not
   # exist". Se fijan INCLUDE/LIB al SDK que de verdad esta completo en el disco.
   $kits = $env:WINDOWSSDKDIR
-  $sdkVer = $null
-  if ($kits) {
-    $candidatas = Get-ChildItem (Join-Path $kits 'Include') -Directory -ErrorAction SilentlyContinue |
-      Where-Object { Test-Path (Join-Path $kits "Lib\$($_.Name)\um\x64") } |
-      Sort-Object { [version]$_.Name } -Descending
-    if ($candidatas) { $sdkVer = $candidatas[0].Name }
-  }
+  $sdkVer = Elegir-SDK $kits
   if (-not $sdkVer) { throw 'no hay ningun Windows SDK completo (falta Include\<ver>\um y Lib\<ver>\um\x64): instala uno desde el instalador de Visual Studio (Componentes individuales > Windows SDK).' }
   $msvcDir = Get-ChildItem (Join-Path $script:rutaVS 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
     Sort-Object Name -Descending | Select-Object -First 1
@@ -279,6 +303,7 @@ function Paso-Genbuild {
   $include = @("$($msvcDir.FullName)\include", "$kits\Include\$sdkVer\ucrt", "$kits\Include\$sdkVer\um", "$kits\Include\$sdkVer\shared", "$kits\Include\$sdkVer\winrt", "$kits\Include\$sdkVer\cppwinrt") -join ';'
   $lib = @("$($msvcDir.FullName)\lib\x64", "$kits\Lib\$sdkVer\um\x64", "$kits\Lib\$sdkVer\ucrt\x64") -join ';'
   Write-Host "  SDK usado: $sdkVer (MSVC $($msvcDir.Name))"
+  Corregir-SDKVersion $src $sdkVer
 
   $out = Join-Path $src 'out\Default'
   if (-not (Test-Path (Join-Path $out 'args.gn'))) {
@@ -335,7 +360,10 @@ function Paso-Build {
     Remove-Item -Recurse -Force (Join-Path $windows 'build\src') -ErrorAction SilentlyContinue
   }
   Preparar-VS | Out-Null
-  Write-Host '  si gn gen se queja de un SDK inexistente, usa -Step genbuild: fija INCLUDE/LIB al SDK completo del disco'
+  $srcPrep = Join-Path $windows 'build\src'
+  $sdkPrep = Elegir-SDK $env:WINDOWSSDKDIR
+  if ((Test-Path $srcPrep) -and $sdkPrep) { Corregir-SDKVersion $srcPrep $sdkPrep }
+  Write-Host '  si gn gen se queja de un SDK inexistente, usa -Step genbuild: fija INCLUDE/LIB y SDK_VERSION al SDK completo del disco'
 
   $src = Join-Path $windows 'build\src'
   if ((Test-Path (Join-Path $src 'BUILD.gn')) -and -not (Test-Path (Join-Path $src 'third_party\ninja\ninja.exe'))) {
