@@ -444,9 +444,13 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
   if (-not $codigo) { $codigo = 'desconocido' }
   Write-Host "  codigo del paso: $codigo (log en $logPaso)"
   if ($codigo -ne '0') {
-    Get-Content $logPaso -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  | $_" }
-    Get-Content $err -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  ! $_" }
-    throw "el paso termino con codigo $codigo (mira $logPaso)"
+    # se guarda el log del intento fallido: el siguiente intento pisa genbuild.log y sin esto no se
+    # puede leer que fallo (cmd solo vacia el buffer al salir).
+    Copy-Item $logPaso "$logPaso.fallo" -Force -ErrorAction SilentlyContinue
+    Copy-Item $err "$logPaso.fallo.err" -Force -ErrorAction SilentlyContinue
+    Get-Content "$logPaso.fallo" -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  | $_" }
+    Get-Content "$logPaso.fallo.err" -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  ! $_" }
+    throw "el paso termino con codigo $codigo (mira $logPaso.fallo)"
   }
 }
 
