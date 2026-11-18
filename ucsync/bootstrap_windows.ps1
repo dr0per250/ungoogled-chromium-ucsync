@@ -401,19 +401,24 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
   $inicio = Get-Date
   $ultimo = Get-Date
   $ultimaCpu = 0.0
-  $leido = 0
+  $ultimoResumen = Get-Date
   while (-not $p.HasExited) {
     Start-Sleep -Seconds 20
     # el CPU tambien es avance: con la salida redirigida a fichero el buffer puede tardar en vaciarse
     $cpu = 0.0
     foreach ($h in @(Descendientes @($p.Id))) { $cpu += $h.UserProcessorTime.TotalSeconds }
     if ($cpu -gt $ultimaCpu) { $ultimo = Get-Date; $ultimaCpu = $cpu }
+    if (((Get-Date) - $ultimoResumen).TotalMinutes -ge 1) {
+      $ultimaResumen = Get-Date
+      $cola = @(Get-Content $logPaso -Tail 1 -ErrorAction SilentlyContinue)
+      $procs = @(Descendientes @($p.Id) | ForEach-Object { $_.Name } | Select-Object -Unique) -join ','
+      Write-Host ('  avance: {0} | cpu acumulada {1} min | procesos: {2}' -f ($cola -join ''), [math]::Round($cpu / 60, 1), $procs)
+    }
     if (Test-Path $logPaso) {
-      $salidas = @(Get-Content $logPaso -ErrorAction SilentlyContinue)
-      if ($salidas.Count -gt $leido) {
-        for ($i = $leido; $i -lt $salidas.Count; $i++) { Add-Content -Path $registro -Value ("  {0}" -f $salidas[$i]) }
-        $leido = $salidas.Count
-      }
+      # el registro lo tiene abierto Start-Transcript, asi que no se escribe dentro del bucle: se
+      # muestra por consola (que va al transcript) al final del paso.
+      $mt = (Get-Item $logPaso -ErrorAction SilentlyContinue).LastWriteTime
+      if ($mt -gt $ultimo) { $ultimo = $mt }
     }
     foreach ($f in @($logPaso, $err)) {
       $mt = (Get-Item $f -ErrorAction SilentlyContinue).LastWriteTime

@@ -20,6 +20,10 @@ function Tiempo($ts) {
 function Estado($ws) {
   $src = Join-Path $ws 'windows\build\src'
   $log = Join-Path $ws 'registro.txt'
+  # el log del paso en curso (ninja) va aparte: el registro lo tiene abierto Start-Transcript
+  $logPaso = Join-Path $ws 'genbuild.log'
+  $tn = ''
+  if (Test-Path $logPaso) { $tn = Get-Content $logPaso -Raw -ErrorAction SilentlyContinue }
   $t = Get-Content $log -Raw -ErrorAction SilentlyContinue
   if (-not $t) { $t = '' }
   $os = Get-CimInstance Win32_OperatingSystem
@@ -44,7 +48,7 @@ function Estado($ws) {
   # solo cuando ninja esta vivo: el registro conserva el [218/218] de la preparacion y daria una
   # barra y una ETA falsas.
   $m = @()
-  if ($nin.Count -gt 0) { $m = [regex]::Matches($t, '\[(\d+)/(\d+)\]') }
+  if ($nin.Count -gt 0 -and $tn) { $m = [regex]::Matches($tn, '\[(\d+)/(\d+)\]') }
   if ($m.Count -gt 0) {
     $u = $m[$m.Count - 1]
     $n = [int]$u.Groups[1].Value
@@ -86,9 +90,13 @@ function Estado($ws) {
   $uptime = [math]::Round(((Get-Date) - $os.LastBootUpTime).TotalMinutes)
 
   $excluir = '^\*+$|^(Inicio|Hora|Nombre|Usuario|Aplicaci|Id\.|PSVersion|PSEdition|PSCompatible|BuildVersion|Serialization|Session|Transcript|M..quina|Configuraci)'
-  $lineas = @($t -split "`n" | Where-Object { $_ -match '\S' -and $_ -notmatch $excluir })
+  $fuenteUltimo = $t
+  if ($nin.Count -gt 0 -and $tn) { $fuenteUltimo = $tn }
+  $lineas = @($fuenteUltimo -split "`n" | Where-Object { $_ -match '\S' -and $_ -notmatch $excluir })
   $ultima = ($lineas | Select-Object -Last 3) -join ' ;; '
-  $errs = @([regex]::Matches($t, '(?m)^(Exception|ERROR|FAILED|error:).*') | ForEach-Object { $_.Value } | Select-Object -Last 2) -join ' ;; '
+  $fuente = $t
+  if ($nin.Count -gt 0 -and $tn) { $fuente = $tn }
+  $errs = @([regex]::Matches($fuente, '(?m)^(Exception|ERROR|FAILED|error:).*') | ForEach-Object { $_.Value } | Select-Object -Last 2) -join ' ;; '
 
   $zip = Join-Path $ws 'pkg\chromper-windows-x64.zip'
   $zipTxt = 'todavia no'
