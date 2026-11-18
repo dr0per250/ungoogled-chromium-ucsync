@@ -417,6 +417,11 @@ function Paso-Genbuild {
     "set WindowsSDKVersion=$sdkVer\"
     'set DEPOT_TOOLS_WIN_TOOLCHAIN=0'
     'set PATH=%CD%\uc_staging\depot_tools;%CD%\uc_staging\gn;%PATH%'
+    # build_bindgen.py hace un `git clone`: si resuelve el git.bat de depot_tools se queda colgado
+    # horas sin hacer nada, asi que dentro de este bat el git real del sistema va primero en el PATH
+    # y nunca pregunta credenciales.
+    'set GIT_TERMINAL_PROMPT=0'
+    'set PATH=C:\Program Files\Git\cmd;%PATH%'
     'out\Default\gn.exe gen out\Default --fail-on-unused-args'
     'if errorlevel 1 exit /b 1'
     # bindgen y Crubit no vienen hechos: build.py los compila aqui, despues de gn gen y antes de ninja
