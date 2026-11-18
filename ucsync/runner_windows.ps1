@@ -21,7 +21,7 @@ $yo = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Ob
 if ($yo -gt 2) { exit 0 }
 
 function Reg($t) { Add-Content -Path $log -Value ("[{0}] {1}" -f (Get-Date -Format 'HH:mm'), $t) }
-function FirmaActual() {
+function FirmaActual {
   if (-not (Test-Path (Join-Path $registro 'genbuild.log.fallo'))) { return '' }
   $c = @(Select-String -Path (Join-Path $registro 'genbuild.log.fallo') -Pattern 'FAILED:|fatal error|error C[0-9]+|error: ' | Select-Object -First 2 | ForEach-Object { $_.Line.Trim() })
   if ($c.Count -eq 0) { return '' }
@@ -46,7 +46,7 @@ for ($intento = 1; $intento -le $Intentos; $intento++) {
   if (Test-Path $exe) { break }
   Reg "genbuild intento $intento"
   Paso 'genbuild' $Jobs | Out-Null
-  $f = FirmaActual()
+  $f = FirmaActual
   if ($f -ne '' -and $f -eq $anterior) {
     Reg ("FALLO REPETIDO (2 veces igual): {0}" -f $f)
     Set-Content -Path $alerta -Encoding ascii -Value ("[{0}] FALLO REPETIDO, no se reintentara: {1}" -f (Get-Date -Format 'HH:mm'), $f)
