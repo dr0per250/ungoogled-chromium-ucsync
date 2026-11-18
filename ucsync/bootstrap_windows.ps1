@@ -445,6 +445,30 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
   }
 }
 
+# Chromium 157 pide SDK 10.0.28000.0 y define NTDDI_VERSION=NTDDI_WIN11_BR. Con un SDK mas viejo (p.ej.
+# 10.0.26100.0, el ultimo que ofrece el canal de Visual Studio 2022) ese simbolo no existe en
+# sdkddkver.h, todas las comparaciones "NTDDI_VERSION >= ..." de los headers salen falsas y clang-cl
+# peta con "unknown type name 'FILE_INFO_BY_HANDLE_CLASS'". Si el SDK del disco es anterior a 28000,
+# se baja el nivel objetivo al NTDDI que si define ese SDK.
+function Corregir-NTDDI($arbol, $ver) {
+  if (-not $ver) { return }
+  $partes = $ver.Split('.')
+  if ($partes.Count -lt 3) { return }
+  if ([int]$partes[2] -ge 28000) { Write-Host "  NTDDI: el SDK $ver tiene NTDDI_WIN11_BR, no se toca"; return }
+  $gn = Join-Path $arbol 'build\config\win\BUILD.gn'
+  if (-not (Test-Path $gn)) { return }
+  $contenido = Get-Content $gn -Raw
+  if ($contenido -match 'NTDDI_VERSION=NTDDI_WIN11_BR') {
+    $nivel = 'NTDDI_WIN11_GE'
+    if ($contenido -match 'NTDDI_WIN11_GE') { $nivel = 'NTDDI_WIN11_GE' }
+    $contenido = $contenido -replace 'NTDDI_VERSION=NTDDI_WIN11_BR', "NTDDI_VERSION=$nivel"
+    Set-Content -Path $gn -Value $contenido -Encoding ascii -NoNewline
+    Write-Host "  NTDDI_VERSION: NTDDI_WIN11_BR -> $nivel en build\config\win\BUILD.gn (SDK $ver no define NTDDI_WIN11_BR)"
+  } else {
+    Write-Host '  NTDDI_VERSION ya esta adaptado al SDK de esta maquina'
+  }
+}
+
 function Paso-Genbuild {
   Banner 'gn gen + ninja (sin volver a clonar: sirve para reanudar donde fallo la preparacion)'
   $src = Join-Path $windows 'build\src'
@@ -465,6 +489,7 @@ function Paso-Genbuild {
   $lib = @("$($msvcDir.FullName)\lib\x64", "$kits\Lib\$sdkVer\um\x64", "$kits\Lib\$sdkVer\ucrt\x64") -join ';'
   Write-Host "  SDK usado: $sdkVer (MSVC $($msvcDir.Name))"
   Corregir-SDKVersion $src $sdkVer
+  Corregir-NTDDI $src $sdkVer
   Preparar-Debuggers $kits
   Preparar-Rust $src
   $dia = Join-Path $script:rutaVS 'DIA SDK\bin\amd64\msdia140.dll'
