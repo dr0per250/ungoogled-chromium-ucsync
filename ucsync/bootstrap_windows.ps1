@@ -16,7 +16,7 @@
 # El registro de todo queda en <Workspace>\registro.txt (Start-Transcript), que es lo que hay que
 # pegar si algo falla.
 param(
-  [ValidateSet('check','install','paginacion','clone','build','package','publish','install-chromper','all')][string]$Step = 'check',
+  [ValidateSet('check','install','paginacion','clone','build','genbuild','package','publish','install-chromper','all')][string]$Step = 'check',
   [string]$Workspace = 'C:\chromper',
   [int]$Jobs = 0,
   [switch]$Fresh,
@@ -62,6 +62,29 @@ function Buscar-Exe($exe, $raices) {
   return $null
 }
 Preparar-Path
+
+# Chromium busca VS 2022 en C:\Program Files\Microsoft Visual Studio\2022\*, pero las Build Tools
+# quedan en C:\Program Files (x86)\..., y vs_toolchain.py aborta con "No supported Visual Studio can
+# be found". Se le pasa la ruta real con vs2022_install, la version con GYP_MSVS_VERSION y el SDK con
+# WINDOWSSDKDIR. Devuelve la ruta de vcvars64.bat.
+function Preparar-VS {
+  $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+  if (-not (Test-Path $vswhere)) { $vswhere = "$env:ProgramFiles\Microsoft Visual Studio\Installer\vswhere.exe" }
+  $ruta = $null
+  if (Test-Path $vswhere) {
+    $ruta = & $vswhere -products * -prerelease -latest -property installationPath 2>&1 | Select-Object -First 1
+  }
+  if (-not $ruta) { $ruta = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools" }
+  $env:vs2022_install = $ruta
+  $env:GYP_MSVS_VERSION = '2022'
+  $kits = @("${env:ProgramFiles(x86)}\Windows Kits\10", "$env:ProgramFiles\Windows Kits\10") |
+    Where-Object { Test-Path $_ } | Select-Object -First 1
+  if ($kits) { $env:WINDOWSSDKDIR = $kits }
+  $script:rutaVS = $ruta
+  Write-Host "  vs2022_install = $ruta"
+  if ($kits) { Write-Host "  WINDOWSSDKDIR = $kits" }
+  return (Buscar-Exe 'vcvars64.bat' @("$ruta\VC\Auxiliary\Build"))
+}
 
 # El disco del workspace tiene que existir; si no, se listan los que hay para elegir otro.
 function Comprobar-Workspace($ruta) {
@@ -231,6 +254,40 @@ function Paso-Clone {
   Write-Host '  empaquetador de Chromper disponible '
 }
 
+function Paso-Genbuild {
+  Banner 'gn gen + ninja (sin volver a clonar: sirve para reanudar donde fallo la preparacion)'
+  $src = Join-Path $windows 'build\src'
+  if (-not (Test-Path (Join-Path $src 'BUILD.gn'))) { throw 'no hay build\src: ejecuta -Step build' }
+  $vcvars = Preparar-VS
+  if (-not $vcvars) { throw 'no se encuentra vcvars64.bat (Visual Studio C++)' }
+  $out = Join-Path $src 'out\Default'
+  if (-not (Test-Path (Join-Path $out 'args.gn'))) {
+    New-Item -ItemType Directory -Path $out -Force | Out-Null
+    Copy-Item (Join-Path $windows 'flags.windows.gn') (Join-Path $out 'args.gn')
+    Write-Host '  escrito out\Default\args.gn desde flags.windows.gn'
+  }
+  $bat = Join-Path $env:TEMP 'chromper_genbuild.bat'
+  Set-Content -Path $bat -Encoding ascii -Value @(
+    '@echo off'
+    "call `"$vcvars`" >nul"
+    'set DEPOT_TOOLS_WIN_TOOLCHAIN=0'
+    'set PATH=%CD%\uc_staging\depot_tools;%CD%\uc_staging\gn;%PATH%'
+    'out\Default\gn.exe gen out\Default --fail-on-unused-args'
+    'if errorlevel 1 exit /b 1'
+    "ninja.exe -C out\Default chrome -j $Jobs"
+    'exit /b %errorlevel%'
+  )
+  Push-Location $src
+  try {
+    $p = Start-Process cmd.exe -ArgumentList "/c `"$bat`"" -Wait -PassThru -NoNewWindow
+    if ($p.ExitCode -ne 0) { throw "gen/ninja termino con codigo $($p.ExitCode) (mira $registro)" }
+  } finally { Pop-Location }
+  $exe = Join-Path $out 'chrome.exe'
+  if (-not (Test-Path $exe)) { throw 'no aparecio out\Default\chrome.exe' }
+  Write-Host "  navegador compilado: $exe"
+  & $exe --version 2>&1 | Select-Object -First 1
+}
+
 # ---------------------------------------------------------------- build
 function Paso-Build {
   Banner 'Descargando Chromium, parcheando y compilando'
@@ -254,6 +311,8 @@ function Paso-Build {
     Write-Host '  -Fresh: se borra build\src para repetir la preparacion desde cero'
     Remove-Item -Recurse -Force (Join-Path $windows 'build\src') -ErrorAction SilentlyContinue
   }
+  Preparar-VS | Out-Null
+
   $src = Join-Path $windows 'build\src'
   if ((Test-Path (Join-Path $src 'BUILD.gn')) -and -not (Test-Path (Join-Path $src 'third_party\ninja\ninja.exe'))) {
     Write-Warning 'la preparacion anterior quedo a medias (falta third_party\ninja): repite con -Step build -Fresh'
@@ -344,6 +403,7 @@ switch ($Step) {
   'paginacion' { Paso-Paginacion }
   'clone' { Paso-Clone }
   'build' { Paso-Build }
+  'genbuild' { Paso-Genbuild }
   'package' { Paso-Package }
   'publish' { Paso-Publish }
   'install-chromper' { Paso-Instalar }
