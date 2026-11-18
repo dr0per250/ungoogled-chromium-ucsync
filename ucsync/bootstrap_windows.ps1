@@ -88,23 +88,55 @@ function Paso-Install {
   Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem -Name LongPathsEnabled -Value 1
   Write-Host '  rutas largas activadas (LongPathsEnabled=1)'
 
-  function Instalar($id, $override = '') {
-    $ya = winget list -e --id $id 2>&1 | Select-String -SimpleMatch $id
-    if ($ya) { Write-Host "  ya está instalado: $id"; return }
-    if ($override) { winget install -e --id $id --override $override }
-    else { winget install -e --id $id }
+  function Winget-sano {
+    try { & winget --version 2>&1 | Out-Null; $LASTEXITCODE -eq 0 } catch { $false }
+  }
+  function Descargar-e-instalar($url, $archivo, $argList) {
+    $destino = Join-Path $env:TEMP $archivo
+    Write-Host "  descargando $archivo"
+    Write-Host "    $url"
+    Invoke-WebRequest -Uri $url -OutFile $destino -UseBasicParsing
+    $p = Start-Process $destino -ArgumentList $argList -Wait -PassThru
+    Write-Host "    código de salida $($p.ExitCode)"
+  }
+  # winget suele venir roto en máquinas recién formateadas (0x8a15000f). Se intenta con winget y, si
+  # falla, se descarga el instalador oficial: este paso no depende de que winget funcione.
+  function Instalar($id, $esperado, $url, $archivo, $argList) {
+    if (Test-Path $esperado) { Write-Host "  ya está instalado: $esperado"; return }
+    if (Winget-sano) {
+      winget install -e --id $id 2>&1 | Select-Object -Last 2
+      if ($LASTEXITCODE -eq 0 -and (Test-Path $esperado)) { return }
+      Write-Host "  winget no pudo con $id ($(& winget --version 2>&1 | Select-Object -First 1)): se usa el instalador oficial"
+    }
+    Descargar-e-instalar $url $archivo $argList
   }
 
-  Instalar 'Microsoft.VisualStudio.2022.BuildTools' '--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --includeRecommended'
-  Instalar 'Git.Git'
-  Instalar 'Python.Python.3.12'
-  Instalar '7zip.7zip'
+  $gitUrl = $null
+  try {
+    $rel = Invoke-RestMethod 'https://api.github.com/repos/git-for-windows/git/releases/latest'
+    $gitUrl = ($rel.assets | Where-Object { $_.name -match '^Git-.*-64-bit\.exe$' } | Select-Object -First 1).browser_download_url
+  } catch { Write-Warning 'no se pudo resolver la última versión de Git for Windows' }
+  if (-not $gitUrl) { $gitUrl = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe' }
 
-  Write-Host '  módulos de Python que usan los scripts de construcción:'
-  python -m pip install --upgrade pip | Out-Null
-  python -m pip install 'httplib2==0.22.0' 'clang==21.1.7'
+  Instalar 'Microsoft.VisualStudio.2022.BuildTools' "$env:ProgramFiles\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" `
+    'https://aka.ms/vs/17/release/vs_BuildTools.exe' 'vs_BuildTools.exe' `
+    @('--quiet','--wait','--norestart','--add','Microsoft.VisualStudio.Workload.VCTools','--add','Microsoft.VisualStudio.Component.Windows11SDK.22621','--includeRecommended')
+  Instalar 'Git.Git' "$env:ProgramFiles\Git\cmd\git.exe" $gitUrl 'Git-64-bit.exe' @('/VERYSILENT','/NORESTART')
+  Instalar 'Python.Python.3.12' "$env:ProgramFiles\Python312\python.exe" `
+    'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe' 'python-3.12.7-amd64.exe' `
+    @('/quiet','InstallAllUsers=1','PrependPath=1','Include_test=0')
+  Instalar '7zip.7zip' "$env:ProgramFiles\7-Zip\7z.exe" 'https://www.7-zip.org/a/7z2409-x64.exe' '7z-x64.exe' @('/S')
 
-  Write-Host '  Reinicia el terminal para que git/python/7z queden en el PATH, y vuelve con -Step clone.'
+  $py = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python312", "$env:LOCALAPPDATA\Programs\Python\Python312")
+  if ($py) {
+    Write-Host '  módulos de Python que usan los scripts de construcción:'
+    & $py -m pip install --upgrade pip | Out-Null
+    & $py -m pip install 'httplib2==0.22.0' 'clang==21.1.7'
+  } else { Write-Warning 'no se encontró python tras instalarlo: abre una terminal nueva y repite -Step install' }
+
+  Preparar-Path
+  Write-Host '  git:  ' (Buscar-Exe 'git.exe' @("$env:ProgramFiles\Git\cmd"))
+  Write-Host '  Listo. Si acabas de instalar algo, abre una terminal nueva antes de -Step clone.'
 }
 
 # ---------------------------------------------------------------- clone
