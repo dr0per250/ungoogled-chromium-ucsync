@@ -211,36 +211,24 @@ function Paso-Install {
 
 # ---------------------------------------------------------------- paginacion
 function Paso-Paginacion {
-  Banner 'Archivo de paginacion'
-  # El enlazado de Chromium pide varios GB de golpe; con 16 GB de RAM hace falta paginacion holgada.
-  # La asignacion se hace con Set-CimInstance (asignar la propiedad al objeto de Get-WmiObject falla).
-  $cs = Get-CimInstance -ClassName Win32_ComputerSystem
-  if ($cs.AutomaticPagefileManagement) {
-    Write-Host '  Windows ya administra el archivo de paginacion'
-  } else {
-    # AutomaticPagefileManagement no esta en el esquema CIM moderno: hay que tocarla por WMI clasico
-    # con -EnableAllProperties (sin ese flag la propiedad ni aparece, y Put() no la escribe).
-    $hecho = $false
-    $clsico = Get-WmiObject -Class Win32_ComputerSystem -EnableAllProperties -ErrorAction SilentlyContinue
-    if ($clsico) {
-      $clsico.AutomaticPagefileManagement = $true
-      $r = $clsico.Put()
-      if ($r.ReturnValue -eq 0) { $hecho = $true; Write-Host '  activada la gestion automatica (WMI clasico): hace falta reiniciar' }
-      else { Write-Warning "WMI devolvio $($r.ReturnValue) al activar la gestion automatica" }
-    }
-    if (-not $hecho) {
-      # Para poner tamano personalizado hay que desactivar antes la gestion automatica.
-      if ($clsico) { $clsico.AutomaticPagefileManagement = $false; $clsico.Put() | Out-Null }
-      $fijado = Set-WmiInstance -Class Win32_PageFileSetting -Arguments @{ Name = 'C:\pagefile.sys'; InitialSize = 8192; MaximumSize = 32768 } -ErrorAction SilentlyContinue
-      if ($fijado) { Write-Host '  fijado tamano personalizado 8192-32768 MB en C:: hace falta reiniciar' }
-      else { Write-Warning 'no se pudo cambiar por WMI. Hazlo a mano: Sistema > Acerca de > Configuracion avanzada > Rendimiento (Configurar) > Avanzado > Archivo de paginacion > TAMANIO personalizado 8192-32768 MB en C:, y reinicia.' }
-    }
-  }
-  $uso = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
-  if ($uso) {
-    foreach ($u in $uso) { Write-Host ("  {0}: asignado {1} MB, en uso {2} MB" -f $u.Name, $u.AllocatedBaseSize, $u.CurrentUsage) }
-    if ($uso[0].AllocatedBaseSize -lt 8192) { Write-Warning 'con menos de 8 GB asignados el enlazado puede fallar; reinicia despues de cambiarlo' }
-  } else { Write-Warning 'no hay archivo de paginacion activo' }
+  Banner 'Archivo de paginacion (el enlazado de Chromium pide varios GB de golpe)'
+  $admin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  if (-not $admin) { throw 'Ejecuta este paso como administrador (tocan HKLM).' }
+  # Win32_ComputerSystem ya no expone AutomaticPagefileManagement en Windows 11 y Get-WmiObject
+  # -EnableAllProperties no existe en todas las versiones de PowerShell: se escribe el valor
+  # MultiString PagingFiles, que es lo que lee el gestor de sesion al arrancar (fija tamano y con
+  # eso desactiva la autogestion). Hace falta reiniciar.
+  $ruta = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
+  $min = 16384
+  $max = 32768
+  $actual = (Get-ItemProperty -Path $ruta -Name PagingFiles -ErrorAction SilentlyContinue).PagingFiles
+  Write-Host ('  actual: ' + $(if ($actual) { $actual -join ' | ' } else { '(autogestionado: sin entrada fija)' }))
+  Set-ItemProperty -Path $ruta -Name PagingFiles -Value @("C:\pagefile.sys $min $max") -Type MultiString
+  $nuevo = (Get-ItemProperty -Path $ruta -Name PagingFiles).PagingFiles
+  Write-Host ('  dejado: ' + ($nuevo -join ' | ') + " (min $min MB, max $max MB)")
+  $uso = @(Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue)
+  foreach ($u in $uso) { Write-Host ('  ahora mismo: {0} asignado {1} MB, en uso {2} MB' -f $u.Name, $u.AllocatedBaseSize, $u.CurrentUsage) }
+  if (-not $uso -or $uso[0].AllocatedBaseSize -lt $min) { Write-Host '  REINICIA la maquina para que se aplique el tamano nuevo' }
 }
 
 # ---------------------------------------------------------------- clone
