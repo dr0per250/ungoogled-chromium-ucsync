@@ -300,7 +300,7 @@ function Preparar-Debuggers($kits) {
       if (Test-Path $p) { Copy-Item $p $destino -Force }
     }
     if (Test-Path (Join-Path $destino 'dbghelp.dll')) {
-      Write-Host "  $destino: dbghelp.dll copiado de $origen[$cpu] (si prefieres la via oficial, instala "Debugging Tools for Windows" en el SDK)"
+      Write-Host "  dbghelp.dll copiado de $origen[$cpu] a $destino (via oficial: instala 'Debugging Tools for Windows' en el SDK)"
     } else {
       Write-Warning "no hay dbghelp.dll en $origen[$cpu]: instala el SDK con "Debugging Tools for Windows""
     }

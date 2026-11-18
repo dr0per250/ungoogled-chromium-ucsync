@@ -23,49 +23,36 @@ VALIDOS = {
 }
 
 
-def trozos_de_codigo(linea: str):
-    """Trozos de la línea ignorando lo que viene después de un '#' fuera de comillas (comentario)."""
-    dentro = False
+def segmentos(linea: str):
+    """Trozos (texto, dentro_de_cadena)ignorando comentarios '#' fuera de comillas.
+
+    Se corta al abrir y al cerrar, y cada comilla sólo se cierra con su propio tipo (dentro de
+    "..." las comillas simples son literales). Hace falta para distinguir si `$var:` estaba dentro
+    de una cadena: ahi PowerShell 5.1 lo lee como «variable de unidad» y peta el parseo.
+    """
+    abierta = None
     actual = []
-    i = 0
-    while i < len(linea):
-        c = linea[i]
-        if c in '"\'' and (i == 0 or linea[i - 1] != '`'):
+    for i, c in enumerate(linea):
+        escapada = i > 0 and linea[i - 1] == '`'
+        if abierta and c == abierta and not escapada:
+            actual.append(c)
+            yield ''.join(actual), True
+            actual = []
+            abierta = None
+        elif abierta:
+            actual.append(c)
+        elif c in ('"', "'"):
             if actual:
-                yield ''.join(actual), dentro
+                yield ''.join(actual), False
                 actual = []
-            dentro = not dentro
-        elif c == '#' and not dentro:
-            return
+            actual.append(c)
+            abierta = c
+        elif c == '#':
+            break
         else:
             actual.append(c)
-        i += 1
     if actual:
-        yield ''.join(actual), dentro
-
-
-def trozos_de_cadena(linea: str):
-    """Genera (texto, dentro_de_cadena) recorriendo la línea; basta para detectar Expansiones."""
-    dentro = False
-    actual = []
-    i = 0
-    while i < len(linea):
-        c = linea[i]
-        if c == '"' and (i == 0 or linea[i - 1] != '`'):
-            if actual:
-                yield ''.join(actual), dentro
-                actual = []
-            dentro = not dentro
-        elif c == "'" and (i == 0 or linea[i - 1] != '`'):
-            if actual:
-                yield ''.join(actual), dentro
-                actual = []
-            dentro = not dentro
-        else:
-            actual.append(c)
-        i += 1
-    if actual:
-        yield ''.join(actual), dentro
+        yield ''.join(actual), abierta is not None
 
 
 def revisar(ruta: pathlib.Path) -> list[str]:
@@ -77,8 +64,7 @@ def revisar(ruta: pathlib.Path) -> list[str]:
     if any(ord(c) > 126 for c in texto):
         problemas.append("contiene caracteres no ASCII (acéntos, comillas tipográficas, glyphs)")
     for numero, linea in enumerate(texto.splitlines(), 1):
-        codigo = ''.join(t for t, _ in trozos_de_codigo(linea))
-        for tramo, dentro in trozos_de_cadena(codigo):
+        for tramo, dentro in segmentos(linea):
             if dentro:
                 # Dentro de una cadena "$var:" se lee como «variable de unidad»: hay que escribir ${var}.
                 for m in re.finditer(r"\$([A-Za-z_][A-Za-z0-9_]*):", tramo):
@@ -87,6 +73,7 @@ def revisar(ruta: pathlib.Path) -> list[str]:
             # `${scope}:nombre` no es una referencia válida: el ámbito va dentro de las llaves.
             if re.search(r"\$\{(script|global|local|private|env|using)\}:\w", tramo):
                 problemas.append(f'línea {numero}: "${{scope}}:nombre" no válido → usa $scope:nombre o ${{scope:nombre}}')
+        codigo = ''.join(t for t, _ in segmentos(linea))
         if "&&" in codigo:
             problemas.append(f"línea {numero}: aparece '&&' (PowerShell 5.1 no lo entiende)")
         if linea.endswith("` ") or linea.endswith("`  "):
