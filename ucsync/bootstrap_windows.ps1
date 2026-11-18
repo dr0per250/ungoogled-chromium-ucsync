@@ -104,7 +104,7 @@ function Paso-Install {
   function Instalar($id, $esperado, $url, $archivo, $argList) {
     if (Test-Path $esperado) { Write-Host "  ya esta instalado: $esperado"; return }
     if (Winget-sano) {
-      winget install -e --id $id 2>&1 | Select-Object -Last 2
+      try { winget install -e --id $id 2>$null | Select-Object -Last 2 } catch { }
       if ($LASTEXITCODE -eq 0 -and (Test-Path $esperado)) { return }
       Write-Host "  winget no pudo con $id ($(& winget --version 2>&1 | Select-Object -First 1)): se usa el instalador oficial"
     }
@@ -219,7 +219,7 @@ function Paso-Publish {
   $ver = LeerVersion
   if (-not $ver) { throw 'no se lee chromium_version.txt: ejecuta -Step clone' }
   $zip = Join-Path $Workspace 'pkg\chromper-windows-x64.zip'
-  if (-not (Test-Path $zip)) { throw "no existe $zip: ejecuta -Step package" }
+  if (-not (Test-Path $zip)) { throw "no existe ${zip}: ejecuta -Step package" }
   gh release upload "chromium-$ver" $zip -R dr0per250/ungoogled-chromium-ucsync --clobber
   $json = (gh release view "chromium-$ver" -R dr0per250/ungoogled-chromium-ucsync --json assets | Out-String)
   try {
@@ -233,7 +233,7 @@ function Paso-Publish {
 function Paso-Instalar {
   Banner 'Instalando Chromper en esta maquina'
   $zip = Join-Path $Workspace 'pkg\chromper-windows-x64.zip'
-  if (-not (Test-Path $zip)) { throw "no existe $zip: ejecuta -Step package" }
+  if (-not (Test-Path $zip)) { throw "no existe ${zip}: ejecuta -Step package" }
   & (Join-Path $windows 'ungoogled-chromium\ucsync\install_windows.ps1') -Zip $zip
 }
 

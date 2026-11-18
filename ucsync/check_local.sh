@@ -79,6 +79,14 @@ if [[ -n "$SRC" ]]; then
   fi
 fi
 
+echo "== 6. scripts de Windows (Windows PowerShell 5.1) =="
+if out=$(python3 "$FORK/ucsync/check_ps1.py" "$FORK" 2>&1); then
+  printf '%s\n' "$out" | tail -1 | sed 's/^  /  ✓ /'
+else
+  printf '%s\n' "$out" | sed 's/^/  /'
+  mal "los .ps1 no pasan la comprobación de PowerShell 5.1"
+fi
+
 echo
 if [[ $fallos -gt 0 ]]; then
   echo "[comprobación] $fallos fallos"

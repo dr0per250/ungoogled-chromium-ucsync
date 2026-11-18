@@ -48,7 +48,7 @@ try {
   if (-not (Test-Path (Join-Path $src 'chromper.exe'))) { Copy-Item (Join-Path $src 'chrome.exe') (Join-Path $src 'chromper.exe') }
   if (-not (Test-Path (Join-Path $src 'chrome.exe'))) { Copy-Item (Join-Path $src 'chromper.exe') (Join-Path $src 'chrome.exe') }
   foreach ($ext in 'ucsync','chromium-web-store') {
-    if (-not (Test-Path (Join-Path $src $ext))) { Write-Warning "El zip no trae $ext: la extension integrada no aparecera." }
+    if (-not (Test-Path (Join-Path $src $ext))) { Write-Warning "El zip no trae ${ext}: la extension integrada no aparecera." }
   }
 
   New-Item -ItemType Directory -Path $Prefix -Force | Out-Null

@@ -35,8 +35,8 @@ function Buscar-Exe($exe, $raices) {
 Preparar-Path
 
 $ok = 0; $mal = 0
-function Paso($txt) { Write-Host "   $txt"; $script:ok++ }
-function Falta($txt) { Write-Host "   $txt"; $script:mal++ }
+function Paso($txt) { Write-Host "   $txt"; ${script}:ok++ }
+function Falta($txt) { Write-Host "   $txt"; ${script}:mal++ }
 function Aviso($txt) { Write-Host "  ! $txt" }
 
 Write-Host "== Sistema =="
@@ -64,7 +64,7 @@ else { Falta "$unidad libre ${libreGB} GB: hacen falta ~120 GB (usa -Workspace D
 Write-Host "== Herramientas =="
 function Probar-Exe($nombre, $exe, $raices, $ayuda) {
   $ruta = Buscar-Exe $exe $raices
-  if (-not $ruta) { Falta "$nombre: no se encuentra $exe. $ayuda"; return $null }
+  if (-not $ruta) { Falta "${nombre}: no se encuentra $exe. $ayuda"; return $null }
   $v = & $ruta --version 2>&1 | Select-Object -First 1
   Paso "$nombre  $ruta  ($v)"
   return $ruta
