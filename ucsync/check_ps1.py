@@ -23,6 +23,30 @@ VALIDOS = {
 }
 
 
+def trozos_de_cadena(linea: str):
+    """Genera (texto, dentro_de_cadena) recorriendo la línea; basta para detectar Expansiones."""
+    dentro = False
+    actual = []
+    i = 0
+    while i < len(linea):
+        c = linea[i]
+        if c == '"' and (i == 0 or linea[i - 1] != '`'):
+            if actual:
+                yield ''.join(actual), dentro
+                actual = []
+            dentro = not dentro
+        elif c == "'" and (i == 0 or linea[i - 1] != '`'):
+            if actual:
+                yield ''.join(actual), dentro
+                actual = []
+            dentro = not dentro
+        else:
+            actual.append(c)
+        i += 1
+    if actual:
+        yield ''.join(actual), dentro
+
+
 def revisar(ruta: pathlib.Path) -> list[str]:
     crudo = ruta.read_bytes()
     problemas: list[str] = []
@@ -32,9 +56,15 @@ def revisar(ruta: pathlib.Path) -> list[str]:
     if any(ord(c) > 126 for c in texto):
         problemas.append("contiene caracteres no ASCII (acéntos, comillas tipográficas, glyphs)")
     for numero, linea in enumerate(texto.splitlines(), 1):
-        for m in re.finditer(r"\$([A-Za-z_][A-Za-z0-9_]*):", linea):
-            if m.group(1).lower() not in VALIDOS:
-                problemas.append(f'línea {numero}: "${m.group(1)}:" → escribe ${{{m.group(1)}}}:')
+        for tramo, dentro in trozos_de_cadena(linea):
+            if dentro:
+                # Dentro de una cadena "$var:" se lee como «variable de unidad»: hay que escribir ${var}.
+                for m in re.finditer(r"\$([A-Za-z_][A-Za-z0-9_]*):", tramo):
+                    if m.group(1).lower() not in VALIDOS:
+                        problemas.append(f'línea {numero}: "$ {m.group(1)}:" en una cadena → escribe ${{{m.group(1)}}}:')
+            # `${scope}:nombre` no es una referencia válida: el ámbito va dentro de las llaves.
+            if re.search(r"\$\{(script|global|local|private|env|using)\}:\w", tramo):
+                problemas.append(f'línea {numero}: "${{scope}}:nombre" no válido → usa $scope:nombre o ${{scope:nombre}}')
         if "&&" in linea:
             problemas.append(f"línea {numero}: aparece '&&' (PowerShell 5.1 no lo entiende)")
         if linea.endswith("` ") or linea.endswith("`  "):

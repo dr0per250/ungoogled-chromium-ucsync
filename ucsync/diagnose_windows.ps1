@@ -37,8 +37,8 @@ function Buscar-Exe($exe, $raices) {
 Preparar-Path
 
 $ok = 0; $mal = 0
-function Paso($txt) { Write-Host "   $txt"; ${script}:ok++ }
-function Falta($txt) { Write-Host "   $txt"; ${script}:mal++ }
+function Paso($txt) { Write-Host "  OK   $txt"; $script:ok++ }
+function Falta($txt) { Write-Host "  FALTA $txt"; $script:mal++ }
 function Aviso($txt) { Write-Host "  ! $txt" }
 
 Write-Host "== Sistema =="
