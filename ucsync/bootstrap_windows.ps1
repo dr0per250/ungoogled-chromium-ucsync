@@ -317,6 +317,7 @@ function Preparar-Rust($arbol) {
   New-Item -ItemType Directory -Path (Join-Path $dst 'bin') -Force | Out-Null
   New-Item -ItemType Directory -Path (Join-Path $dst 'lib') -Force | Out-Null
   $es64 = [Environment]::Is64BitOperatingSystem
+  # 1) Si los paquetes de Rust estan extraidos, copiar su contenido (bin/lib) al destino.
   foreach ($nombre in 'rust-toolchain-x64', 'rust-toolchain-x86', 'rust-toolchain-arm') {
     $ori = Join-Path $arbol "third_party\$nombre"
     if (-not (Test-Path $ori)) { continue }
@@ -331,6 +332,44 @@ function Preparar-Rust($arbol) {
   }
   foreach ($item in @(Get-ChildItem -Path (Join-Path $arbol 'third_party\rust-toolchain-x64-dev\*\lib\*') -ErrorAction SilentlyContinue)) {
     Copy-Item -Recurse -Force $item.FullName (Join-Path $dst "lib\$($item.Name)") -ErrorAction SilentlyContinue
+  }
+  # 2) Si los directorios estan vacios porque los tar.gz no se extrajeron, extraerlos con 7-Zip
+  #    desde la cache de descargas del constructor de Windows.
+  $cache = Join-Path $windows 'build\download_cache'
+  if ((Test-Path $cache) -and -not (Get-ChildItem (Join-Path $arbol 'third_party\rust-toolchain-x64\*') -ErrorAction SilentlyContinue)) {
+    $siete = Buscar-Exe '7z.exe' @("$env:ProgramFiles\7-Zip", "${env:ProgramFiles(x86)}\7-Zip")
+    if ($siete) {
+      foreach ($par in @(@('rust-nightly-x86_64-pc-windows-msvc', 'rust-toolchain-x64'),
+                         @('rust-nightly-i686-pc-windows-msvc', 'rust-toolchain-x86'),
+                         @('rust-nightly-aarch64-pc-windows-msvc', 'rust-toolchain-arm'),
+                         @('rustc-dev-nightly-x86_64-pc-windows-msvc', 'rust-toolchain-x64-dev'))) {
+        $p = Get-ChildItem (Join-Path $cache "$($par[0])*") -Filter '*.tar.gz' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $p) { continue }
+        $destino = Join-Path $arbol "third_party\$($par[1])"
+        New-Item -ItemType Directory -Path $destino -Force | Out-Null
+        Write-Host "  extrayendo $($p.Name) con 7-Zip en $destino"
+        & $siete x -y "-o$destino" $p.FullName | Select-Object -Last 1
+      }
+    }
+    # De nuevo la copia, ahora con el contenido extraido.
+    foreach ($nombre in 'rust-toolchain-x64', 'rust-toolchain-x86', 'rust-toolchain-arm') {
+      $ori = Join-Path $arbol "third_party\$nombre"
+      foreach ($item in @(Get-ChildItem -Path (Join-Path $ori "*bin\*") -ErrorAction SilentlyContinue)) {
+        Copy-Item -Force $item.FullName (Join-Path $dst "bin\$($item.Name)") -ErrorAction SilentlyContinue
+      }
+      foreach ($item in @(Get-ChildItem -Path (Join-Path $ori "*lib\*") -ErrorAction SilentlyContinue)) {
+        Copy-Item -Recurse -Force $item.FullName (Join-Path $dst "lib\$($item.Name)") -ErrorAction SilentlyContinue
+      }
+    }
+  }
+  # 3) ltimo recurso: localizar bindgen.exe en cualquier parte del arbol de Rust y colocarlo.
+  if (-not (Test-Path (Join-Path $dst 'bin\bindgen.exe'))) {
+    $encontrado = Get-ChildItem (Join-Path $arbol 'third_party') -Recurse -Filter 'bindgen.exe' -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    if ($encontrado) {
+      Copy-Item -Force $encontrado.FullName (Join-Path $dst 'bin\bindgen.exe')
+      Write-Host "  bindgen.exe copiado de $($encontrado.FullName)"
+    }
   }
   $rustc = Join-Path $arbol 'third_party\rust-toolchain-x64\rustc\bin\rustc.exe'
   if (Test-Path $rustc) { & $rustc --version | Set-Content -Path (Join-Path $dst 'INSTALLED_VERSION') -Encoding ascii }
