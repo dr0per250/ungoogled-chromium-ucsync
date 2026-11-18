@@ -512,7 +512,18 @@ function Paso-Build {
     # build.py llama a vcvars64 por su cuenta y usa DEPOT_TOOLS_WIN_TOOLCHAIN=0 (compila con el
     # Visual Studio instalado en esta maquina, no con el toolchain de Google).
     if ($py -like '*py.exe*') { & py -3 build.py -j $Jobs } else { & $py build.py -j $Jobs }
-    if ($LASTEXITCODE -ne 0) { throw "build.py termino con codigo $LASTEXITCODE (mira $registro)" }
+    if ($LASTEXITCODE -ne 0) {
+      # build.py peta en su propio gn gen cuando el SDK fijado en el arbol no esta instalado
+      # (Chromium 157 pide 10.0.28000.0 y la maquina tiene 26100). Si gn.exe existe, la preparacion
+      # (descargas, poda, parches, dominio, rust) si termino: -Step genbuild reanuda fijando
+      # SDK_VERSION, INCLUDE y LIB al SDK real del disco.
+      if (Test-Path (Join-Path $windows 'build\src\out\Default\gn.exe')) {
+        Write-Host "  build.py fallo en su gn gen (codigo $LASTEXITCODE), pero gn.exe existe: la preparacion termino."
+        Write-Host '  continua con: -Step genbuild  (fija SDK_VERSION/INCLUDE/LIB y compila)'
+        return
+      }
+      throw "build.py termino con codigo $LASTEXITCODE (mira $registro)"
+    }
   } finally { Pop-Location }
   $exe = Join-Path $windows 'build\src\out\Default\chrome.exe'
   if (-not (Test-Path $exe)) { $exe = Join-Path $windows 'build\src\out\Release\chrome.exe' }
