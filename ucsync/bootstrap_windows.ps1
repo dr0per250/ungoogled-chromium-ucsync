@@ -16,7 +16,7 @@
 # El registro de todo queda en <Workspace>\registro.txt (Start-Transcript), que es lo que hay que
 # pegar si algo falla.
 param(
-  [ValidateSet('check','install','clone','build','package','publish','install-chromper','all')][string]$Step = 'check',
+  [ValidateSet('check','install','paginacion','clone','build','package','publish','install-chromper','all')][string]$Step = 'check',
   [string]$Workspace = 'C:\chromper',
   [int]$Jobs = 0,
   [switch]$Fresh
@@ -166,6 +166,29 @@ function Paso-Install {
   Write-Host '  Listo. Si acabas de instalar algo, abre una terminal nueva antes de -Step clone.'
 }
 
+# ---------------------------------------------------------------- paginacion
+function Paso-Paginacion {
+  Banner 'Archivo de paginacion'
+  # El enlazado de Chromium pide varios GB de golpe; con 16 GB de RAM hace falta paginacion holgada.
+  # La asignacion se hace con Set-CimInstance (asignar la propiedad al objeto de Get-WmiObject falla).
+  $cs = Get-CimInstance -ClassName Win32_ComputerSystem
+  if ($cs.AutomaticPagefileManagement) {
+    Write-Host '  Windows ya administra el archivo de paginacion'
+  } else {
+    try {
+      Set-CimInstance -InputObject $cs -Property @{ AutomaticPagefileManagement = $true }
+      Write-Host '  activada la gestion automatica: hace falta reiniciar para que surta efecto'
+    } catch {
+      Write-Warning "no se pudo activar la gestion automatica ($($_.Exception.Message)). Fijalo a mano en: Sistema > Acerca de > Configuracion avanzada > Rendimiento (Configurar) > Avanzado > Archivo de paginacion (8192-32768 MB en C:)"
+    }
+  }
+  $uso = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
+  if ($uso) {
+    foreach ($u in $uso) { Write-Host ("  {0}: asignado {1} MB, en uso {2} MB" -f $u.Name, $u.AllocatedBaseSize, $u.CurrentUsage) }
+    if ($uso[0].AllocatedBaseSize -lt 8192) { Write-Warning 'con menos de 8 GB asignados el enlazado puede fallar; reinicia despues de cambiarlo' }
+  } else { Write-Warning 'no hay archivo de paginacion activo' }
+}
+
 # ---------------------------------------------------------------- clone
 function Paso-Clone {
   Banner 'Clonando el constructor de Windows y apuntandolo a Chromper'
@@ -307,6 +330,7 @@ function Paso-Instalar {
 switch ($Step) {
   'check' { Paso-Check }
   'install' { Paso-Install }
+  'paginacion' { Paso-Paginacion }
   'clone' { Paso-Clone }
   'build' { Paso-Build }
   'package' { Paso-Package }
