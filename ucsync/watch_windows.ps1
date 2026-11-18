@@ -29,18 +29,24 @@ function Estado($ws) {
   $pfTxt = 'sin pagefile activo'
   if ($pf) { $pfTxt = '{0} MB asignados' -f $pf.AllocatedBaseSize }
 
+  $nin = @(Get-Process ninja -ErrorAction SilentlyContinue)
+  $rust = @(Get-Process cargo,rustc -ErrorAction SilentlyContinue)
   $fase = 'sin empezar'
   if (Test-Path (Join-Path $src 'out\Default\chrome.exe')) { $fase = 'navegador compilado' }
-  elseif ($t -match 'cc_bindings_from_rs') { $fase = 'Crubit: cc_bindings_from_rs (justo antes de ninja)' }
-  elseif ($t -match 'build_bindgen\.py|bindgen-host-build') { $fase = 'Rust: compilando bindgen (justo antes de ninja)' }
-  elseif ($t -match 'ninja\.exe -C out') { $fase = 'ninja: compilando Chromium' }
+  elseif ($nin.Count -gt 0) { $fase = 'ninja: compilando Chromium' }
+  elseif ($rust.Count -gt 0) { $fase = 'Rust: bindgen/Crubit (justo antes de ninja)' }
   elseif ($t -match 'gn\.exe gen') { $fase = 'gn gen' }
   elseif (Test-Path (Join-Path $src 'BUILD.gn')) { $fase = 'parcheando y preparando el arbol' }
   elseif (Test-Path (Join-Path $ws 'windows\build.py')) { $fase = 'descargando Chromium (gclient sync)' }
   elseif ($t -match 'Instalando dependencias') { $fase = 'instalando dependencias' }
 
   $progreso = '(sin acciones de ninja todavia)'
-  $m = [regex]::Matches($t, '\[(\d+)/(\d+)\]')
+  # el registro guarda tambien el [218/218] de la preparacion: se buscan acciones despues de la
+  # ultima linea que arranca ninja, que es la ejecucion en curso.
+  $zona = $t
+  $donde = $t.LastIndexOf('ninja.exe -C out')
+  if ($donde -ge 0) { $zona = $t.Substring($donde) }
+  $m = [regex]::Matches($zona, '\[(\d+)/(\d+)\]')
   if ($m.Count -gt 0) {
     $u = $m[$m.Count - 1]
     $n = [int]$u.Groups[1].Value
@@ -55,7 +61,6 @@ function Estado($ws) {
   }
 
   # Tiempo que lleva ninja y estimacion de lo que queda, con el ritmo medio desde que arranco.
-  $nin = @(Get-Process ninja -ErrorAction SilentlyContinue)
   $tiempoTxt = 'ninja no esta corriendo todavia'
   $etaTxt = '(sin datos: todavia no hay acciones de ninja)'
   if ($nin.Count -gt 0) {
