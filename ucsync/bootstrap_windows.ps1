@@ -184,7 +184,7 @@ function Paso-Install {
 
   Instalar 'Microsoft.VisualStudio.2022.BuildTools' @("$env:ProgramFiles\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat", "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat") `
     'https://aka.ms/vs/17/release/vs_BuildTools.exe' 'vs_BuildTools.exe' `
-    @('--quiet','--wait','--norestart','--add','Microsoft.VisualStudio.Workload.VCTools','--add','Microsoft.VisualStudio.Component.Windows11SDK.22621','--add','Microsoft.VisualStudio.Component.VC.DiagnosticTools','--includeRecommended')
+    @('--quiet','--wait','--norestart','--add','Microsoft.VisualStudio.Workload.VCTools','--add','Microsoft.VisualStudio.Component.Windows11SDK.22621','--add','Microsoft.VisualStudio.Component.VC.DiagnosticTools','--add','Microsoft.VisualStudio.Component.VC.ATL','--add','Microsoft.VisualStudio.Component.VC.ATLSRC','--includeRecommended')
   Instalar 'Git.Git' @("$env:ProgramFiles\Git\cmd\git.exe", "${env:ProgramFiles(x86)}\Git\cmd\git.exe") $gitUrl 'Git-64-bit.exe' @('/VERYSILENT','/NORESTART')
   Instalar 'Python.Python.3.12' "$env:ProgramFiles\Python312\python.exe" `
     'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe' 'python-3.12.7-amd64.exe' `

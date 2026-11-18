@@ -113,6 +113,11 @@ if (Test-Path $vswhere) {
     if (Test-Path $vcvars) { Paso 'vcvars64.bat (compilador C++ de MSVC)' } else { Falta 'falta la carga de trabajo "C++ for Windows Desktop"' }
     $sdk = Get-ChildItem (Join-Path $ruta 'VC\Tools\MSVC') -Directory | Select-Object -First 1
     if ($sdk) { Paso "MSVC $($sdk.Name)" } else { Falta 'no hay toolchain MSVC instalada' }
+    # Chromium usa ATL (base/win/atl_throw.h pide atldef.h) y copia msdia140.dll del DIA SDK.
+    $atl = Join-Path $ruta 'VC\Include\atldef.h'
+    if (Test-Path $atl) { Paso 'ATL (atldef.h)' } else { Falta 'ATL: en el instalador de VS marca "C++ ATL for v143 build tools" (Microsoft.VisualStudio.Component.VC.ATL)' }
+    $dia = Join-Path $ruta 'DIA SDK\bin\amd64\msdia140.dll'
+    if (Test-Path $dia) { Paso 'DIA SDK (msdia140.dll)' } else { Falta 'DIA SDK: marca "C++ Debugging Tools" (Microsoft.VisualStudio.Component.VC.DiagnosticTools)' }
   } else { Falta 'vswhere no encuentra ninguna instalacion de Visual Studio' }
 } else { Falta 'vswhere.exe: no hay Visual Studio ni Build Tools' }
 $kits = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" -Directory -ErrorAction SilentlyContinue | ForEach-Object Name
