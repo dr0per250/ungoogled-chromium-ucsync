@@ -200,7 +200,20 @@ function Paso-Clone {
 function Paso-Build {
   Banner 'Descargando Chromium, parcheando y compilando'
   if (-not (Test-Path (Join-Path $windows 'build.py'))) { throw 'falta el repositorio: ejecuta -Step clone' }
-  if ($Jobs -le 0) { $Jobs = [int](Get-CimInstance Win32_Processor).NumberOfLogicalProcessors }
+  $nucleos = [int](Get-CimInstance Win32_Processor).NumberOfLogicalProcessors
+  $ramGB = [math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1MB)
+  if ($Jobs -le 0) {
+    # Cada clang come ~0.6 GB y el enlazado pide varios GB de golpe: con poca RAM se bajan los hilos.
+    $Jobs = [math]::Min($nucleos, [math]::Max(4, [math]::Floor($ramGB * 1.2)))
+    Write-Host "  $nucleos nucleos, $ramGB GB de RAM -> $Jobs hilos (puedes forzar con -Jobs)"
+  }
+  $pagina = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
+  if ($pagina) {
+    Write-Host ("  archivo de paginacion: {0}  asignado {1} MB (maximo {2} MB)" -f $pagina.Name, $pagina.CurrentUsage, $pagina.AllocatedBaseSize)
+  }
+  if ($ramGB -lt 16 -and (-not $pagina -or $pagina.AllocatedBaseSize -lt 24576)) {
+    Write-Warning "con $ramGB GB de RAM el enlazado de Chromium necesita paginacion: deja que Windows la administre, o pon al menos 24 GB (Sistema > Acerca de > Configuracion avanzada > Rendimiento > Avanzado > Archivo de paginacion)"
+  }
   $py = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python313", "$env:ProgramFiles\Python312", "$env:LOCALAPPDATA\Programs\Python\Python312")
   if (-not $py) {
     $pyLauncher = Buscar-Exe 'py.exe' @("$env:LOCALAPPDATA\Programs\Python\Launcher", "C:\Windows")

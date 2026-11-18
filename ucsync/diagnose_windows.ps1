@@ -51,7 +51,13 @@ if ([System.Environment]::Is64BitOperatingSystem -and [System.Environment]::OSVe
 
 $ram = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
 $libre = [math]::Round($os.FreePhysicalMemory / 1MB, 1)
-if ($ram -ge 16) { Paso "RAM ${ram} GB (libre ahora ${libre} GB)" } else { Falta "RAM ${ram} GB: con menos de 16 GB el enlazado de Chromium se queda corto" }
+$pagina = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
+if ($ram -ge 16) { Paso "RAM ${ram} GB (libre ahora ${libre} GB)" }
+elseif ($pagina -and $pagina.AllocatedBaseSize -ge 24576) {
+  Paso "RAM ${ram} GB con archivo de paginacion de $([math]::Round($pagina.AllocatedBaseSize/1024)) GB: vale, pero construye con menos hilos (-Jobs 12)"
+} else {
+  Falta "RAM ${ram} GB: con menos de 16 GB el enlazado de Chromium se queda corto" + $(if ($pagina) { " (paginacion actual: $([math]::Round($pagina.AllocatedBaseSize/1024)) GB)" } else { " (sin archivo de paginacion)" })
+}
 $nucleos = (Get-CimInstance Win32_Processor).NumberOfLogicalProcessors
 Write-Host "  Nucleos logicos: $nucleos (el build tarda horas; $([math]::Round(30000/$nucleos)) min es una buena senal)"
 
