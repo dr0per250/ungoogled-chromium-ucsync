@@ -1,7 +1,7 @@
-# Empaqueta Chromper (Chromium sin Google con UC-Sync integrado) para Windows x64.
+﻿# Empaqueta Chromper (Chromium sin Google con UC-Sync integrado) para Windows x64.
 #
-# Se ejecuta DESPUÉS de `ninja -C out\Release chrome`: coge del directorio de salida sólo lo que
-# el navegador necesita en tiempo de ejecución, recorta idiomas y coloca la extensión integrada
+# Se ejecuta DESPUES de `ninja -C out\Release chrome`: coge del directorio de salida solo lo que
+# el navegador necesita en tiempo de ejecucion, recorta idiomas y coloca la extension integrada
 # (`ucsync\`) junto a chrome.exe, que es donde el loader la busca (`base::DIR_EXE`).
 #
 # Uso (PowerShell):
@@ -57,7 +57,7 @@ if (-not (Test-Path (Join-Path $pkg 'locales\en-US.pak'))) { throw 'Falta en-US.
 
 function Colocar-extension($origen, $nombre) {
   if (-not (Test-Path $origen)) { throw "No hay recursos de $nombre en $origen (falta su parche)." }
-  # El paquete va sólo con texto: si la UI pidiera icons/*.png saldría roto en chrome://extensions.
+  # El paquete va solo con texto: si la UI pidiera icons/*.png saldria roto en chrome://extensions.
   $png = @(Get-ChildItem (Join-Path $origen '*.html') | ForEach-Object {
     Select-String -Path $_.FullName -Pattern 'icons/[a-z0-9_-]+\.png'
   }).Count
@@ -75,8 +75,8 @@ function Version-de($dir) {
 $extVersion = Version-de (Join-Path $pkg 'ucsync')
 $wsVersion = Version-de (Join-Path $pkg 'chromium-web-store')
 Set-Content -Path (Join-Path $pkg 'VERSION') -Value "chromium=$version", "ucsyncExtension=$extVersion", "webstoreExtension=$wsVersion", "builtAt=$((Get-Date).ToUniversalTime().ToString('yyyyMMddHHmm'))"
-# El ejecutable se llama chromper.exe; install_windows.ps1 deja también chrome.exe en la instalación
-# por si algún componente busca al motor por su nombre original.
+# El ejecutable se llama chromper.exe; install_windows.ps1 deja tambien chrome.exe en la instalacion
+# por si algun componente busca al motor por su nombre original.
 if (Test-Path (Join-Path $pkg 'chrome.exe')) { Rename-Item (Join-Path $pkg 'chrome.exe') 'chromper.exe' }
 if (-not (Test-Path (Join-Path $pkg 'chromper.exe'))) { throw 'No hay chromper.exe en el paquete.' }
 

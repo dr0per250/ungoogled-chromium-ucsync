@@ -1,7 +1,7 @@
-# Construye Chromper (Chromium + UC-Sync integrado) en Windows 11.
+﻿# Construye Chromper (Chromium + UC-Sync integrado) en Windows 11.
 #
 # Pasos (se pueden ejecutar por separado y son reanudables):
-#   .\bootstrap_windows.ps1 -Step check     # diagnóstico de la máquina
+#   .\bootstrap_windows.ps1 -Step check     # diagnostico de la maquina
 #   .\bootstrap_windows.ps1 -Step install   # instala lo que falte con winget (como administrador)
 #   .\bootstrap_windows.ps1 -Step clone     # clona ungoogled-chromium-windows y lo apunta a nuestro fork
 #   .\bootstrap_windows.ps1 -Step build     # descarga Chromium, parchea y compila (horas)
@@ -26,7 +26,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # winget y los instaladores no dejan siempre su PATH visible en la terminal abierta: se localizan
-# las herramientas en sus carpetas estándar y se añaden al PATH de esta sesión (y al del usuario).
+# las herramientas en sus carpetas estandar y se anaden al PATH de esta sesion (y al del usuario).
 function Preparar-Path {
   $candidatos = @(
     "$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\Git\cmd",
@@ -41,7 +41,7 @@ function Preparar-Path {
   foreach ($d in $candidatos) {
     if (-not ($actual | Where-Object { $_ -ieq $d })) {
       $env:Path = $env:Path + ';' + $d
-      Write-Host "  añadido al PATH: $d"
+      Write-Host "  anadido al PATH: $d"
     }
     if ($userPath -and -not (($userPath -split ';') | Where-Object { $_ -ieq $d })) {
       [Environment]::SetEnvironmentVariable('Path', ($userPath.TrimEnd(';') + ';' + $d), 'User')
@@ -75,7 +75,7 @@ function LeerVersion {
 
 # ---------------------------------------------------------------- check
 function Paso-Check {
-  Banner 'Diagnóstico'
+  Banner 'Diagnostico'
   & (Join-Path $PSScriptRoot 'diagnose_windows.ps1') -Workspace $Workspace
 }
 
@@ -97,12 +97,12 @@ function Paso-Install {
     Write-Host "    $url"
     Invoke-WebRequest -Uri $url -OutFile $destino -UseBasicParsing
     $p = Start-Process $destino -ArgumentList $argList -Wait -PassThru
-    Write-Host "    código de salida $($p.ExitCode)"
+    Write-Host "    codigo de salida $($p.ExitCode)"
   }
-  # winget suele venir roto en máquinas recién formateadas (0x8a15000f). Se intenta con winget y, si
+  # winget suele venir roto en maquinas recien formateadas (0x8a15000f). Se intenta con winget y, si
   # falla, se descarga el instalador oficial: este paso no depende de que winget funcione.
   function Instalar($id, $esperado, $url, $archivo, $argList) {
-    if (Test-Path $esperado) { Write-Host "  ya está instalado: $esperado"; return }
+    if (Test-Path $esperado) { Write-Host "  ya esta instalado: $esperado"; return }
     if (Winget-sano) {
       winget install -e --id $id 2>&1 | Select-Object -Last 2
       if ($LASTEXITCODE -eq 0 -and (Test-Path $esperado)) { return }
@@ -115,7 +115,7 @@ function Paso-Install {
   try {
     $rel = Invoke-RestMethod 'https://api.github.com/repos/git-for-windows/git/releases/latest'
     $gitUrl = ($rel.assets | Where-Object { $_.name -match '^Git-.*-64-bit\.exe$' } | Select-Object -First 1).browser_download_url
-  } catch { Write-Warning 'no se pudo resolver la última versión de Git for Windows' }
+  } catch { Write-Warning 'no se pudo resolver la ultima version de Git for Windows' }
   if (-not $gitUrl) { $gitUrl = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe' }
 
   Instalar 'Microsoft.VisualStudio.2022.BuildTools' "$env:ProgramFiles\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" `
@@ -129,10 +129,10 @@ function Paso-Install {
 
   $py = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python312", "$env:LOCALAPPDATA\Programs\Python\Python312")
   if ($py) {
-    Write-Host '  módulos de Python que usan los scripts de construcción:'
+    Write-Host '  modulos de Python que usan los scripts de construccion:'
     & $py -m pip install --upgrade pip | Out-Null
     & $py -m pip install 'httplib2==0.22.0' 'clang==21.1.7'
-  } else { Write-Warning 'no se encontró python tras instalarlo: abre una terminal nueva y repite -Step install' }
+  } else { Write-Warning 'no se encontro python tras instalarlo: abre una terminal nueva y repite -Step install' }
 
   Preparar-Path
   Write-Host '  git:  ' (Buscar-Exe 'git.exe' @("$env:ProgramFiles\Git\cmd"))
@@ -141,14 +141,14 @@ function Paso-Install {
 
 # ---------------------------------------------------------------- clone
 function Paso-Clone {
-  Banner 'Clonando el constructor de Windows y apuntándolo a Chromper'
+  Banner 'Clonando el constructor de Windows y apuntandolo a Chromper'
   $git = Buscar-Exe 'git.exe' @("$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\Git\cmd", "$env:LOCALAPPDATA\Programs\Git\cmd")
-  if (-not $git) { throw 'No se encuentra git.exe (winget install -e --id Git.Git y abre una terminal nueva). Instalado pero sin PATH: añade C:\Program Files\Git\cmd.' }
+  if (-not $git) { throw 'No se encuentra git.exe (winget install -e --id Git.Git y abre una terminal nueva). Instalado pero sin PATH: anade C:\Program Files\Git\cmd.' }
   Write-Host "  git: $git"
   if (-not (Test-Path (Join-Path $windows '.git'))) {
     git clone --recurse-submodules $WindowsRepo $windows
   } else {
-    Write-Host '  el repositorio ya está clonado, actualizando'
+    Write-Host '  el repositorio ya esta clonado, actualizando'
     git -C $windows fetch --all --tags --prune | Out-Null
   }
 
@@ -156,18 +156,18 @@ function Paso-Clone {
   if (-not (Test-Path (Join-Path $sub '.git'))) {
     git -C $windows submodule update --init --recursive
   }
-  Write-Host "  el submódulo ungoogled-chromium se apunta a $Fork ($ForkBranch)"
+  Write-Host "  el submodulo ungoogled-chromium se apunta a $Fork ($ForkBranch)"
   git -C $sub fetch --depth 1 $Fork $ForkBranch
   git -C $sub checkout -q -B chromper FETCH_HEAD
 
   $serie = Join-Path $sub 'patches\series'
   $nuestros = @(Select-String -Path $serie -Pattern 'extra/ucsync/').Count
-  if ($nuestros -lt 7) { throw "la serie sólo trae $nuestros parches de ucsync (esperados ≥ 7): ¿el fork apunta a la rama correcta?" }
-  Write-Host "  serie con $nuestros parches propios ✓ y Chromium fijado en $(LeerVersion)"
+  if ($nuestros -lt 7) { throw "la serie solo trae $nuestros parches de ucsync (esperados  7): el fork apunta a la rama correcta?" }
+  Write-Host "  serie con $nuestros parches propios  y Chromium fijado en $(LeerVersion)"
 
   $paquete = Join-Path $sub 'ucsync\package_windows.ps1'
-  if (-not (Test-Path $paquete)) { throw 'no está ucsync/package_windows.ps1 en el fork' }
-  Write-Host '  empaquetador de Chromper disponible ✓'
+  if (-not (Test-Path $paquete)) { throw 'no esta ucsync/package_windows.ps1 en el fork' }
+  Write-Host '  empaquetador de Chromper disponible '
 }
 
 # ---------------------------------------------------------------- build
@@ -188,13 +188,13 @@ function Paso-Build {
   Push-Location $windows
   try {
     # build.py llama a vcvars64 por su cuenta y usa DEPOT_TOOLS_WIN_TOOLCHAIN=0 (compila con el
-    # Visual Studio instalado en esta máquina, no con el toolchain de Google).
+    # Visual Studio instalado en esta maquina, no con el toolchain de Google).
     if ($py -like '*py.exe*') { & py -3 build.py -j $Jobs } else { & $py build.py -j $Jobs }
-    if ($LASTEXITCODE -ne 0) { throw "build.py terminó con código $LASTEXITCODE (mira $registro)" }
+    if ($LASTEXITCODE -ne 0) { throw "build.py termino con codigo $LASTEXITCODE (mira $registro)" }
   } finally { Pop-Location }
   $exe = Join-Path $windows 'build\src\out\Default\chrome.exe'
   if (-not (Test-Path $exe)) { $exe = Join-Path $windows 'build\src\out\Release\chrome.exe' }
-  if (-not (Test-Path $exe)) { throw 'no apareció chrome.exe en out\Default ni out\Release' }
+  if (-not (Test-Path $exe)) { throw 'no aparecio chrome.exe en out\Default ni out\Release' }
   Write-Host "  navegador compilado: $exe"
   & $exe --version 2>&1 | Select-Object -First 1
 }
@@ -215,18 +215,23 @@ function Paso-Package {
 # ---------------------------------------------------------------- publish
 function Paso-Publish {
   Banner 'Subiendo el zip al release'
-  if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'falta gh (winget install -e --id GitHub.cli && gh auth login)' }
+  if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'falta gh (instala GitHub CLI y ejecuta gh auth login)' }
   $ver = LeerVersion
   if (-not $ver) { throw 'no se lee chromium_version.txt: ejecuta -Step clone' }
   $zip = Join-Path $Workspace 'pkg\chromper-windows-x64.zip'
   if (-not (Test-Path $zip)) { throw "no existe $zip: ejecuta -Step package" }
   gh release upload "chromium-$ver" $zip -R dr0per250/ungoogled-chromium-ucsync --clobber
-  gh release view "chromium-$ver" -R dr0per250/ungoogled-chromium-ucsync --json assets --jq '.assets[] | "\(.name) \(.size)"'
+  $json = (gh release view "chromium-$ver" -R dr0per250/ungoogled-chromium-ucsync --json assets | Out-String)
+  try {
+    ($json | ConvertFrom-Json).assets | ForEach-Object {
+      Write-Host ("  {0}  {1} MB" -f $_.name, [math]::Round($_.size / 1MB))
+    }
+  } catch { Write-Host $json }
 }
 
 # ---------------------------------------------------------------- install-chromper
 function Paso-Instalar {
-  Banner 'Instalando Chromper en esta máquina'
+  Banner 'Instalando Chromper en esta maquina'
   $zip = Join-Path $Workspace 'pkg\chromper-windows-x64.zip'
   if (-not (Test-Path $zip)) { throw "no existe $zip: ejecuta -Step package" }
   & (Join-Path $windows 'ungoogled-chromium\ucsync\install_windows.ps1') -Zip $zip
