@@ -456,8 +456,11 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
     $firma = $candidatos -join ' ;; '
     if ($firma.Length -gt 300) { $firma = $firma.Substring(0, 300) }
     if ($firma -eq '') { $firma = ('codigo ' + $codigo + ' sin mensaje de error en ' + $logPaso) }
-    Set-Content -Path (Join-Path $registro 'firma.txt') -Encoding ascii -Value $firma
-    Set-Content -Path (Join-Path $registro 'ALERTA.txt') -Encoding ascii -Value ("[{0}] paso {1} codigo {2} :: {3}" -f (Get-Date -Format 'HH:mm'), (Split-Path $logPaso -Leaf), $codigo, $firma)
+    # $registro es el fichero del transcript: el directorio es su padre (Join-Path sobre un fichero
+    # daria C:\chromper\registro.txt\firma.txt, ruta que no existe).
+    $carpeta = Split-Path $registro -Parent
+    Set-Content -Path (Join-Path $carpeta 'firma.txt') -Encoding ascii -Value $firma
+    Set-Content -Path (Join-Path $carpeta 'ALERTA.txt') -Encoding ascii -Value ("[{0}] paso {1} codigo {2} :: {3}" -f (Get-Date -Format 'HH:mm'), (Split-Path $logPaso -Leaf), $codigo, $firma)
     throw "el paso termino con codigo $codigo (mira $logPaso.fallo)"
   }
 }
@@ -553,7 +556,10 @@ function Paso-Genbuild {
     'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" copy /y "out\crubit\release\cc_bindings_from_rs.exe" "third_party\rust-toolchain\crubit\bin\" >nul'
     'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" goto fallo'
     'copy /y "third_party\rust-toolchain\bin\*.dll" "third_party\rust-toolchain\crubit\bin\" >nul'
-    "ninja.exe -C out\Default chrome -j $Jobs"
+    # ninja se ejecuta dentro de powershell con Tee-Object: cmd bufferiza su salida y el log del paso
+    # no se vacia hasta que ninja termina, asi que la consola no ve progreso (y el vigilador no puede
+    # distinguir 'compilando' de 'congelado'). PowerShell si vacia linea a linea.
+    ('powershell -NoProfile -Command "& ''ninja.exe'' -C out\Default chrome -j ' + $Jobs + ' 2>&1 | Tee-Object -FilePath ''' + (Join-Path $workspace 'genbuild.log') + ''' ; exit $LASTEXITCODE"')
     'set RC=%errorlevel%'
     'goto fin'
     ':fallo'

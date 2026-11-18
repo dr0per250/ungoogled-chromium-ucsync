@@ -572,7 +572,7 @@
 +  if (command_line.HasSwitch("chromium-web-store-dir")) {
 +    const base::FilePath switch_value =
 +        command_line.GetSwitchValuePath("chromium-web-store-dir");
-+    if (base::PathExists(switch_value.Append("manifest.json"))) {
++    if (base::PathExists(switch_value.Append(FILE_PATH_LITERAL("manifest.json")))) {
 +      return switch_value;
 +    }
 +    return base::FilePath();
@@ -582,8 +582,8 @@
 +  if (!base::PathService::Get(base::DIR_EXE, &exe_dir)) {
 +    return base::FilePath();
 +  }
-+  const base::FilePath dir = exe_dir.Append("chromium-web-store");
-+  return base::PathExists(dir.Append("manifest.json")) ? dir : base::FilePath();
++  const base::FilePath dir = exe_dir.Append(FILE_PATH_LITERAL("chromium-web-store"));
++  return base::PathExists(dir.Append(FILE_PATH_LITERAL("manifest.json"))) ? dir : base::FilePath();
 +}
 +
 +void EnsureChromiumWebStoreBuiltInExtension(content::BrowserContext* browser_context) {
@@ -696,7 +696,7 @@
 +  if (command_line.HasSwitch("ucsync-extension-dir")) {
 +    const base::FilePath switch_value =
 +        command_line.GetSwitchValuePath("ucsync-extension-dir");
-+    if (base::PathExists(switch_value.Append("manifest.json"))) {
++    if (base::PathExists(switch_value.Append(FILE_PATH_LITERAL("manifest.json")))) {
 +      return switch_value;
 +    }
 +    return base::FilePath();
@@ -706,8 +706,8 @@
 +  if (!base::PathService::Get(base::DIR_EXE, &exe_dir)) {
 +    return base::FilePath();
 +  }
-+  const base::FilePath dir = exe_dir.Append("ucsync");
-+  return base::PathExists(dir.Append("manifest.json")) ? dir : base::FilePath();
++  const base::FilePath dir = exe_dir.Append(FILE_PATH_LITERAL("ucsync"));
++  return base::PathExists(dir.Append(FILE_PATH_LITERAL("manifest.json"))) ? dir : base::FilePath();
 +}
 +
 +void EnsureUCSyncBuiltInExtension(content::BrowserContext* browser_context) {
