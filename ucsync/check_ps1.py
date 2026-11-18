@@ -23,6 +23,27 @@ VALIDOS = {
 }
 
 
+def trozos_de_codigo(linea: str):
+    """Trozos de la línea ignorando lo que viene después de un '#' fuera de comillas (comentario)."""
+    dentro = False
+    actual = []
+    i = 0
+    while i < len(linea):
+        c = linea[i]
+        if c in '"\'' and (i == 0 or linea[i - 1] != '`'):
+            if actual:
+                yield ''.join(actual), dentro
+                actual = []
+            dentro = not dentro
+        elif c == '#' and not dentro:
+            return
+        else:
+            actual.append(c)
+        i += 1
+    if actual:
+        yield ''.join(actual), dentro
+
+
 def trozos_de_cadena(linea: str):
     """Genera (texto, dentro_de_cadena) recorriendo la línea; basta para detectar Expansiones."""
     dentro = False
@@ -56,7 +77,8 @@ def revisar(ruta: pathlib.Path) -> list[str]:
     if any(ord(c) > 126 for c in texto):
         problemas.append("contiene caracteres no ASCII (acéntos, comillas tipográficas, glyphs)")
     for numero, linea in enumerate(texto.splitlines(), 1):
-        for tramo, dentro in trozos_de_cadena(linea):
+        codigo = ''.join(t for t, _ in trozos_de_codigo(linea))
+        for tramo, dentro in trozos_de_cadena(codigo):
             if dentro:
                 # Dentro de una cadena "$var:" se lee como «variable de unidad»: hay que escribir ${var}.
                 for m in re.finditer(r"\$([A-Za-z_][A-Za-z0-9_]*):", tramo):
@@ -65,11 +87,11 @@ def revisar(ruta: pathlib.Path) -> list[str]:
             # `${scope}:nombre` no es una referencia válida: el ámbito va dentro de las llaves.
             if re.search(r"\$\{(script|global|local|private|env|using)\}:\w", tramo):
                 problemas.append(f'línea {numero}: "${{scope}}:nombre" no válido → usa $scope:nombre o ${{scope:nombre}}')
-        if "&&" in linea:
+        if "&&" in codigo:
             problemas.append(f"línea {numero}: aparece '&&' (PowerShell 5.1 no lo entiende)")
         if linea.endswith("` ") or linea.endswith("`  "):
             problemas.append(f"línea {numero}: continuación con ` seguida de espacio")
-        if linea.count('"') % 2:
+        if codigo.count('"') % 2:
             problemas.append(f"línea {numero}: comillas dobles sin cerrar")
     if texto.count("{") != texto.count("}"):
         problemas.append("llaves { y } desequilibradas")
