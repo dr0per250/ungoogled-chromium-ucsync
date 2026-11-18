@@ -467,17 +467,17 @@ function Corregir-NTDDI($arbol, $ver) {
   $gn = Join-Path $arbol 'build\config\win\BUILD.gn'
   if (-not (Test-Path $gn)) { return }
   $contenido = Get-Content $gn -Raw
-  if ($contenido -match 'NTDDI_VERSION=NTDDI_WIN11_BR') {
-    # base/win/windows_version.cc hace '#if !defined(NTDDI_WIN11_BR) #error Windows 10.0.28000.0 SDK
-    # or higher required'. Con un SDK mas viejo se define NTDDI_VERSION=NTDDI_WIN11_GE y se anade un
-    # alias NTDDI_WIN11_BR=NTDDI_WIN11_GE: el #error pasa y las guardas 'NTDDI_VERSION >= NTDDI_WIN11_BR'
-    # salen falsas (se compila el camino para ese SDK), sin tocar fuentes de Chromium.
-    $nueva = '    "NTDDI_VERSION=NTDDI_WIN11_GE",' + [Environment]::NewLine + '    "NTDDI_WIN11_BR=NTDDI_WIN11_GE",'
-    $contenido = $contenido -replace '"NTDDI_VERSION=NTDDI_WIN11_BR",', $nueva
-    Set-Content -Path $gn -Value $contenido -Encoding ascii -NoNewline
-    Write-Host "  NTDDI_VERSION: NTDDI_WIN11_BR -> NTDDI_WIN11_GE (con alias NTDDI_WIN11_BR) en build\config\win\BUILD.gn (SDK $ver no define NTDDI_WIN11_BR)"
+  $ge = '"NTDDI_VERSION=NTDDI_WIN11_GE",'
+  $alias = '    "NTDDI_WIN11_BR=NTDDI_WIN11_GE",'
+  # base/win/windows_version.cc hace '#if !defined(NTDDI_WIN11_BR) #error Windows 10.0.28000.0 SDK or
+  # higher required'. Con un SDK mas viejo: se baja NTDDI_VERSION a GE y se anade el alias
+  # NTDDI_WIN11_BR=NTDDI_WIN11_GE (el #error pasa; las guardas '>= NTDDI_WIN11_BR' salen falsas).
+  $contenido = $contenido -replace '"NTDDI_VERSION=NTDDI_WIN11_[A-Z]+",', $ge
+  if ($contenido -notmatch [regex]::Escape($alias)) {
+    $contenido = $contenido -replace [regex]::Escape($ge), ($ge + [Environment]::NewLine + $alias)
+    Write-Host "  NTDDI: SDK $ver sin NTDDI_WIN11_BR -> NTDDI_VERSION=NTDDI_WIN11_GE + alias NTDDI_WIN11_BR en build\config\win\BUILD.gn"
   } else {
-    Write-Host '  NTDDI_VERSION ya esta adaptado al SDK de esta maquina'
+    Write-Host '  NTDDI: ya adaptado al SDK de esta maquina'
   }
 }
 
