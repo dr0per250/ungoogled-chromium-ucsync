@@ -300,11 +300,42 @@ function Preparar-Debuggers($kits) {
       if (Test-Path $p) { Copy-Item $p $destino -Force }
     }
     if (Test-Path (Join-Path $destino 'dbghelp.dll')) {
-      Write-Host "  dbghelp.dll copiado de $origen[$cpu] a $destino (via oficial: instala 'Debugging Tools for Windows' en el SDK)"
+      $desde = $origen[$cpu]
+      Write-Host "  dbghelp.dll copiado de $desde a $destino (via oficial: instala 'Debugging Tools for Windows' en el SDK)"
     } else {
       Write-Warning "no hay dbghelp.dll en $origen[$cpu]: instala el SDK con "Debugging Tools for Windows""
     }
   }
+}
+
+# build.py copia el toolchain de Rust desde third_party/rust-toolchain-x64 (y x86/arm) a
+# third_party/rust-toolchain y escribe INSTALLED_VERSION. Si la preparacion se interrumpio antes, a
+# ninja le falta bindgen.exe. Esto hace lo mismo para poder reanudar.
+function Preparar-Rust($arbol) {
+  $dst = Join-Path $arbol 'third_party\rust-toolchain'
+  if (Test-Path (Join-Path $dst 'bin\bindgen.exe')) { Write-Host '  rust-toolchain ya esta completo'; return }
+  New-Item -ItemType Directory -Path (Join-Path $dst 'bin') -Force | Out-Null
+  New-Item -ItemType Directory -Path (Join-Path $dst 'lib') -Force | Out-Null
+  $es64 = [Environment]::Is64BitOperatingSystem
+  foreach ($nombre in 'rust-toolchain-x64', 'rust-toolchain-x86', 'rust-toolchain-arm') {
+    $ori = Join-Path $arbol "third_party\$nombre"
+    if (-not (Test-Path $ori)) { continue }
+    foreach ($sub in 'bin', 'lib') {
+      if ($sub -eq 'bin' -and ($es64 -ne ($nombre -eq 'rust-toolchain-x64'))) { continue }
+      foreach ($item in @(Get-ChildItem -Path (Join-Path $ori "*$sub\*") -ErrorAction SilentlyContinue)) {
+        $destino = Join-Path $dst "$sub\$($item.Name)"
+        if ($item.PSIsContainer) { Copy-Item -Recurse -Force $item.FullName $destino -ErrorAction SilentlyContinue }
+        else { Copy-Item -Force $item.FullName $destino -ErrorAction SilentlyContinue }
+      }
+    }
+  }
+  foreach ($item in @(Get-ChildItem -Path (Join-Path $arbol 'third_party\rust-toolchain-x64-dev\*\lib\*') -ErrorAction SilentlyContinue)) {
+    Copy-Item -Recurse -Force $item.FullName (Join-Path $dst "lib\$($item.Name)") -ErrorAction SilentlyContinue
+  }
+  $rustc = Join-Path $arbol 'third_party\rust-toolchain-x64\rustc\bin\rustc.exe'
+  if (Test-Path $rustc) { & $rustc --version | Set-Content -Path (Join-Path $dst 'INSTALLED_VERSION') -Encoding ascii }
+  if (Test-Path (Join-Path $dst 'bin\bindgen.exe')) { Write-Host '  rust-toolchain preparado (bindgen.exe presente)' }
+  else { Write-Warning 'sigue sin bindgen.exe: falta el paquete rust-toolchain-x64 de la descarga de Windows (repite -Step build)' }
 }
 
 function Paso-Genbuild {
@@ -328,6 +359,7 @@ function Paso-Genbuild {
   Write-Host "  SDK usado: $sdkVer (MSVC $($msvcDir.Name))"
   Corregir-SDKVersion $src $sdkVer
   Preparar-Debuggers $kits
+  Preparar-Rust $src
   $dia = Join-Path $script:rutaVS 'DIA SDK\bin\amd64\msdia140.dll'
   if (-not (Test-Path $dia)) {
     Write-Warning "falta el DIA SDK ($dia). En el instalador de Visual Studio: Modify > Componentes individuales > 'C++ Debugging Tools' (Microsoft.VisualStudio.Component.VC.DiagnosticTools)"
