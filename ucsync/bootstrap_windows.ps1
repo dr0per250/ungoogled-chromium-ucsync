@@ -175,11 +175,22 @@ function Paso-Paginacion {
   if ($cs.AutomaticPagefileManagement) {
     Write-Host '  Windows ya administra el archivo de paginacion'
   } else {
-    try {
-      Set-CimInstance -InputObject $cs -Property @{ AutomaticPagefileManagement = $true }
-      Write-Host '  activada la gestion automatica: hace falta reiniciar para que surta efecto'
-    } catch {
-      Write-Warning "no se pudo activar la gestion automatica ($($_.Exception.Message)). Fijalo a mano en: Sistema > Acerca de > Configuracion avanzada > Rendimiento (Configurar) > Avanzado > Archivo de paginacion (8192-32768 MB en C:)"
+    # AutomaticPagefileManagement no esta en el esquema CIM moderno: hay que tocarla por WMI clasico
+    # con -EnableAllProperties (sin ese flag la propiedad ni aparece, y Put() no la escribe).
+    $hecho = $false
+    $clsico = Get-WmiObject -Class Win32_ComputerSystem -EnableAllProperties -ErrorAction SilentlyContinue
+    if ($clsico) {
+      $clsico.AutomaticPagefileManagement = $true
+      $r = $clsico.Put()
+      if ($r.ReturnValue -eq 0) { $hecho = $true; Write-Host '  activada la gestion automatica (WMI clasico): hace falta reiniciar' }
+      else { Write-Warning "WMI devolvio $($r.ReturnValue) al activar la gestion automatica" }
+    }
+    if (-not $hecho) {
+      # Para poner tamano personalizado hay que desactivar antes la gestion automatica.
+      if ($clsico) { $clsico.AutomaticPagefileManagement = $false; $clsico.Put() | Out-Null }
+      $fijado = Set-WmiInstance -Class Win32_PageFileSetting -Arguments @{ Name = 'C:\pagefile.sys'; InitialSize = 8192; MaximumSize = 32768 } -ErrorAction SilentlyContinue
+      if ($fijado) { Write-Host '  fijado tamano personalizado 8192-32768 MB en C:: hace falta reiniciar' }
+      else { Write-Warning 'no se pudo cambiar por WMI. Hazlo a mano: Sistema > Acerca de > Configuracion avanzada > Rendimiento (Configurar) > Avanzado > Archivo de paginacion > TAMANIO personalizado 8192-32768 MB en C:, y reinicia.' }
     }
   }
   $uso = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
