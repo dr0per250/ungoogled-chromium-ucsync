@@ -204,7 +204,7 @@ function Paso-Build {
   $ramGB = [math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1MB)
   if ($Jobs -le 0) {
     # Cada clang come ~0.6 GB y el enlazado pide varios GB de golpe: con poca RAM se bajan los hilos.
-    $Jobs = [math]::Min($nucleos, [math]::Max(4, [math]::Floor($ramGB * 1.2)))
+    $Jobs = [math]::Min($nucleos, [math]::Max(4, [math]::Floor($ramGB * 0.9)))
     Write-Host "  $nucleos nucleos, $ramGB GB de RAM -> $Jobs hilos (puedes forzar con -Jobs)"
   }
   $pagina = Get-CimInstance Win32_PageFileUsage -ErrorAction SilentlyContinue
