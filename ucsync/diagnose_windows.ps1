@@ -13,6 +13,7 @@ function Preparar-Path {
     "$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\Git\cmd",
     "$env:LOCALAPPDATA\Programs\Git\cmd", "$env:LOCALAPPDATA\Microsoft\WinGet\Links",
     "$env:ProgramFiles\Python313", "$env:ProgramFiles\Python312", "$env:ProgramFiles\Python311",
+    "$env:ProgramFiles\Python312\Scripts",
     "$env:LOCALAPPDATA\Programs\Python\Python313", "$env:LOCALAPPDATA\Programs\Python\Python312",
     "$env:ProgramFiles\7-Zip", "${env:ProgramFiles(x86)}\7-Zip",
     "$env:ProgramFiles\GitHub CLI"
@@ -56,8 +57,17 @@ Write-Host "  Nucleos logicos: $nucleos (el build tarda horas; $([math]::Round(3
 
 Write-Host "== Espacio en disco =="
 $unidad = ([System.IO.Path]::GetPathRoot($Workspace)).TrimEnd('\')
-$drv = Get-PSDrive -Name ($unidad.TrimEnd(':'))
-$libreGB = [math]::Round($drv.Free / 1GB)
+$drv = Get-PSDrive -Name ($unidad.TrimEnd(':')) -ErrorAction SilentlyContinue
+if (-not $drv) {
+  Falta "el disco $unidad no existe; discos disponibles:"
+  Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+    $gb = [math]::Round($_.Free / 1GB)
+    Write-Host ("      {0}:  {1} GB libres" -f $_.Name, $gb)
+  }
+  $libreGB = 0
+} else {
+  $libreGB = [math]::Round($drv.Free / 1GB)
+}
 if ($libreGB -ge 120) { Paso "$unidad libre ${libreGB} GB (fuente ~30 GB + cache ~10 GB + out ~35 GB)" }
 elseif ($libreGB -ge 90) { Aviso "$unidad libre ${libreGB} GB: justo pero suele caber" }
 else { Falta "$unidad libre ${libreGB} GB: hacen falta ~120 GB (usa -Workspace D:\chromper si hay otro disco)" }

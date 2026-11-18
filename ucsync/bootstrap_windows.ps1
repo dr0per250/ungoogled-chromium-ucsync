@@ -32,6 +32,7 @@ function Preparar-Path {
     "$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\Git\cmd",
     "$env:LOCALAPPDATA\Programs\Git\cmd", "$env:LOCALAPPDATA\Microsoft\WinGet\Links",
     "$env:ProgramFiles\Python313", "$env:ProgramFiles\Python312", "$env:ProgramFiles\Python311",
+    "$env:ProgramFiles\Python312\Scripts",
     "$env:LOCALAPPDATA\Programs\Python\Python313", "$env:LOCALAPPDATA\Programs\Python\Python312",
     "$env:ProgramFiles\7-Zip", "${env:ProgramFiles(x86)}\7-Zip",
     "$env:ProgramFiles\GitHub CLI"
@@ -60,6 +61,24 @@ function Buscar-Exe($exe, $raices) {
   return $null
 }
 Preparar-Path
+
+# El disco del workspace tiene que existir; si no, se listan los que hay para elegir otro.
+function Comprobar-Workspace($ruta) {
+  $letra = ([System.IO.Path]::GetPathRoot($ruta)).TrimEnd('\').TrimEnd(':')
+  $drv = Get-PSDrive -Name $letra -ErrorAction SilentlyContinue
+  if (-not $drv) {
+    Write-Host "  el disco $letra no existe en esta maquina. Disponibles:"
+    Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+      $gb = [math]::Round($_.Free / 1GB)
+      Write-Host ("    {0}:  {1} GB libres" -f $_.Name, $gb)
+    }
+    throw "usa -Workspace C:\chromper (u otro disco de la lista)"
+  }
+  $libre = [math]::Round($drv.Free / 1GB)
+  Write-Host "  workspace: $ruta (${letra}: $libre GB libres)"
+  if ($libre -lt 90) { Write-Warning "para compilar hacen falta ~120 GB libres y quedan $libre GB" }
+}
+Comprobar-Workspace $Workspace
 
 $windows = Join-Path $Workspace 'windows'
 $registro = Join-Path $Workspace 'registro.txt'
