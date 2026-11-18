@@ -155,14 +155,24 @@ function Paso-Install {
   }
   # winget suele venir roto en maquinas recien formateadas (0x8a15000f). Se intenta con winget y, si
   # falla, se descarga el instalador oficial: este paso no depende de que winget funcione.
+  # Las Build Tools se instalan en "Program Files (x86)" casi siempre, y el SDK queda en otra raiz: se
+  # comprueban varias rutas candidatas en vez de una sola (si no, este paso reinstalaria en balde).
+  function Esta-instalado($candidatas) {
+    foreach ($c in @($candidatas)) { if ($c -and (Test-Path $c)) { return $c } }
+    return $null
+  }
   function Instalar($id, $esperado, $url, $archivo, $argList) {
-    if (Test-Path $esperado) { Write-Host "  ya esta instalado: $esperado"; return }
+    $donde = Esta-instalado $esperado
+    if ($donde) { Write-Host "  ya esta instalado: $donde"; return }
     if (Winget-sano) {
       try { winget install -e --id $id 2>$null | Select-Object -Last 2 } catch { }
-      if ($LASTEXITCODE -eq 0 -and (Test-Path $esperado)) { return }
+      $donde = Esta-instalado $esperado
+      if ($LASTEXITCODE -eq 0 -and $donde) { Write-Host "  instalado con winget: $donde"; return }
       Write-Host "  winget no pudo con $id ($(& winget --version 2>&1 | Select-Object -First 1)): se usa el instalador oficial"
     }
     Descargar-e-instalar $url $archivo $argList
+    $donde = Esta-instalado $esperado
+    if ($donde) { Write-Host "  instalado: $donde" } else { Write-Warning "sigue sin estar: $id" }
   }
 
   $gitUrl = $null
@@ -172,10 +182,10 @@ function Paso-Install {
   } catch { Write-Warning 'no se pudo resolver la ultima version de Git for Windows' }
   if (-not $gitUrl) { $gitUrl = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/Git-2.47.1-64-bit.exe' }
 
-  Instalar 'Microsoft.VisualStudio.2022.BuildTools' "$env:ProgramFiles\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" `
+  Instalar 'Microsoft.VisualStudio.2022.BuildTools' @("$env:ProgramFiles\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat", "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat") `
     'https://aka.ms/vs/17/release/vs_BuildTools.exe' 'vs_BuildTools.exe' `
-    @('--quiet','--wait','--norestart','--add','Microsoft.VisualStudio.Workload.VCTools','--add','Microsoft.VisualStudio.Component.Windows11SDK.22621','--includeRecommended')
-  Instalar 'Git.Git' "$env:ProgramFiles\Git\cmd\git.exe" $gitUrl 'Git-64-bit.exe' @('/VERYSILENT','/NORESTART')
+    @('--quiet','--wait','--norestart','--add','Microsoft.VisualStudio.Workload.VCTools','--add','Microsoft.VisualStudio.Component.Windows11SDK.22621','--add','Microsoft.VisualStudio.Component.VC.DiagnosticTools','--includeRecommended')
+  Instalar 'Git.Git' @("$env:ProgramFiles\Git\cmd\git.exe", "${env:ProgramFiles(x86)}\Git\cmd\git.exe") $gitUrl 'Git-64-bit.exe' @('/VERYSILENT','/NORESTART')
   Instalar 'Python.Python.3.12' "$env:ProgramFiles\Python312\python.exe" `
     'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe' 'python-3.12.7-amd64.exe' `
     @('/quiet','InstallAllUsers=1','PrependPath=1','Include_test=0')
