@@ -260,6 +260,26 @@ function Paso-Genbuild {
   if (-not (Test-Path (Join-Path $src 'BUILD.gn'))) { throw 'no hay build\src: ejecuta -Step build' }
   $vcvars = Preparar-VS
   if (-not $vcvars) { throw 'no se encuentra vcvars64.bat (Visual Studio C++)' }
+
+  # vcvars64 apunta al SDK mas reciente que cree instalado; si ese SDK esta a medias (hay entrada
+  # pero no carpeta Include), setup_toolchain.py aborta con "Path ...\10.0.28000.0\um does not
+  # exist". Se fijan INCLUDE/LIB al SDK que de verdad esta completo en el disco.
+  $kits = $env:WINDOWSSDKDIR
+  $sdkVer = $null
+  if ($kits) {
+    $candidatas = Get-ChildItem (Join-Path $kits 'Include') -Directory -ErrorAction SilentlyContinue |
+      Where-Object { Test-Path (Join-Path $kits "Lib\$($_.Name)\um\x64") } |
+      Sort-Object { [version]$_.Name } -Descending
+    if ($candidatas) { $sdkVer = $candidatas[0].Name }
+  }
+  if (-not $sdkVer) { throw 'no hay ningun Windows SDK completo (falta Include\<ver>\um y Lib\<ver>\um\x64): instala uno desde el instalador de Visual Studio (Componentes individuales > Windows SDK).' }
+  $msvcDir = Get-ChildItem (Join-Path $script:rutaVS 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending | Select-Object -First 1
+  if (-not $msvcDir) { throw 'no hay toolchain MSVC en la instalacion de Visual Studio' }
+  $include = @("$($msvcDir.FullName)\include", "$kits\Include\$sdkVer\ucrt", "$kits\Include\$sdkVer\um", "$kits\Include\$sdkVer\shared", "$kits\Include\$sdkVer\winrt", "$kits\Include\$sdkVer\cppwinrt") -join ';'
+  $lib = @("$($msvcDir.FullName)\lib\x64", "$kits\Lib\$sdkVer\um\x64", "$kits\Lib\$sdkVer\ucrt\x64") -join ';'
+  Write-Host "  SDK usado: $sdkVer (MSVC $($msvcDir.Name))"
+
   $out = Join-Path $src 'out\Default'
   if (-not (Test-Path (Join-Path $out 'args.gn'))) {
     New-Item -ItemType Directory -Path $out -Force | Out-Null
@@ -270,6 +290,9 @@ function Paso-Genbuild {
   Set-Content -Path $bat -Encoding ascii -Value @(
     '@echo off'
     "call `"$vcvars`" >nul"
+    "set INCLUDE=$include"
+    "set LIB=$lib"
+    "set WindowsSDKVersion=$sdkVer\"
     'set DEPOT_TOOLS_WIN_TOOLCHAIN=0'
     'set PATH=%CD%\uc_staging\depot_tools;%CD%\uc_staging\gn;%PATH%'
     'out\Default\gn.exe gen out\Default --fail-on-unused-args'
@@ -312,6 +335,7 @@ function Paso-Build {
     Remove-Item -Recurse -Force (Join-Path $windows 'build\src') -ErrorAction SilentlyContinue
   }
   Preparar-VS | Out-Null
+  Write-Host '  si gn gen se queja de un SDK inexistente, usa -Step genbuild: fija INCLUDE/LIB al SDK completo del disco'
 
   $src = Join-Path $windows 'build\src'
   if ((Test-Path (Join-Path $src 'BUILD.gn')) -and -not (Test-Path (Join-Path $src 'third_party\ninja\ninja.exe'))) {
