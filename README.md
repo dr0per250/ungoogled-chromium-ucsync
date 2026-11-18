@@ -82,7 +82,12 @@ Cuando el asset `chromper-windows-x64.zip` esté publicado, una línea (mientras
 zip que hayas construido):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "iex (Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/install_windows.ps1).Content"
+# raw.githubusercontent sirve a veces una copia cacheada del commit anterior: para bajar scripts
+# recién publicados, fija el commit.
+$sha = (git -C $env:USERPROFILE\chromper-fork rev-parse HEAD)
+Invoke-WebRequest "https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/$sha/ucsync/install_windows.ps1" `
+  -OutFile install_windows.ps1 -UseBasicParsing
+powershell -ExecutionPolicy Bypass -File .\install_windows.ps1
 # o con el zip local:  .\ucsync\install_windows.ps1 -Zip D:\chromper\pkg\chromper-windows-x64.zip
 ```
 
