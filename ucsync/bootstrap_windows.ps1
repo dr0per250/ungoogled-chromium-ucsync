@@ -19,6 +19,7 @@ param(
   [ValidateSet('check','install','clone','build','package','publish','install-chromper','all')][string]$Step = 'check',
   [string]$Workspace = 'C:\chromper',
   [int]$Jobs = 0,
+  [switch]$Fresh
   [string]$Fork = 'https://github.com/dr0per250/ungoogled-chromium-ucsync.git',
   [string]$ForkBranch = 'master',
   [string]$WindowsRepo = 'https://github.com/ungoogled-software/ungoogled-chromium-windows.git'
@@ -200,6 +201,30 @@ function Paso-Clone {
 function Paso-Build {
   Banner 'Descargando Chromium, parcheando y compilando'
   if (-not (Test-Path (Join-Path $windows 'build.py'))) { throw 'falta el repositorio: ejecuta -Step clone' }
+
+  # depot_tools llama a `python3`, y el alias de la Tienda (%LOCALAPPDATA%\Microsoft\WindowsApps) lo
+  # tapaba con un ejecutable que no hace nada (gclient.bat devolvia 9009). Se quitan WindowsApps del
+  # PATH de esta sesion, se pone Python real primero y se deja un python3.exe junto a python.exe.
+  $env:Path = (@($env:Path -split ';' | Where-Object { $_ -and $_ -notlike '*WindowsApps*' }) -join ';')
+  $pyRuta = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python312", "$env:ProgramFiles\Python313", "$env:LOCALAPPDATA\Programs\Python\Python312")
+  if ($pyRuta) {
+    $pyDir = Split-Path -Parent $pyRuta
+    $env:Path = "$pyDir;$pyDir\Scripts;$env:Path"
+    if (-not (Test-Path (Join-Path $pyDir 'python3.exe'))) {
+      Copy-Item $pyRuta (Join-Path $pyDir 'python3.exe')
+      Write-Host "  creado python3.exe en $pyDir (lo necesita depot_tools)"
+    }
+  }
+
+  if ($Fresh) {
+    Write-Host '  -Fresh: se borra build\src para repetir la preparacion desde cero'
+    Remove-Item -Recurse -Force (Join-Path $windows 'build\src') -ErrorAction SilentlyContinue
+  }
+  $src = Join-Path $windows 'build\src'
+  if ((Test-Path (Join-Path $src 'BUILD.gn')) -and -not (Test-Path (Join-Path $src 'third_party\ninja\ninja.exe'))) {
+    Write-Warning 'la preparacion anterior quedo a medias (falta third_party\ninja): repite con -Step build -Fresh'
+    throw 'build\src esta incompleto: usa -Step build -Fresh'
+  }
   $nucleos = [int](Get-CimInstance Win32_Processor).NumberOfLogicalProcessors
   $ramGB = [math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1MB)
   if ($Jobs -le 0) {
@@ -212,7 +237,10 @@ function Paso-Build {
     Write-Host ("  archivo de paginacion: {0}  asignado {1} MB (maximo {2} MB)" -f $pagina.Name, $pagina.CurrentUsage, $pagina.AllocatedBaseSize)
   }
   if ($ramGB -lt 16 -and (-not $pagina -or $pagina.AllocatedBaseSize -lt 24576)) {
-    Write-Warning "con $ramGB GB de RAM el enlazado de Chromium necesita paginacion: deja que Windows la administre, o pon al menos 24 GB (Sistema > Acerca de > Configuracion avanzada > Rendimiento > Avanzado > Archivo de paginacion)"
+    Write-Warning "con $ramGB GB de RAM y una paginacion de $([math]::Round($pagina.AllocatedBaseSize/1024)) GB el enlazado de Chromium se queda corto"
+    Write-Host '   Solucion (Windows administra el archivo de paginacion, y reinicia):'
+    Write-Host '     (Get-WmiObject Win32_ComputerSystem).AutomaticPagefileManagement = $true'
+    Write-Host '   o a mano: Sistema > Acerca de > Configuracion avanzada > Rendimiento (Configurar) > Avanzado > Archivo de paginacion > TAMANIO personalizado 8192-32768 MB en C:'
   }
   $py = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python313", "$env:ProgramFiles\Python312", "$env:LOCALAPPDATA\Programs\Python\Python312")
   if (-not $py) {
