@@ -284,6 +284,29 @@ function Corregir-SDKVersion($arbol, $ver) {
   }
 }
 
+# Chromium copia dbghelp.dll (y dbgcore/symsrv, opcionales) desde Windows Kits\10\Debuggers\<cpu>.
+# Ese directorio solo existe si se instalo "Debugging Tools for Windows" en el SDK. Si falta, se
+# rellena con los DLL que ya trae Windows (System32/SysWOW64), que son los mismos que usa el sistema.
+function Preparar-Debuggers($kits) {
+  if (-not $kits) { return }
+  $dirs = @('x64', 'x86')
+  $origen = @{ 'x64' = "$env:SystemRoot\System32"; 'x86' = "$env:SystemRoot\SysWOW64" }
+  foreach ($cpu in $dirs) {
+    $destino = Join-Path $kits "Debuggers\$cpu"
+    if (Test-Path (Join-Path $destino 'dbghelp.dll')) { continue }
+    New-Item -ItemType Directory -Path $destino -Force | Out-Null
+    foreach ($dll in 'dbghelp.dll', 'dbgcore.dll', 'symsrv.dll') {
+      $p = Join-Path $origen[$cpu] $dll
+      if (Test-Path $p) { Copy-Item $p $destino -Force }
+    }
+    if (Test-Path (Join-Path $destino 'dbghelp.dll')) {
+      Write-Host "  $destino: dbghelp.dll copiado de $origen[$cpu] (si prefieres la via oficial, instala "Debugging Tools for Windows" en el SDK)"
+    } else {
+      Write-Warning "no hay dbghelp.dll en $origen[$cpu]: instala el SDK con "Debugging Tools for Windows""
+    }
+  }
+}
+
 function Paso-Genbuild {
   Banner 'gn gen + ninja (sin volver a clonar: sirve para reanudar donde fallo la preparacion)'
   $src = Join-Path $windows 'build\src'
@@ -304,6 +327,11 @@ function Paso-Genbuild {
   $lib = @("$($msvcDir.FullName)\lib\x64", "$kits\Lib\$sdkVer\um\x64", "$kits\Lib\$sdkVer\ucrt\x64") -join ';'
   Write-Host "  SDK usado: $sdkVer (MSVC $($msvcDir.Name))"
   Corregir-SDKVersion $src $sdkVer
+  Preparar-Debuggers $kits
+  $dia = Join-Path $script:rutaVS 'DIA SDK\bin\amd64\msdia140.dll'
+  if (-not (Test-Path $dia)) {
+    Write-Warning "falta el DIA SDK ($dia). En el instalador de Visual Studio: Modify > Componentes individuales > 'C++ Debugging Tools' (Microsoft.VisualStudio.Component.VC.DiagnosticTools)"
+  }
 
   $out = Join-Path $src 'out\Default'
   if (-not (Test-Path (Join-Path $out 'args.gn'))) {
