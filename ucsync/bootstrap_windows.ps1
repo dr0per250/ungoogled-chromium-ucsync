@@ -389,14 +389,31 @@ function Descendientes($ids) {
   return $lista
 }
 
-function Ejecutar-Con-Vigilancia($bat, $registro, $minSinAvance, $maxMinutos) {
-  $p = Start-Process cmd.exe -ArgumentList "/c `"$bat`"" -PassThru -NoNewWindow
+# Ejecuta un .bat con vigilancia. En esta maquina Start-Process -Wait se cuelga al terminar el hijo y
+# $p.ExitCode queda vacio, asi que (a) el log del paso va a un fichero propio, (b) el bat escribe su
+# codigo en <log>.codigo y (c) se copia al registro lo que va saliendo, para la consola y para saber
+# si el paso se ha estampado: un paso colgado deja de escribir.
+function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxMinutos) {
+  $cod = "$logPaso.codigo"
+  $err = "$logPaso.err"
+  Remove-Item $logPaso, $err, $cod -ErrorAction SilentlyContinue
+  $p = Start-Process cmd.exe -ArgumentList "/c `"$bat`"" -PassThru -WindowStyle Hidden -RedirectStandardOutput $logPaso -RedirectStandardError $err
   $inicio = Get-Date
   $ultimo = Get-Date
+  $leido = 0
   while (-not $p.HasExited) {
     Start-Sleep -Seconds 20
-    $mt = (Get-Item $registro -ErrorAction SilentlyContinue).LastWriteTime
-    if ($mt -gt $ultimo) { $ultimo = $mt }
+    if (Test-Path $logPaso) {
+      $salidas = @(Get-Content $logPaso -ErrorAction SilentlyContinue)
+      if ($salidas.Count -gt $leido) {
+        for ($i = $leido; $i -lt $salidas.Count; $i++) { Add-Content -Path $registro -Value ("  {0}" -f $salidas[$i]) }
+        $leido = $salidas.Count
+      }
+    }
+    foreach ($f in @($logPaso, $err)) {
+      $mt = (Get-Item $f -ErrorAction SilentlyContinue).LastWriteTime
+      if ($mt -gt $ultimo) { $ultimo = $mt }
+    }
     $colgado = (Get-Date) - $ultimo
     if ($colgado.TotalMinutes -ge $minSinAvance) {
       $hijos = @(Descendientes @($p.Id))
@@ -405,15 +422,22 @@ function Ejecutar-Con-Vigilancia($bat, $registro, $minSinAvance, $maxMinutos) {
       Write-Warning ('sin avance hace {0} min: se mata el proceso colgado' -f [math]::Round($colgado.TotalMinutes))
       foreach ($h in $hijos) { Stop-Process -Id $h.ProcessId -Force -ErrorAction SilentlyContinue }
       Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-      throw "congelado $minSinAvance min sin escribir en $registro. Colgado: $desc"
+      throw "congelado $minSinAvance min sin escribir en $logPaso. Colgado: $desc"
     }
     if (((Get-Date) - $inicio).TotalMinutes -ge $maxMinutos) {
       foreach ($h in @(Descendientes @($p.Id))) { Stop-Process -Id $h.ProcessId -Force -ErrorAction SilentlyContinue }
       Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-      throw "el paso supero $maxMinutos min y se interrumpio (mira $registro)"
+      throw "el paso supero $maxMinutos min y se interrumpio (mira $logPaso)"
     }
   }
-  if ($p.ExitCode -ne 0) { throw "termino con codigo $($p.ExitCode) (mira $registro)" }
+  $codigo = (Get-Content $cod -Raw -ErrorAction SilentlyContinue).Trim()
+  if (-not $codigo) { $codigo = 'desconocido' }
+  Write-Host "  codigo del paso: $codigo (log en $logPaso)"
+  if ($codigo -ne '0') {
+    Get-Content $logPaso -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  | $_" }
+    Get-Content $err -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  ! $_" }
+    throw "el paso termino con codigo $codigo (mira $logPaso)"
+  }
 }
 
 function Paso-Genbuild {
@@ -464,10 +488,10 @@ function Paso-Genbuild {
     'set GIT_TERMINAL_PROMPT=0'
     'set PATH=C:\Program Files\Git\cmd;%PATH%'
     'out\Default\gn.exe gen out\Default --fail-on-unused-args'
-    'if errorlevel 1 exit /b 1'
+    'if errorlevel 1 goto fallo'
     # bindgen y Crubit no vienen hechos: build.py los compila aqui, despues de gn gen y antes de ninja
     'if not exist "third_party\rust-toolchain\bin\bindgen.exe" python tools\rust\build_bindgen.py --skip-test'
-    'if errorlevel 1 exit /b 1'
+    'if errorlevel 1 goto fallo'
     'if not exist "third_party\rust-toolchain\crubit\bin" mkdir "third_party\rust-toolchain\crubit\bin"'
     'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" ('
     'set RUSTC=%CD%\third_party\rust-toolchain\bin\rustc.exe'
@@ -476,13 +500,19 @@ function Paso-Genbuild {
     '"%CD%\third_party\rust-toolchain\bin\cargo.exe" build --release --locked -p cc_bindings_from_rs --bin cc_bindings_from_rs --manifest-path "third_party\rust-toolchain\crubit\lib\third_party\crubit\Cargo.toml" --target-dir "%CD%\out\crubit"'
     ')'
     'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" copy /y "out\crubit\release\cc_bindings_from_rs.exe" "third_party\rust-toolchain\crubit\bin\" >nul'
-    'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" exit /b 1'
+    'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" goto fallo'
     'copy /y "third_party\rust-toolchain\bin\*.dll" "third_party\rust-toolchain\crubit\bin\" >nul'
     "ninja.exe -C out\Default chrome -j $Jobs"
-    'exit /b %errorlevel%'
+    'set RC=%errorlevel%'
+    'goto fin'
+    ':fallo'
+    'set RC=1'
+    ':fin'
+    'echo %RC% > "' + (Join-Path $workspace 'genbuild.log.codigo') + '"'
+    'exit /b %RC%'
   )
   Push-Location $src
-  try { Ejecutar-Con-Vigilancia $bat $registro 12 600 } finally { Pop-Location }
+  try { Ejecutar-Con-Vigilancia $bat (Join-Path $workspace 'genbuild.log') $registro 12 600 } finally { Pop-Location }
   $exe = Join-Path $out 'chrome.exe'
   if (-not (Test-Path $exe)) { throw 'no aparecio out\Default\chrome.exe' }
   Write-Host "  navegador compilado: $exe"
@@ -557,8 +587,14 @@ function Paso-Build {
     $cmdBuild = 'py -3 build.py -j ' + $Jobs
     if ($py -notlike '*py.exe*') { $cmdBuild = '"' + $py + '" build.py -j ' + $Jobs }
     $batBuild = Join-Path $env:TEMP 'chromper_build_py.bat'
-    Set-Content -Path $batBuild -Encoding ascii -Value @('@echo off', $cmdBuild)
-    try { Ejecutar-Con-Vigilancia $batBuild $registro 25 720 } catch {
+    Set-Content -Path $batBuild -Encoding ascii -Value @(
+      '@echo off',
+      $cmdBuild,
+      'set RC=%errorlevel%',
+      'echo %RC% > "' + (Join-Path $workspace 'buildpy.log.codigo') + '"',
+      'exit /b %RC%'
+    )
+    try { Ejecutar-Con-Vigilancia $batBuild (Join-Path $workspace 'buildpy.log') $registro 25 720 } catch {
       # build.py peta en su propio gn gen cuando el SDK fijado en el arbol no esta instalado
       # (Chromium 157 pide 10.0.28000.0 y la maquina tiene 26100). Si gn.exe existe, la preparacion
       # (descargas, poda, parches, dominio, rust) si termino: -Step genbuild reanuda fijando

@@ -41,12 +41,10 @@ function Estado($ws) {
   elseif ($t -match 'Instalando dependencias') { $fase = 'instalando dependencias' }
 
   $progreso = '(sin acciones de ninja todavia)'
-  # el registro guarda tambien el [218/218] de la preparacion: se buscan acciones despues de la
-  # ultima linea que arranca ninja, que es la ejecucion en curso.
-  $zona = $t
-  $donde = $t.LastIndexOf('ninja.exe -C out')
-  if ($donde -ge 0) { $zona = $t.Substring($donde) }
-  $m = [regex]::Matches($zona, '\[(\d+)/(\d+)\]')
+  # solo cuando ninja esta vivo: el registro conserva el [218/218] de la preparacion y daria una
+  # barra y una ETA falsas.
+  $m = @()
+  if ($nin.Count -gt 0) { $m = [regex]::Matches($t, '\[(\d+)/(\d+)\]') }
   if ($m.Count -gt 0) {
     $u = $m[$m.Count - 1]
     $n = [int]$u.Groups[1].Value
