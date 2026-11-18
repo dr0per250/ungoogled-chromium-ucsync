@@ -479,6 +479,7 @@ function Corregir-NTDDI($arbol, $ver) {
   } else {
     Write-Host '  NTDDI: ya adaptado al SDK de esta maquina'
   }
+  Set-Content -Path $gn -Value $contenido -Encoding ascii -NoNewline
 }
 
 function Paso-Genbuild {
