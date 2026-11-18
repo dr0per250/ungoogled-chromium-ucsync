@@ -6,6 +6,34 @@
 param([string]$Workspace = 'C:\chromper')
 $ErrorActionPreference = 'SilentlyContinue'
 
+# winget y los instaladores no dejan siempre su PATH visible en la terminal abierta: se localizan
+# las herramientas en sus carpetas estándar y se añaden al PATH de esta sesión.
+function Preparar-Path {
+  $candidatos = @(
+    "$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\Git\cmd",
+    "$env:LOCALAPPDATA\Programs\Git\cmd", "$env:LOCALAPPDATA\Microsoft\WinGet\Links",
+    "$env:ProgramFiles\Python313", "$env:ProgramFiles\Python312", "$env:ProgramFiles\Python311",
+    "$env:LOCALAPPDATA\Programs\Python\Python313", "$env:LOCALAPPDATA\Programs\Python\Python312",
+    "$env:ProgramFiles\7-Zip", "${env:ProgramFiles(x86)}\7-Zip",
+    "$env:ProgramFiles\GitHub CLI"
+  ) | Where-Object { $_ -and (Test-Path $_) }
+  $actual = @($env:Path -split ';')
+  foreach ($d in $candidatos) {
+    if (-not ($actual | Where-Object { $_ -ieq $d })) { $env:Path = $env:Path + ';' + $d }
+  }
+}
+function Buscar-Exe($exe, $raices) {
+  $c = Get-Command $exe -ErrorAction SilentlyContinue
+  if ($c) { return $c.Source }
+  foreach ($r in $raices) {
+    if (-not $r -or -not (Test-Path $r)) { continue }
+    $p = Get-ChildItem -Path (Join-Path $r $exe) -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($p) { return $p.FullName }
+  }
+  return $null
+}
+Preparar-Path
+
 $ok = 0; $mal = 0
 function Paso($txt) { Write-Host "  ✓ $txt"; $script:ok++ }
 function Falta($txt) { Write-Host "  ✗ $txt"; $script:mal++ }
@@ -34,19 +62,24 @@ elseif ($libreGB -ge 90) { Aviso "$unidad libre ${libreGB} GB: justo pero suele 
 else { Falta "$unidad libre ${libreGB} GB: hacen falta ~120 GB (usa -Workspace D:\chromper si hay otro disco)" }
 
 Write-Host "== Herramientas =="
-function Comandos($nombre, $exe) {
-  $c = Get-Command $exe
-  if ($c) { Paso "$nombre → $(& $exe --version 2>&1 | Select-Object -First 1)" } else { Falta "falta $nombre ($exe)" }
+function Probar-Exe($nombre, $exe, $raices, $ayuda) {
+  $ruta = Buscar-Exe $exe $raices
+  if (-not $ruta) { Falta "$nombre: no se encuentra $exe. $ayuda"; return $null }
+  $v = & $ruta --version 2>&1 | Select-Object -First 1
+  Paso "$nombre → $ruta  ($v)"
+  return $ruta
 }
-Comandos 'Git' 'git'
-$py = Get-Command python
-if ($py) {
-  $v = & python -c "import sys;print('.'.join(map(str,sys.version_info[:3])))" 2>&1
-  if ([version]$v -ge [version]'3.11') { Paso "Python $v" } else { Falta "Python $v: hace falta 3.11 o más nuevo" }
-  & python -c "import httplib2" 2>&1 | Out-Null
-  if ($LASTEXITCODE -eq 0) { Paso 'módulo httplib2 instalado' } else { Falta 'módulo httplib2 (pip install httplib2==0.22.0)' }
-  & python -c "import clang.cindex" 2>&1 | Out-Null
-  if ($LASTEXITCODE -eq 0) { Paso 'módulo clang (libclang) instalado' } else { Falta 'módulo clang (pip install clang==21.1.7)' }
+$gitRuta = Probar-Exe 'Git' 'git.exe' @("$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\Git\cmd", "$env:LOCALAPPDATA\Programs\Git\cmd") 'winget install -e --id Git.Git, o añade C:\Program Files\Git\cmd al PATH'
+$pyexe = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python313", "$env:ProgramFiles\Python312", "$env:ProgramFiles\Python311", "$env:LOCALAPPDATA\Programs\Python\Python312", "$env:LOCALAPPDATA\Programs\Python\Python313")
+if (-not $pyexe) { $pyexe = Buscar-Exe 'py.exe' @("$env:LOCALAPPDATA\Programs\Python\Launcher", 'C:\Windows') }
+if ($pyexe) {
+  if ($pyexe -like '*WindowsApps*') { Aviso 'python resuelto es el alias de la Tienda (no ejecuta nada): instala Python con winget y desactiva las alias en App execution aliases' }
+  if ($pyexe -like '*py.exe') { $v = & $pyexe -3 -c "import sys;print('.'.join(map(str,sys.version_info[:3])))" 2>&1 } else { $v = & $pyexe -c "import sys;print('.'.join(map(str,sys.version_info[:3])))" 2>&1 }
+  Paso "Python → $pyexe ($v)"
+  foreach ($mod in @(@('httplib2','httplib2==0.22.0'), @('clang.cindex','clang==21.1.7'))) {
+    if ($pyexe -like '*py.exe') { & $pyexe -3 -m pip show ($mod[1] -split '==')[0] 2>&1 | Out-Null } else { & $pyexe -m pip show ($mod[1] -split '==')[0] 2>&1 | Out-Null }
+    if ($LASTEXITCODE -eq 0) { Paso "módulo $($mod[0]) instalado" } else { Falta "módulo $($mod[0]) (pip install $($mod[1]))" }
+  }
 } else { Falta 'Python (winget install -e --id Python.Python.3.12)' }
 $7z = @(Get-ChildItem "$env:ProgramFiles\7-Zip\7z.exe", "${env:ProgramFiles(x86)}\7-Zip\7z.exe" | Select-Object -First 1)
 if ($7z) { Paso "7-Zip → $($7z[0].FullName)" } else { Falta '7-Zip (winget install -e --id 7zip.7zip)' }

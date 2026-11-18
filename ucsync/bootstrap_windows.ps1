@@ -25,6 +25,41 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# winget y los instaladores no dejan siempre su PATH visible en la terminal abierta: se localizan
+# las herramientas en sus carpetas estándar y se añaden al PATH de esta sesión (y al del usuario).
+function Preparar-Path {
+  $candidatos = @(
+    "$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\Git\cmd",
+    "$env:LOCALAPPDATA\Programs\Git\cmd", "$env:LOCALAPPDATA\Microsoft\WinGet\Links",
+    "$env:ProgramFiles\Python313", "$env:ProgramFiles\Python312", "$env:ProgramFiles\Python311",
+    "$env:LOCALAPPDATA\Programs\Python\Python313", "$env:LOCALAPPDATA\Programs\Python\Python312",
+    "$env:ProgramFiles\7-Zip", "${env:ProgramFiles(x86)}\7-Zip",
+    "$env:ProgramFiles\GitHub CLI"
+  ) | Where-Object { $_ -and (Test-Path $_) }
+  $actual = @($env:Path -split ';')
+  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+  foreach ($d in $candidatos) {
+    if (-not ($actual | Where-Object { $_ -ieq $d })) {
+      $env:Path = $env:Path + ';' + $d
+      Write-Host "  añadido al PATH: $d"
+    }
+    if ($userPath -and -not (($userPath -split ';') | Where-Object { $_ -ieq $d })) {
+      [Environment]::SetEnvironmentVariable('Path', ($userPath.TrimEnd(';') + ';' + $d), 'User')
+    }
+  }
+}
+function Buscar-Exe($exe, $raices) {
+  $c = Get-Command $exe -ErrorAction SilentlyContinue
+  if ($c) { return $c.Source }
+  foreach ($r in $raices) {
+    if (-not $r -or -not (Test-Path $r)) { continue }
+    $p = Get-ChildItem -Path (Join-Path $r $exe) -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($p) { return $p.FullName }
+  }
+  return $null
+}
+Preparar-Path
+
 $windows = Join-Path $Workspace 'windows'
 $registro = Join-Path $Workspace 'registro.txt'
 New-Item -ItemType Directory -Path $Workspace -Force | Out-Null
@@ -75,7 +110,9 @@ function Paso-Install {
 # ---------------------------------------------------------------- clone
 function Paso-Clone {
   Banner 'Clonando el constructor de Windows y apuntándolo a Chromper'
-  if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'Falta git: ejecuta -Step install o instala Git for Windows.' }
+  $git = Buscar-Exe 'git.exe' @("$env:ProgramFiles\Git\cmd", "${env:ProgramFiles(x86)}\Git\cmd", "$env:LOCALAPPDATA\Programs\Git\cmd")
+  if (-not $git) { throw 'No se encuentra git.exe (winget install -e --id Git.Git y abre una terminal nueva). Instalado pero sin PATH: añade C:\Program Files\Git\cmd.' }
+  Write-Host "  git: $git"
   if (-not (Test-Path (Join-Path $windows '.git'))) {
     git clone --recurse-submodules $WindowsRepo $windows
   } else {
@@ -106,6 +143,13 @@ function Paso-Build {
   Banner 'Descargando Chromium, parcheando y compilando'
   if (-not (Test-Path (Join-Path $windows 'build.py'))) { throw 'falta el repositorio: ejecuta -Step clone' }
   if ($Jobs -le 0) { $Jobs = [int](Get-CimInstance Win32_Processor).NumberOfLogicalProcessors }
+  $py = Buscar-Exe 'python.exe' @("$env:ProgramFiles\Python313", "$env:ProgramFiles\Python312", "$env:LOCALAPPDATA\Programs\Python\Python312")
+  if (-not $py) {
+    $pyLauncher = Buscar-Exe 'py.exe' @("$env:LOCALAPPDATA\Programs\Python\Launcher", "C:\Windows")
+    if (-not $pyLauncher) { throw 'No se encuentra python: ejecuta -Step install (winget install -e --id Python.Python.3.12) y abre una terminal nueva.' }
+    $py = $pyLauncher + ' -3'
+  }
+  Write-Host "  python: $py"
   Write-Host "  $Jobs hilos. Para que el equipo no se duerma a mitad: powercfg /change standby-timeout-ac 0"
   Write-Host '  Este paso descarga ~10 GB de dependencias y compila durante horas; el registro va a '
   Write-Host "  $registro"
@@ -113,7 +157,7 @@ function Paso-Build {
   try {
     # build.py llama a vcvars64 por su cuenta y usa DEPOT_TOOLS_WIN_TOOLCHAIN=0 (compila con el
     # Visual Studio instalado en esta máquina, no con el toolchain de Google).
-    python build.py -j $Jobs
+    if ($py -like '*py.exe*') { & py -3 build.py -j $Jobs } else { & $py build.py -j $Jobs }
     if ($LASTEXITCODE -ne 0) { throw "build.py terminó con código $LASTEXITCODE (mira $registro)" }
   } finally { Pop-Location }
   $exe = Join-Path $windows 'build\src\out\Default\chrome.exe'
