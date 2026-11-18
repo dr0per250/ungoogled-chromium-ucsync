@@ -11,6 +11,12 @@ param(
 )
 $ErrorActionPreference = 'SilentlyContinue'
 
+function Tiempo($ts) {
+  if ($ts.TotalSeconds -lt 60) { return '{0} s' -f [int]$ts.TotalSeconds }
+  if ($ts.TotalMinutes -lt 60) { return '{0} min' -f [int]$ts.TotalMinutes }
+  return '{0} h {1} min' -f [int]$ts.TotalHours, [int]($ts.TotalMinutes % 60)
+}
+
 function Estado($ws) {
   $src = Join-Path $ws 'windows\build\src'
   $log = Join-Path $ws 'registro.txt'
@@ -47,6 +53,29 @@ function Estado($ws) {
       $progreso = '{0}/{1}  {2}%  [{3}{4}]' -f $n, $tot, $pct, ('#' * $llenos), ('.' * (50 - $llenos))
     }
   }
+
+  # Tiempo que lleva ninja y estimacion de lo que queda, con el ritmo medio desde que arranco.
+  $nin = @(Get-Process ninja -ErrorAction SilentlyContinue)
+  $tiempoTxt = 'ninja no esta corriendo todavia'
+  $etaTxt = '(sin datos: todavia no hay acciones de ninja)'
+  if ($nin.Count -gt 0) {
+    $llevo = (Get-Date) - $nin[0].StartTime
+    $tiempoTxt = 'ninja corriendo desde hace ' + (Tiempo $llevo)
+    if ($tot -gt 0 -and $n -gt 0) {
+      $ritmo = $n / $llevo.TotalMinutes
+      $restante = $tot - $n
+      if ($ritmo -gt 0) {
+        $etaTxt = ('quedan {0} acciones, media de {1} acciones/min -> unas {2}' -f $restante, [math]::Round($ritmo, 1), (Tiempo ([TimeSpan]::FromMinutes($restante / $ritmo))))
+      }
+    }
+  }
+  $runn = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like '*runner.ps1*' })
+  if ($runn.Count -gt 0) {
+    $rr = Get-Process -Id $runn[0].ProcessId -ErrorAction SilentlyContinue
+    if ($rr) { $tiempoTxt += '   (la tarea completa lleva ' + (Tiempo ((Get-Date) - $rr.StartTime)) + ')' }
+  }
+  ('tiempo    | {0}' -f $tiempoTxt)
+  ('ETA       | {0}' -f $etaTxt)
 
   $filtros = "Name='powershell.exe'"
   $runner = @(Get-CimInstance Win32_Process -Filter $filtros | Where-Object { $_.CommandLine -like '*runner.ps1*' }).Count
