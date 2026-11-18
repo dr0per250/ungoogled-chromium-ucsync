@@ -450,6 +450,14 @@ function Ejecutar-Con-Vigilancia($bat, $logPaso, $registro, $minSinAvance, $maxM
     Copy-Item $err "$logPaso.fallo.err" -Force -ErrorAction SilentlyContinue
     Get-Content "$logPaso.fallo" -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  | $_" }
     Get-Content "$logPaso.fallo.err" -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  ! $_" }
+    # senal para el exterior: ALERTA.txt y firma.txt permiten que el runner pare tras dos fallos
+    # iguales y que la consola/monitor remoto avise sin que nadie tenga que preguntar.
+    $candidatos = @(Select-String -Path "$logPaso.fallo" -Pattern 'FAILED:|fatal error|error C[0-9]+|error: ' | Select-Object -First 2 | ForEach-Object { $_.Line.Trim() })
+    $firma = $candidatos -join ' ;; '
+    if ($firma.Length -gt 300) { $firma = $firma.Substring(0, 300) }
+    if ($firma -eq '') { $firma = ('codigo ' + $codigo + ' sin mensaje de error en ' + $logPaso) }
+    Set-Content -Path (Join-Path $registro 'firma.txt') -Encoding ascii -Value $firma
+    Set-Content -Path (Join-Path $registro 'ALERTA.txt') -Encoding ascii -Value ("[{0}] paso {1} codigo {2} :: {3}" -f (Get-Date -Format 'HH:mm'), (Split-Path $logPaso -Leaf), $codigo, $firma)
     throw "el paso termino con codigo $codigo (mira $logPaso.fallo)"
   }
 }
