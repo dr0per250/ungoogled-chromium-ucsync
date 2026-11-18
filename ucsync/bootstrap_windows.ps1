@@ -374,7 +374,7 @@ function Preparar-Rust($arbol) {
   $rustc = Join-Path $arbol 'third_party\rust-toolchain-x64\rustc\bin\rustc.exe'
   if (Test-Path $rustc) { & $rustc --version | Set-Content -Path (Join-Path $dst 'INSTALLED_VERSION') -Encoding ascii }
   if (Test-Path (Join-Path $dst 'bin\bindgen.exe')) { Write-Host '  rust-toolchain preparado (bindgen.exe presente)' }
-  else { Write-Warning 'sigue sin bindgen.exe: falta el paquete rust-toolchain-x64 de la descarga de Windows (repite -Step build)' }
+  else { Write-Host '  bindgen.exe no viene hecho: se compilara con tools\rust\build_bindgen.py antes de ninja' }
 }
 
 function Paso-Genbuild {
@@ -421,6 +421,19 @@ function Paso-Genbuild {
     'set PATH=%CD%\uc_staging\depot_tools;%CD%\uc_staging\gn;%PATH%'
     'out\Default\gn.exe gen out\Default --fail-on-unused-args'
     'if errorlevel 1 exit /b 1'
+    # bindgen y Crubit no vienen hechos: build.py los compila aqui, despues de gn gen y antes de ninja
+    'if not exist "third_party\rust-toolchain\bin\bindgen.exe" python tools\rust\build_bindgen.py --skip-test'
+    'if errorlevel 1 exit /b 1'
+    'if not exist "third_party\rust-toolchain\crubit\bin" mkdir "third_party\rust-toolchain\crubit\bin"'
+    'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" ('
+    'set RUSTC=%CD%\third_party\rust-toolchain\bin\rustc.exe'
+    'set CARGO_HOME=%CD%\out\crubit\cargo_home'
+    'set RUSTFLAGS=-Ctarget-feature=+crt-static'
+    '"%CD%\third_party\rust-toolchain\bin\cargo.exe" build --release --locked -p cc_bindings_from_rs --bin cc_bindings_from_rs --manifest-path "third_party\rust-toolchain\crubit\lib\third_party\crubit\Cargo.toml" --target-dir "%CD%\out\crubit"'
+    ')'
+    'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" copy /y "out\crubit\release\cc_bindings_from_rs.exe" "third_party\rust-toolchain\crubit\bin\" >nul'
+    'if not exist "third_party\rust-toolchain\crubit\bin\cc_bindings_from_rs.exe" exit /b 1'
+    'copy /y "third_party\rust-toolchain\bin\*.dll" "third_party\rust-toolchain\crubit\bin\" >nul'
     "ninja.exe -C out\Default chrome -j $Jobs"
     'exit /b %errorlevel%'
   )
