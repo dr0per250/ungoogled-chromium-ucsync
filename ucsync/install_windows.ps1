@@ -31,7 +31,7 @@ if ($Uninstall) {
       }
     }
     if (-not $hecho) {
-      Write-Warning "Chromper sigue usando ficheros de $Prefix: cierra el navegador (y las extensiones en segundo plano) y repite -Uninstall."
+      Write-Warning "Chromper sigue usando ficheros de ${Prefix}: cierra el navegador (y las extensiones en segundo plano) y repite -Uninstall."
       return
     }
   }
