@@ -58,3 +58,34 @@ Sobre el binario compilado con los parches 0003 y 0004, en un perfil nuevo y sin
 - El bloqueo que impedía todo esto no era el WebUI sino la política de extensiones sin empaquetar:
   `DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION` (`disable_reasons [16777216]`) desactivaba la extensión
   porque vive como `kUnpacked`; `extension_management.cc` exime el ID de UC-Sync.
+
+## DCHECK de Blink fatales en el binario de Linux (crash al abrir reddit)
+
+Reportado por un usuario: al abrir `https://www.reddit.com/r/LocalLLaMA/` el navegador dejaba de
+responder. El log del asset publicado traía el abort del renderer:
+
+```text
+FATAL:third_party/blink/renderer/core/layout/inline/inline_node.cc:2299]
+DCHECK failed: (*max_size_out)->Round() == content_size.Round() (6305 vs. 6300)
+  blink::ComputeContentSize() <- InlineNode::ComputeMinMaxSizes <- grid/flex track sizing
+  <- LayoutView::HitTest <- EventHandler::HandleMouseMoveEvent <- BeginMainFrame
+ptype = renderer · loaded-origin-0 = https://www.reddit.com
+```
+
+Causa raíz de build, no de nuestros parches: `build/config/dcheck_always_on.gni` pone
+`dcheck_always_on = (build_with_chromium && !is_official_build) || dcheck_is_configurable`, y con
+`disable_fieldtrial_testing_config = true` no hay field trial `DcheckIsFatal` que los vuelva no
+fatales. El build de Windows se compila como oficial, así que ahí los DCHECK ni se incluyen: por eso
+sólo petaba en Linux.
+
+Corrección: `dcheck_always_on = false` y `enable_expensive_dchecks = false` en `ucsync/build.sh`.
+Comprobado sobre el binario reconstruido (52.078/52.078 acciones, 0 `FAILED:`, 2 h 36 min):
+
+| Comprobación | Resultado |
+| --- | --- |
+| cadenas `DCHECK failed` en el binario | 66 → 1 |
+| literal del DCHECK `max_size_out` en el binario | 1 → 0 (el site ya no está compilado) |
+| tamaño `out/Default/chrome` | 647 MB → 484 MB |
+| `verify_runtime.sh` | `addUrl`/`addUrls` con hora real y hora futura rechazada: OK |
+| `check_local.sh` | serie de 7 parches, choices de flags, UI sin PNG, `.ps1`: OK |
+| reddit con binario nuevo, GUI, 70 s | sin `FATAL`, sin `Crashpad/completed` |
