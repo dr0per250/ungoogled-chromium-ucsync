@@ -99,7 +99,7 @@ if (-not $j) { Write-Host ('  (respuesta cruda: ' + $cruda + ')') }
 # la marca de tiempo se comprueba con getVisits: el HistoryItem que devuelve search() no trae visitTime
 $v = Evaluar $ws 4 'const u = (await chrome.history.search({ text: "", maxResults: 100, startTime: 0 })).find(i => i.url.startsWith("https://ucsync-check.invalid/")); const vv = u ? await chrome.history.getVisits({ url: u.url }) : []; return JSON.stringify({ n: vv.length, t: vv[0] ? vv[0].visitTime : 0, isLocal: vv[0] ? vv[0].isLocal : null });'
 try { $w = $v | ConvertFrom-Json } catch { $w = $null }
-Comprobar 'addUrls conserva la visita de hace 3 dias' ($j -and $j.diferencia -ge 0 -and $j.diferencia -lt 2000 -and $w -and $w.n -eq 1) ("visitTime=" + $w.t + " esperado=" + $j.esperado + " diff=" + $j.diferencia + "ms")
+Comprobar 'addUrls conserva la visita de hace 3 dias' ($w -and $w.n -eq 1 -and [math]::Abs($w.t - $j.esperado) -lt 2000) ("visitTime=" + $w.t + " esperado=" + $j.esperado + " diff=" + [math]::Abs($w.t - $j.esperado) + "ms")
 # el parche deja la visita como local (SOURCE_EXTENSION); si fuera SOURCE_SYNCED isLocal seria false
 Comprobar 'la visita queda como local (SOURCE_EXTENSION, no sincronizada)' ($w -and $w.isLocal -eq $true) ('isLocal=' + $w.isLocal)
 $ws.Dispose()
