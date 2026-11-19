@@ -47,6 +47,13 @@ foreach ($f in 'libvk_swiftshader.dll','vk_swiftshader_icd.json') {
   $p = Join-Path $build $f
   if (Test-Path $p) { Copy-Item $p $pkg }
 }
+# El manifiesto SxS del build (<version>.manifest, con <file name='chrome_elf.dll'/>): sin el,
+# Windows no resuelve el ensamblaje y el ejecutable falla al arrancar con "No se pudo iniciar la
+# aplicacion; la configuracion en paralelo no es correcta" (el arbol de out si lo tiene, el zip no).
+Get-ChildItem $build -File -Filter '*.manifest' | ForEach-Object { Copy-Item $_.FullName $pkg }
+if (@(Get-ChildItem $pkg -Filter '*.manifest' -File).Count -eq 0 -and @(Get-ChildItem $build -File -Filter '*.manifest').Count -gt 0) {
+  throw 'el paquete no lleva el manifiesto SxS que necesita el ejecutable'
+}
 
 New-Item -ItemType Directory -Path (Join-Path $pkg 'locales') -Force | Out-Null
 foreach ($loc in $Locales -split ' ') {
