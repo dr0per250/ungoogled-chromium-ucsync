@@ -63,7 +63,22 @@ def revisar(ruta: pathlib.Path) -> list[str]:
     texto = crudo.decode("utf-8-sig", "replace")
     if any(ord(c) > 126 for c in texto):
         problemas.append("contiene caracteres no ASCII (acéntos, comillas tipográficas, glyphs)")
+    # Las here-string (@' ... '@) son literalmente texto: dentro puede haber JavaScript con '&&' y
+    # no es un problema de PowerShell.
+    aqui = []
+    dentro_here = False
     for numero, linea in enumerate(texto.splitlines(), 1):
+        if dentro_here:
+            if linea.rstrip() in ("'@", '"@'):
+                dentro_here = False
+            aqui.append((numero, linea, True))
+            continue
+        aqui.append((numero, linea, False))
+        if re.match(r"^\s*@['\"]", linea):
+            dentro_here = True
+    for numero, linea, en_here in aqui:
+        if en_here:
+            continue
         for tramo, dentro in segmentos(linea):
             if dentro:
                 # Dentro de una cadena "$var:" se lee como «variable de unidad»: hay que escribir ${var}.
@@ -73,12 +88,14 @@ def revisar(ruta: pathlib.Path) -> list[str]:
             # `${scope}:nombre` no es una referencia válida: el ámbito va dentro de las llaves.
             if re.search(r"\$\{(script|global|local|private|env|using)\}:\w", tramo):
                 problemas.append(f'línea {numero}: "${{scope}}:nombre" no válido → usa $scope:nombre o ${{scope:nombre}}')
-        codigo = ''.join(t for t, _ in segmentos(linea))
+        # '&&' solo es problema fuera de las cadenas (dentro puede ser JavaScript legitimo)
+        codigo = ''.join(t for t, d in segmentos(linea) if not d)
+        con_cadenas = ''.join(t for t, _ in segmentos(linea))
         if "&&" in codigo:
             problemas.append(f"línea {numero}: aparece '&&' (PowerShell 5.1 no lo entiende)")
         if linea.endswith("` ") or linea.endswith("`  "):
             problemas.append(f"línea {numero}: continuación con ` seguida de espacio")
-        if codigo.count('"') % 2:
+        if con_cadenas.count('"') % 2:
             problemas.append(f"línea {numero}: comillas dobles sin cerrar")
     if texto.count("{") != texto.count("}"):
         problemas.append("llaves { y } desequilibradas")
