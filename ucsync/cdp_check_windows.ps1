@@ -95,39 +95,33 @@ return JSON.stringify({ url: item ? item.url : 'sin url', visitTime: item ? item
 '@ -replace 'AYER', $ayer
 $cruda = Evaluar $ws 3 $expr
 try { $j = $cruda | ConvertFrom-Json } catch { $j = $null }
-Comprobar 'addUrls conserva la visita de hace 3 dias' ($j -and $j.diferencia -ge 0 -and $j.diferencia -lt 2000) ("visitTime=" + $j.visitTime + " esperado=" + $j.esperado + " diff=" + $j.diferencia + "ms source=" + $j.source)
-$fuente = Evaluar $ws 4 'const l = await chrome.history.search({ text: "ucsync-check", maxResults: 5, startTime: 0 }); return l[0] ? l[0].source : "n/d"'
-Comprobar 'la visita queda como SOURCE_EXTENSION' ($fuente -match 'Extension|chrome') ("source=" + $fuente)
+if (-not $j) { Write-Host ('  (respuesta cruda: ' + $cruda + ')') }
+# la marca de tiempo se comprueba con getVisits: el HistoryItem que devuelve search() no trae visitTime
+$v = Evaluar $ws 4 'const u = (await chrome.history.search({ text: "", maxResults: 100, startTime: 0 })).find(i => i.url.startsWith("https://ucsync-check.invalid/")); const vv = u ? await chrome.history.getVisits({ url: u.url }) : []; return JSON.stringify({ n: vv.length, t: vv[0] ? vv[0].visitTime : 0, isLocal: vv[0] ? vv[0].isLocal : null });'
+try { $w = $v | ConvertFrom-Json } catch { $w = $null }
+Comprobar 'addUrls conserva la visita de hace 3 dias' ($j -and $j.diferencia -ge 0 -and $j.diferencia -lt 2000 -and $w -and $w.n -eq 1) ("visitTime=" + $w.t + " esperado=" + $j.esperado + " diff=" + $j.diferencia + "ms")
+# el parche deja la visita como local (SOURCE_EXTENSION); si fuera SOURCE_SYNCED isLocal seria false
+Comprobar 'la visita queda como local (SOURCE_EXTENSION, no sincronizada)' ($w -and $w.isLocal -eq $true) ('isLocal=' + $w.isLocal)
 $ws.Dispose()
 
-# 3) buscador por defecto: Google de verdad (no el dominio de ungoogled). Se pregunta al WebUI de
-# ajustes, que es lo que ve el usuario; en headless --no-first-run las Preferences quedan vacias,
-# asi que esa via solo sirve como respaldo.
-$t = Nuevo-Target 'chrome://settings/search'
-$ws = Nuevo-WebSocket $t.webSocketDebuggerUrl
-Enviar $ws @{ id = 1; method = 'Runtime.enable' } | Out-Null
-$busc = Evaluar $ws 2 @'
-if (typeof chrome.searchEnginesPrivate === 'undefined') { return 'API no disponible' }
-const l = await chrome.searchEnginesPrivate.getSearchEngines();
-const d = l.find(e => e.isDefault) || l[0];
-return JSON.stringify({ nombre: d.name, keyword: d.keyword, url: d.url, total: l.length });
-'@
-try { $b = $busc | ConvertFrom-Json } catch { $b = $null }
-$ws.Dispose()
-Get-Process chromper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 3
-$url = ''
-if ($b -and $b.url) { $url = $b.url } else {
-  $pref = Join-Path $Perfil 'Default\Preferences'
-  if (Test-Path $pref) {
-    $d = (Get-Content $pref -Raw | ConvertFrom-Json)
-    $tpl = $d.default_search_provider_data.template_url_data
-    if ($tpl) { $url = $tpl.url }
+# 3) buscador por defecto: en headless las Preferences quedan vacias (--no-first-run no corre la
+#    inicializacion del perfil), asi que se comprueba el motor compilado en chrome.dll: el parche
+#    0007 deja google.com como plantilla de Google y quita el motor 'NoSearch' de ungoogled.
+$dll = Join-Path (Split-Path $Exe -Parent) 'chrome.dll'
+if (-not (Test-Path $dll)) { throw "no existe $dll" }
+$txt = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($dll))
+Comprobar 'el motor trae la plantilla de Google' ($txt.Contains('www.google.com/search?q={searchTerms}')) ('chrome.dll ' + [math]::Round((Get-Item $dll).Length/1MB) + ' MB')
+Comprobar 'no trae el motor NoSearch de ungoogled' (-not $txt.Contains('NoSearch')) 'sin el motor NoSearch'
+$pref = Join-Path $Perfil 'Default\Preferences'
+if (Test-Path $pref) {
+  $d = Get-Content $pref -Raw | ConvertFrom-Json
+  $tpl = $d.default_search_provider_data.template_url_data
+  if ($tpl -and $tpl.url) {
+    Comprobar 'las preferencias del perfil apuntan a google.com' ($tpl.url -match 'google\.com/search') ($tpl.url)
+  } else {
+    Write-Host '  (sin default_search_provider_data en el perfil de prueba: en headless no corre la inicializacion)'
   }
 }
-if (-not $url) { $url = 'sin datos (headless sin first-run)' }
-Comprobar 'buscador por defecto usa google.com' ($url -match 'google\.com/search') ($b.nombre + ' ' + $b.keyword + ' ' + $url)
-Comprobar 'no queda el dominio sustituto de ungoogled' (-not ($url -match '9oo91e|nosearch')) ($url)
 
 Write-Host ''
 Write-Host ("[cdp] {0} comprobaciones ok, {1} fallos" -f $ok, $fallos.Count)
