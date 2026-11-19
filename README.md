@@ -185,11 +185,14 @@ mismo `patches/series`. Por pasos y reanudable:
 git clone https://github.com/dr0per250/ungoogled-chromium-ucsync.git $env:USERPROFILE\chromper-fork
 cd $env:USERPROFILE\chromper-fork\ucsync
 powershell -ExecutionPolicy Bypass -File .\diagnose_windows.ps1 -Workspace D:\chromper   # qué tienes y qué falta
-powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step install           # VS Build Tools, Python, 7-Zip, rutas largas (admin)
-powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step clone -Workspace D:\chromper
-powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step build  -Workspace D:\chromper   # horas
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step install           # VS Build Tools (C++ + ATL + Debugging Tools), Python, 7-Zip, paginacion y rutas largas (admin)
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step check             # 17 comprobaciones: que no falte nada antes de clonar
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step clone  -Workspace D:\chromper
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step build  -Workspace D:\chromper   # gclient sync + poda + parches (horas)
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step genbuild -Workspace D:\chromper  # gn gen + bindgen/Crubit + ninja; esto es lo que se reanuda
 powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step package -Workspace D:\chromper
-powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step publish -Workspace D:\chromper   # gh release upload
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step install-chromper -Workspace D:\chromper
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step publish -Workspace D:\chromper   # gh release upload (necesita gh en esa maquina)
 ```
 
 Además de la carga de trabajo *C++*, el build de 157 necesita cosas que el instalador de Visual
