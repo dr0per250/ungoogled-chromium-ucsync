@@ -84,10 +84,12 @@ Enviar $ws @{ id = 1; method = 'Runtime.enable' } | Out-Null
 $hayApi = Evaluar $ws 2 'return typeof chrome.history !== "undefined" && typeof chrome.history.addUrls === "function"'
 Comprobar 'chrome.history.addUrls disponible' ($hayApi -eq $true) ("tipo: " + $hayApi)
 $ayer = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - (86400000 * 3)
+# addUrls recibe UN OBJETO con la propiedad 'urls' (chrome.history.addUrls({urls: [...]})); si se le
+# pasa el array suelto da 'No matching signature'.
 $expr = @'
 const url = 'https://ucsync-check.invalid/' + Date.now();
-await chrome.history.addUrls([{ url: url, title: 'comprobacion ucsync', visitTime: AYER }]);
-const lista = await chrome.history.search({ text: 'ucsync-check', maxResults: 20, startTime: 0 });
+await chrome.history.addUrls({ urls: [{ url: url, title: 'comprobacion ucsync', visitTime: AYER }] });
+const lista = await chrome.history.search({ text: '', maxResults: 100, startTime: 0 });
 const item = lista.find(i => i.url.startsWith('https://ucsync-check.invalid/'));
 return JSON.stringify({ url: item ? item.url : 'sin url', visitTime: item ? item.visitTime : 0, esperado: AYER, diferencia: item ? Math.abs(item.visitTime - AYER) : -1, source: item ? item.source : 'n/d' });
 '@ -replace 'AYER', $ayer
@@ -98,17 +100,33 @@ $fuente = Evaluar $ws 4 'const l = await chrome.history.search({ text: "ucsync-c
 Comprobar 'la visita queda como SOURCE_EXTENSION' ($fuente -match 'Extension|chrome') ("source=" + $fuente)
 $ws.Dispose()
 
-# 3) buscador por defecto: Google de verdad (no el dominio de ungoogled)
+# 3) buscador por defecto: Google de verdad (no el dominio de ungoogled). Se pregunta al WebUI de
+# ajustes, que es lo que ve el usuario; en headless --no-first-run las Preferences quedan vacias,
+# asi que esa via solo sirve como respaldo.
+$t = Nuevo-Target 'chrome://settings/search'
+$ws = Nuevo-WebSocket $t.webSocketDebuggerUrl
+Enviar $ws @{ id = 1; method = 'Runtime.enable' } | Out-Null
+$busc = Evaluar $ws 2 @'
+if (typeof chrome.searchEnginesPrivate === 'undefined') { return 'API no disponible' }
+const l = await chrome.searchEnginesPrivate.getSearchEngines();
+const d = l.find(e => e.isDefault) || l[0];
+return JSON.stringify({ nombre: d.name, keyword: d.keyword, url: d.url, total: l.length });
+'@
+try { $b = $busc | ConvertFrom-Json } catch { $b = $null }
+$ws.Dispose()
 Get-Process chromper -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 3
-$pref = Join-Path $Perfil 'Default\Preferences'
-$url = 'sin preferencias'
-if (Test-Path $pref) {
-  $d = (Get-Content $pref -Raw | ConvertFrom-Json)
-  $tpl = $d.default_search_provider_data.template_url_data
-  if ($tpl) { $url = $tpl.url }
+$url = ''
+if ($b -and $b.url) { $url = $b.url } else {
+  $pref = Join-Path $Perfil 'Default\Preferences'
+  if (Test-Path $pref) {
+    $d = (Get-Content $pref -Raw | ConvertFrom-Json)
+    $tpl = $d.default_search_provider_data.template_url_data
+    if ($tpl) { $url = $tpl.url }
+  }
 }
-Comprobar 'buscador por defecto usa google.com' ($url -match 'google\.com/search') ($url)
+if (-not $url) { $url = 'sin datos (headless sin first-run)' }
+Comprobar 'buscador por defecto usa google.com' ($url -match 'google\.com/search') ($b.nombre + ' ' + $b.keyword + ' ' + $url)
 Comprobar 'no queda el dominio sustituto de ungoogled' (-not ($url -match '9oo91e|nosearch')) ($url)
 
 Write-Host ''
