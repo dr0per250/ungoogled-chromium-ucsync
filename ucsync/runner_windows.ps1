@@ -15,7 +15,24 @@ $registro = $Workspace
 $log = Join-Path $registro 'registro.txt'
 $alerta = Join-Path $registro 'ALERTA.txt'
 $firma = Join-Path $registro 'firma.txt'
-if (-not $Fork) { $Fork = (Join-Path $env:USERPROFILE 'chromper-fork\bootstrap_windows.ps1') }
+if (-not $Fork) {
+  # bajo la tarea programada se ejecuta como SYSTEM: $env:USERPROFILE es
+  # C:\Windows\System32\config\systemprofile y no existe ahi -> powershell -File con una ruta
+  # inexistente sale con codigo -196608 sin dejar nada en el registro. Se buscan las rutas reales.
+  $candidatos = @((Join-Path $env:USERPROFILE 'chromper-fork\bootstrap_windows.ps1'))
+  foreach ($u in @(Get-ChildItem 'C:\Users' -Directory -ErrorAction SilentlyContinue)) {
+    $candidatos += (Join-Path $u.FullName 'chromper-fork\bootstrap_windows.ps1')
+  }
+  $candidatos += (Join-Path $Workspace 'bootstrap_windows.ps1')
+  $elegida = @($candidatos | Where-Object { Test-Path $_ })
+  if ($elegida.Count -eq 0) {
+    Reg 'FALTA bootstrap_windows.ps1: clona el fork o pasa -Fork <ruta>'
+    Set-Content -Path $alerta -Encoding ascii -Value ("[{0}] FALTA bootstrap_windows.ps1" -f (Get-Date -Format 'HH:mm'))
+    exit 1
+  }
+  $Fork = $elegida[0]
+}
+
 
 $yo = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like '*runner_windows.ps1*' -or $_.CommandLine -like '*runner.ps1*' }).Count
 if ($yo -gt 2) { exit 0 }
