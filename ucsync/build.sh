@@ -94,6 +94,14 @@ build() {
   {
     echo 'is_debug = false'
     echo 'is_official_build = false'
+    # DCHECK letales en un navegador publicado: `build/config/dcheck_always_on.gni` enciende los
+    # DCHECK cuando `build_with_chromium && !is_official_build`, y con
+    # `disable_fieldtrial_testing_config=true` no hay field trial que los vuelva no fatales. Un
+    # `DCHECK` de Blink en el layout (`third_party/blink/renderer/core/layout/inline/inline_node.cc`
+    # `ComputeContentSize`) mataba el renderer al abrir reddit.com. En el build de Windows
+    # (`is_official_build=true`) esos DCHECK ni se compilan, por eso sólo petaba en Linux.
+    echo 'dcheck_always_on = false'
+    echo 'enable_expensive_dchecks = false'
     echo 'symbol_level = 0'
     echo 'v8_symbol_level = 0'
     [[ "$(uname -s)" == "Linux" ]] && echo 'use_sysroot = true'
