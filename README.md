@@ -24,7 +24,7 @@ que compilar el navegador, así que la extensión viaja con él.
 | Versión fijada | la de [`chromium_version.txt`](chromium_version.txt) (verificada compilando `157.0.8103.78`) |
 | ID de la extensión | `lidfhdhmbifmhikiaklbiehnhnkhoghe`, fijado por el campo `key` del manifiesto |
 | UI | `chrome://ucsync` (servida por el navegador desde los ficheros embebidos, con lista blanca) |
-| **Binarios** | Linux x64 publicado en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases) (`chromper-linux-x64.tar.gz` en el tag `chromium-157.0.8103.78`). Windows: aún no hay binario (no se ha compilado aquí); están `package_windows.ps1` e `install_windows.ps1`. |
+| **Binarios** | Linux x64 y Windows 11 x64 publicados en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases), en el tag `chromium-157.0.8103.78`: `chromper-linux-x64.tar.gz` y `chromper-windows-x64.zip`. |
 | Nombre del producto | **Chromper** también por dentro: `chromper --version` y el menú/Acerca de dicen Chromper (parche `0005`), ejecutable `chromper`/`chromper.exe`, lanzador `chromper`, entrada `io.chromper.desktop` con el icono de Chromium, perfil `~/.config/chromper`, `WM_CLASS=chromper`. El motor sigue siendo Chromium y la autoría sigue nombrando a The Chromium Authors. |
 | Bóveda y servidor | [dr0per250/uc-sync](https://github.com/dr0per250/uc-sync) — [Releases](https://github.com/dr0per250/uc-sync/releases) con el zip si quieres la extensión suelta |
 | Herramientas propias | [`ucsync/`](ucsync/README.md) (`build.sh`, `bump.sh`, `verify_patch.py`, `make_ucsync_patches.sh`, `verify_runtime.sh`) |
@@ -78,8 +78,14 @@ queda en `~/.config/chromper` (`UCSYNC_PROFILE` para cambiarlo).
 
 ## Instalar el binario (Windows 11)
 
-Cuando el asset `chromper-windows-x64.zip` esté publicado, una línea (mientras tanto, `-Zip` con el
-zip que hayas construido):
+Una línea (o `-Zip` con el zip que hayas construido tú):
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/install_windows.ps1 -OutFile $env:TEMP\install-chromper.ps1; & $env:TEMP\install-chromper.ps1"
+```
+
+Si quieres asegurarte de bajar la versión exacta de un commit (`raw.githubusercontent.com` sirve a
+veces una copia cacheada):
 
 ```powershell
 # raw.githubusercontent sirve a veces una copia cacheada del commit anterior: para bajar scripts
@@ -173,6 +179,20 @@ powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step build  -W
 powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step package -Workspace D:\chromper
 powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step publish -Workspace D:\chromper   # gh release upload
 ```
+
+Además de la carga de trabajo *C++*, el build de 157 necesita cosas que el instalador de Visual
+Studio no trae por defecto y `bootstrap_windows.ps1 -Step install` añade ya:
+
+* **C++ ATL** (`Microsoft.VisualStudio.Component.VC.ATL`): `base/win/atl_throw.h` pide `atldef.h`, y
+  sin él ninja peta en `obj/base/base/atl_throw.obj`.
+* **C++ Debugging Tools** (`VC.DiagnosticTools`, el DIA SDK con `msdia140.dll`) y `dbghelp.dll`; si
+  no están, `-Step install` rellena `Windows Kits\10\Debuggers\x64` desde `System32`.
+* Chromium 157 fija `SDK_VERSION = 10.0.28000.0` y `NTDDI_VERSION=NTDDI_WIN11_BR`, y Visual Studio 2022
+  solo ofrece SDK 22621/26100. `bootstrap_windows.ps1` reescribe `SDK_VERSION` al SDK completo del
+  disco y baja `NTDDI_VERSION` a `NTDDI_WIN11_GE` definiendo el alias `NTDDI_WIN11_BR=NTDDI_WIN11_GE`
+  (sin el alias `base/win/windows_version.cc` hace `#error Windows 10.0.28000.0 SDK or higher required`).
+* `bindgen` y Crubit no vienen hechos: `-Step genbuild` los compila, poniendo el Git real primero en
+  el `PATH` porque el `git.bat` de depot_tools se cuelga clonando rust-bindgen.
 
 `diagnose_windows.ps1` revisa: Windows 10 22H2+ x64, 16 GB de RAM, ~120 GB libres, Visual Studio 2022
 con la carga de trabajo *C++* y Windows SDK, Python 3.11+ con los módulos `httplib2` y `clang`, Git,
