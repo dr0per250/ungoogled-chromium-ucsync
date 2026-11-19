@@ -92,7 +92,10 @@ $stable = Join-Path $Out 'chromper-windows-x64.zip'
 $versioned = Join-Path $Out "chromper-windows-x64-$version.zip"
 # Compress-Archive no pisa un zip existente: se borran los del intento anterior.
 foreach ($z in @($stable, $versioned)) { Remove-Item $z -Force -ErrorAction SilentlyContinue }
-Compress-Archive -Path $pkg -DestinationPath $stable -CompressionLevel Optimal
+# se comprime en .tmp y se renombra al final: asi un lector nunca ve un zip a medias
+$tempZip = $stable + '.tmp'
+Compress-Archive -Path $pkg -DestinationPath $tempZip -CompressionLevel Optimal
+Move-Item -Path $tempZip -Destination $stable -Force
 Copy-Item $stable $versioned
 Remove-Item -Recurse -Force $stage
 Write-Host "[$stable] $([math]::Round((Get-Item $stable).Length/1MB,1)) MB"

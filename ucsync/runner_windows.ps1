@@ -84,6 +84,12 @@ if (-not (Test-Path $exe)) {
 }
 Remove-Item $alerta -ErrorAction SilentlyContinue
 Reg 'CHROMPER_COMPILADO'
+$zipRuta = Join-Path $Workspace 'pkg\chromper-windows-x64.zip'
+if (Test-Path $zipRuta) {
+  Reg "el zip ya existe ([math]::Round((Get-Item $zipRuta).Length/1MB)) MB: no se reempaqueta"
+  Reg 'PAQUETE_HECHO'
+  exit 0
+}
 $codPkg = Paso 'package' $Jobs
 if ($codPkg -eq 0 -and (Test-Path (Join-Path $Workspace 'pkg\chromper-windows-x64.zip'))) {
   Reg 'PAQUETE_HECHO'
