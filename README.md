@@ -24,7 +24,7 @@ que compilar el navegador, así que la extensión viaja con él.
 | Versión fijada | la de [`chromium_version.txt`](chromium_version.txt) (verificada compilando `157.0.8103.78`) |
 | ID de la extensión | `lidfhdhmbifmhikiaklbiehnhnkhoghe`, fijado por el campo `key` del manifiesto |
 | UI | `chrome://ucsync` (servida por el navegador desde los ficheros embebidos, con lista blanca) |
-| **Binarios** | Linux x64 y Windows 11 x64 publicados en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases), en el tag `chromium-157.0.8103.78`: `chromper-linux-x64.tar.gz` y `chromper-windows-x64.zip`. |
+| **Binarios** | Linux x64 (`chromper-linux-x64.tar.gz`, 242 MB) y Windows 11 x64 (`chromper-windows-x64.zip`, 188 MB) publicados en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases), en el tag `chromium-157.0.8103.78`. Los dos comprobados sobre el asset publicado: `--version`, `chrome://ucsync`, `addUrls` conservando la marca de tiempo y el buscador Google (`ucsync/verify_runtime.sh`, `ucsync/cdp_check_windows.ps1`). |
 | Nombre del producto | **Chromper** también por dentro: `chromper --version` y el menú/Acerca de dicen Chromper (parche `0005`), ejecutable `chromper`/`chromper.exe`, lanzador `chromper`, entrada `io.chromper.desktop` con el icono de Chromium, perfil `~/.config/chromper`, `WM_CLASS=chromper`. El motor sigue siendo Chromium y la autoría sigue nombrando a The Chromium Authors. |
 | Bóveda y servidor | [dr0per250/uc-sync](https://github.com/dr0per250/uc-sync) — [Releases](https://github.com/dr0per250/uc-sync/releases) con el zip si quieres la extensión suelta |
 | Herramientas propias | [`ucsync/`](ucsync/README.md) (`build.sh`, `bump.sh`, `verify_patch.py`, `make_ucsync_patches.sh`, `verify_runtime.sh`) |
@@ -37,9 +37,9 @@ Lo de ungoogled (objetivos, características, FAQ, construcción genérica) sigu
 
 ## Instalar el binario (CachyOS / Arch)
 
-El release `chromium-<versión>` trae `chromper-linux-x64.tar.gz` (≈ 240 MB: navegador, recursos,
-idiomas recortados y la extensión integrada). Los repos son **privados**, así que la descarga va con
-`gh` autenticado (`gh auth login`) o con `GH_TOKEN`.
+El release `chromium-<versión>` trae `chromper-linux-x64.tar.gz` (242 MB: navegador, recursos,
+idiomas recortados y las dos extensiones integradas). El repo es público: para instalar no hace
+falta `gh` ni token.
 
 Una línea y listo (estilo community-scripts):
 
@@ -67,7 +67,9 @@ terminal: eso se pone una vez en la propia UI.
 librerías que faltan (`pacman -S --noconfirm`), instala en `~/.local/share/chromper`, deja el
 lanzador `chromper`, el icono y la entrada de aplicaciones, y comprueba el binario. Opciones
 por entorno: `UCSYNC_SYSTEM=1` (en `/opt` con `chrome_sandbox` setuid root → sandbox real, pide
-sudo), `UCSYNC_PREFIX`, `UCSYNC_NO_SANDBOX=1`, `UCSYNC_SKIP_DEPS=1`, `UCSYNC_UNINSTALL=1`, `UCSYNC_SET_DEFAULT=1`. El perfil
+sudo), `UCSYNC_PREFIX`, `UCSYNC_NO_SANDBOX=1`, `UCSYNC_SKIP_DEPS=1`, `UCSYNC_NO_DEFAULT=1`,
+`UCSYNC_NO_LAUNCH=1`, `UCSYNC_OPEN_UI=1`, `UCSYNC_TARBALL=<archivo>` (instalar un paquete local),
+`UCSYNC_UNINSTALL=1` (desinstalar). El perfil queda en `~/.config/chromper` (`UCSYNC_PROFILE`).
 queda en `~/.config/chromper` (`UCSYNC_PROFILE` para cambiarlo).
 
 **Publicar un binario nuevo** tras compilar:
@@ -84,23 +86,33 @@ Una línea (o `-Zip` con el zip que hayas construido tú):
 powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/install_windows.ps1 -OutFile $env:TEMP\install-chromper.ps1; & $env:TEMP\install-chromper.ps1"
 ```
 
-Si quieres asegurarte de bajar la versión exacta de un commit (`raw.githubusercontent.com` sirve a
-veces una copia cacheada):
+`raw.githubusercontent.com` sirve a veces una copia cacheada del commit anterior: tras publicar
+scripts fija el SHA en la URL. Con el zip ya descargado, `-Zip` evita la descarga:
 
 ```powershell
-# raw.githubusercontent sirve a veces una copia cacheada del commit anterior: para bajar scripts
-# recién publicados, fija el commit.
-$sha = (git -C $env:USERPROFILE\chromper-fork rev-parse HEAD)
-Invoke-WebRequest "https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/$sha/ucsync/install_windows.ps1" `
-  -OutFile install_windows.ps1 -UseBasicParsing
-powershell -ExecutionPolicy Bypass -File .\install_windows.ps1
-# o con el zip local:  .\ucsync\install_windows.ps1 -Zip D:\chromper\pkg\chromper-windows-x64.zip
+.\ucsync\install_windows.ps1 -Zip D:\chromper\pkg\chromper-windows-x64.zip
 ```
 
+Requisitos: Windows 10 22H2+ o Windows 11 x64 y PowerShell 5.1+ (el del sistema). No hace falta
+ser admin, ni Visual Studio, ni el redistributable de VC++ (el CRT viaja dentro del zip).
+
 El instalador coloca el navegador en `%LOCALAPPDATA%\chromper`, crea el atajo de escritorio (con
-`--user-data-dir` propio, configurable con `-UserDataDir`), lo añade al `PATH` del usuario y comprueba
-`chromper.exe --version`. `-Uninstall` lo quita y el perfil se conserva. Para traer marcadores e
-historial de Chrome: `chrome://settings/importData`.
+`--user-data-dir` propio, configurable con `-UserDataDir`), lo añade al `PATH` del usuario y
+comprueba `chromper.exe --version`. No toca el perfil de Chrome: crea
+`%LOCALAPPDATA%\chromper-profile`. Para traer marcadores e historial: `chrome://settings/importData`.
+
+**Desinstalar** (quita el navegador, el atajo y la entrada del `PATH`; cierra Chromper si estaba
+abierto, porque `chrome.dll` queda bloqueado, y tus datos se conservan):
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "iwr https://raw.githubusercontent.com/dr0per250/ungoogled-chromium-ucsync/master/ucsync/install_windows.ps1 -OutFile $env:TEMP\uninstall-chromper.ps1; & $env:TEMP\uninstall-chromper.ps1 -Uninstall"
+```
+
+En Linux es el mismo instalador con `UCSYNC_UNINSTALL=1`. Los dos dejan el perfil donde estaba;
+para borrar también los datos: `Remove-Item -Recurse -Force $env:LOCALAPPDATA\chromper-profile`
+o `rm -rf ~/.config/chromper`.
+
+## Compilar en CachyOS / Arch
 
 ## Compilar en CachyOS / Arch
 
@@ -194,6 +206,18 @@ Studio no trae por defecto y `bootstrap_windows.ps1 -Step install` añade ya:
 * `bindgen` y Crubit no vienen hechos: `-Step genbuild` los compila, poniendo el Git real primero en
   el `PATH` porque el `git.bat` de depot_tools se cuelga clonando rust-bindgen.
 
+Números reales de la compilación publicada (16 hilos, 30,9 GB de RAM): árbol de fuente ≈ 41 GB,
+`ninja chrome` ≈ 57.700 acciones en ≈ 3 h con `-j 12`, y hace falta un archivo de paginación de
+16 GB (con la paginación automática de 4 GB el enlace no cabe): `-Step install` lo deja en
+16384-32768 MB por registro y avisa si hay que reiniciar.
+
+Cada paso es reanudable y `-Step genbuild` es el que se repite si ninja peta a mitad (relanza
+`gn gen`, bindgen/Crubit y ninja donde quedó). Los logs van a `<Workspace>`: `genbuild.ninja.log`
+con las acciones de ninja en vivo, `genbuild.log.fallo` el del último intento y `registro.txt` el
+registro completo; un fallo deja además `ALERTA.txt` con la firma del error. La vigilancia mata el
+árbol si deja de avanzar 12 min y `ucsync\runner_windows.ps1` (tarea programada, reanuda tras los
+reinicios de Windows Update) se detiene tras dos fallos idénticos en vez de gastar 10 intentos.
+
 `diagnose_windows.ps1` revisa: Windows 10 22H2+ x64, 16 GB de RAM, ~120 GB libres, Visual Studio 2022
 con la carga de trabajo *C++* y Windows SDK, Python 3.11+ con los módulos `httplib2` y `clang`, Git,
 7-Zip y `LongPathsEnabled=1`. El `build.py` del constructor de Windows llama a `vcvars64` y pone
@@ -274,7 +298,8 @@ Los perfiles instalados mientras el navegador se llamaba `ucsync-chromium` guard
 `Preferences` la **ruta** de la extensión embebida (`~/.local/share/ucsync-chromium/ucsync`). Si ese
 directorio desapareciera, la extensión quedaría sin ficheros y la UI mostraría imágenes rotas: el
 instalador convierte ese prefijo en un **enlace simbólico** al nuevo (`~/.local/share/chromper`), así
-las rutas viejas siguen apuntando a los ficheros actuales. No se recarga la extensión descargándola
+las rutas viejas siguen apuntando a los ficheros actuales, y `UCSYNC_UNINSTALL=1` quita el
+enlace si apuntaba al prefijo borrado. No se recarga la extensión descargándola
 en caliente: quitarla y volverla a cargar en el arranque provoca un `DCHECK` en
 `toolbar_actions_model.cc` (estado de los botones fijados), por eso se resuelve en el disco.
 
@@ -287,6 +312,10 @@ binarios ya compilados aquí; compilar Chromium siempre se hace en tu máquina (
 ./ucsync/check_local.sh --src ~/chromium/src # además contra el árbol de trabajo
 ./ucsync/check_upstream.sh                  # ¿hay Chromium o chromium-web-store nuevos?
 ```
+
+En Windows, además: `check_ps1_parse.ps1` (los `.ps1` tienen que parsear en PowerShell 5.1) y
+`cdp_check_windows.ps1` (comprueba el navegador instalado sobre CDP: `chrome://ucsync`, `addUrls`
+conservando la marca de tiempo, la visita marcada como local y el buscador Google compilado).
 
 `check_local.sh` revisa en un minuto:
 

@@ -83,8 +83,8 @@ está, degrada a `addUrl()` normal guardando la fecha real en su registro local.
 las visitas sincronizadas aparecen en `chrome://history` con su hora auténtica; sin él, la hora
 auténtica sólo se ve en *Ajustes → Historial sincronizado* de UC-Sync.
 
-Comprobación en CI: el workflow `UC-Sync patch check` ejecuta
-`devutils/check_patch_files.py` y `ucsync/verify_patch.py` en cada push y cada lunes.
+Comprobación: `ucsync/check_local.sh` ejecuta `devutils/check_patch_files.py` y
+`ucsync/verify_patch.py` en local; en GitHub no corre nada (el fork no tiene `workflows/`).
 
 ## Dependencias que gclient se salta en un checkout de git
 
@@ -136,30 +136,63 @@ Además de los parches de la API de historial, el fork embebe la extensión de U
 La clave privada que fija el ID está en `../ucsync-extension-key.pem` (fuera del fork): cambiarla
 cambia el ID y con él las claves de `chrome.storage` y el destino de `chrome://ucsync`.
 
-## Actualización autónoma contra upstream
+## Actualizar la versión de Chromium (todo en local)
 
-El fork sigue a `ungoogled-software/ungoogled-chromium` y se actualiza solo, con fallo ruidoso:
+GitHub no ejecuta nada de esto: el fork no tiene `workflows/` (estaban ahí y se quitaron porque
+fallaban y mandaban correo; las comprobaciones se hacen en la máquina que compila). Cada paso es
+un script local:
 
-| trabajo | qué hace |
+| script | qué hace |
 | --- | --- |
-| `ucsync/bump.sh` (workflow «UC-Sync upstream bump», diario + manual) | fusiona `upstream/master`, pasa `devutils/check_patch_files.py` y `ucsync/verify_patch.py`; si aplica, sube el merge y etiqueta `chromium-<versión>`; si rechaza, **revierte el merge y abre un issue** con los rechazos. `--to <versión>` fija una versión concreta para adelantarse a upstream. |
-| «UC-Sync apply completo» (diario) | descarga el tarball `lite` de la versión fijada y aplica la **serie entera** (`prune_binaries`, `patches.py apply`, `domain_substitution`) y comprueba que después de parchear siguen ahí `ParseVisitTime`, `HistoryAddUrlsFunction`, `chrome/browser/resources/ucsync/manifest.json`, `ucsync_ui.cc` y el ID de UC-Sync. Abre issue si rompe. |
-| «UC-Sync vendor extensión» (dispatch o `repository_dispatch`) | re-vende `0003` desde el repo UC-Sync y escribe `ucsync/extension.lock.json` (commit de UC-Sync, versión de la extensión y sha256 del parche). Necesita el secret `UCSYNC_PAT` para leer el repo privado. |
-| `ucsync/verify_patch.py` | validación rápida a nivel de fichero (sin compilar ni checkout de Chromium). |
+| `ucsync/check_upstream.sh` | ¿hay Chromium o chromium-web-store nuevos? Dice además si la versión nueva trae el archivo oficial `lite`, la única con la que se valida la serie entera. |
+| `ucsync/verify_patch.py <versión>` | validación rápida a nivel de fichero, sin compilar ni checkout: qué parches propios aplican sobre esa versión y qué ficheros rechazan. Guarda los ficheros del tag en `~/.cache/ucsync-chromium-files`, así que después trabaja sin red. |
+| `ucsync/check_local.sh` | la serie en un minuto: parches propios, choices de `chrome://flags` que rompen `FeatureEntry::IsValid()`, `patches/series` contra el disco y que las extensiones embebidas no apuntan a PNG. |
+| `ucsync/bump.sh --to <versión> --apply` | fusiona `upstream/master`, valida y sube el merge y la etiqueta `chromium-<versión>`; si rechaza, no sube nada a medias. |
+| `ucsync/make_ucsync_patches.sh`, `make_search_patch.sh`, `rebuild_patches.sh` | regeneran los `.patch` desde el árbol de trabajo cuando un hunk choca contra código nuevo de Chromium. |
 
-Regla que el bot aplica: sólo se fijan versiones con **archivo oficial `lite`** (la fuente con la
-que se construye y con la que se valida la serie completa). `157.0.8103.81` no lo tiene, y por eso
-el bump manual de prueba se revirtió a `157.0.8103.78` (el binario verificado). Cuando algo rompe,
-el trabajo abre un issue y deja `master` intacto — nunca actualiza a medias.
-
-Lo que **no** se automatiza: cuando un hunk rechaza hay que reescribir el parche contra el código
-nuevo de Chromium, y eso exige el árbol de trabajo (`make_ucsync_patches.sh` regenera `0004` desde
-`/IA/chromium-build/src`). El bot deja el issue con los rechazos; la readaptación es un paso de
-agente o humana, y después se relanza el bump.
+Regla que se aplica: sólo se fijan versiones con **archivo oficial `lite`** (la fuente con la que
+se construye y se valida la serie completa). `157.0.8103.81` no lo tiene, y por eso la fijación se
+quedó en `157.0.8103.78`, la versión compilada y verificada.
 
 ```sh
-./ucsync/bump.sh                      # informativo: merge local + validación
-./ucsync/bump.sh --apply --issue      # sube si aplica; issue si no
-./ucsync/bump.sh --to 158.0.8413.4 --apply
-gh workflow run "UC-Sync apply completo" -R dr0per250/ungoogled-chromium-ucsync
+./ucsync/check_upstream.sh
+./ucsync/verify_patch.py 158.0.8127.36
+./ucsync/bump.sh --to 158.0.8127.36 --apply
 ```
+
+Lo que **no** se automatiza: reescribir un parche cuando un hunk rechaza. Eso exige el árbol de
+trabajo (`make_ucsync_patches.sh` regenera `0004` desde el Chromium ya modificado) y es un paso de
+agente o humano; después se relanza el bump.
+
+## Herramientas de Windows
+
+La ruta nativa usa el constructor oficial `ungoogled-chromium-windows` con el submódulo apuntado a
+este fork. `bootstrap_windows.ps1` es el orquestador reanudable por pasos:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\diagnose_windows.ps1   -Workspace C:\chromper   # que tienes y que falta
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step install            # VS Build Tools (con ATL y Debugging Tools), Python, 7-Zip, paginacion, rutas largas
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step clone     -Workspace C:\chromper
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step build     -Workspace C:\chromper   # gclient sync + poda + parches (horas)
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step genbuild  -Workspace C:\chromper   # gn gen + bindgen/Crubit + ninja (esto es lo que se repite)
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step package   -Workspace C:\chromper   # chromper-windows-x64.zip
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step install-chromper -Workspace C:\chromper
+powershell -ExecutionPolicy Bypass -File .\bootstrap_windows.ps1 -Step publish   -Workspace C:\chromper   # gh release upload
+```
+
+Cosas que este script adapta a la máquina, porque el árbol de Chromium 157 da por hecho cosas que
+no siempre están: `SDK_VERSION` (fija 10.0.28000.0) al SDK completo instalado, `NTDDI_VERSION` con
+su alias cuando el SDK no define `NTDDI_WIN11_BR`, `dbghelp.dll` del SDK de Debugging, el componente
+C++ ATL, y el Git real delante de depot_tools (el `git.bat` de depot_tools se cuelga clonando
+rust-bindgen). Compila bindgen y Crubit antes de ninja porque el constructor de Windows no los
+trae hechos.
+
+Para que un build largo no se quede mudo: cada paso va con vigilancia (`genbuild.ninja.log` con las
+acciones en vivo, 12 min sin avance mata el árbol y deja `ALERTA.txt` con la firma del error,
+`genbuild.log.fallo` con el intento fallido) y `runner_windows.ps1` reanuda tras los reinicios de
+Windows Update como tarea programada, deteniéndose tras dos fallos idénticos.
+
+`cdp_check_windows.ps1` comprueba el navegador instalado sobre CDP sin necesitar node ni gh:
+`chrome://ucsync`, `chrome.history.addUrls({urls})` conservando la marca de tiempo (comprobada con
+`getVisits`), la visita marcada como local y el buscador Google compilado en `chrome.dll`.
+`check_ps1_parse.ps1` verifica que todos los `.ps1` parsean en Windows PowerShell 5.1.
