@@ -14,7 +14,27 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ($Uninstall) {
-  if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix }
+  # Chrome.dll esta bloqueado mientras el navegador este abierto: Remove-Item da 'Acceso denegado'.
+  # Se cierran solo los procesos cuyo ejecutable esta dentro de $Prefix (el Chrome real del usuario
+  # vive en otra carpeta y no se toca) y se reintenta porque el SO tarda un momento en liberar.
+  $bloqueados = @(Get-Process chromper,chrome -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($Prefix, [StringComparison]::OrdinalIgnoreCase) })
+  if ($bloqueados.Count -gt 0) {
+    Write-Host ("Cerrando Chromper ({0} procesos) para poder borrar los ficheros." -f $bloqueados.Count)
+    $bloqueados | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+  }
+  if (Test-Path $Prefix) {
+    $hecho = $false
+    foreach ($n in 1..4) {
+      try { Remove-Item -Recurse -Force $Prefix -ErrorAction Stop; $hecho = $true; break } catch {
+        Start-Sleep -Seconds 3
+      }
+    }
+    if (-not $hecho) {
+      Write-Warning "Chromper sigue usando ficheros de $Prefix: cierra el navegador (y las extensiones en segundo plano) y repite -Uninstall."
+      return
+    }
+  }
   $lnk = "$env:PUBLIC\Desktop\Chromper.lnk"
   if (Test-Path $lnk) { Remove-Item -Force $lnk }
   # la instalacion anade $Prefix al PATH del usuario: al desinstalar se quita (si no, queda una
