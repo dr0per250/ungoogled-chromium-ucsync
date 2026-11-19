@@ -1,4 +1,4 @@
-# Instala Chromper en Windows 11 desde el ultimo release de este fork.
+﻿# Instala Chromper en Windows 11 desde el ultimo release de este fork.
 #
 # Uso (PowerShell):
 #   .\install_windows.ps1                    # descarga el ultimo zip y lo instala en %LOCALAPPDATA%

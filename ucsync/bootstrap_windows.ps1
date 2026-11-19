@@ -1,4 +1,4 @@
-# Construye Chromper (Chromium + UC-Sync integrado) en Windows 11.
+﻿# Construye Chromper (Chromium + UC-Sync integrado) en Windows 11.
 #
 # Pasos (se pueden ejecutar por separado y son reanudables):
 #   .\bootstrap_windows.ps1 -Step check     # diagnostico de la maquina
