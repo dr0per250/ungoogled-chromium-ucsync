@@ -1,4 +1,4 @@
-﻿# Runner resistente para compilar Chromper en Windows (tarea programada /sc onstart como SYSTEM).
+# Runner resistente para compilar Chromper en Windows (tarea programada /sc onstart como SYSTEM).
 # Reanuda tras reinicios de Windows Update. Dos cosas que antes costaban horas:
 #  - no avisaba: si un paso petaba, reintentaba 10 veces el mismo error. Ahora compara la firma del
 #    fallo (genbuild.log.fallo -> firma.txt) y para tras dos fallos identicales, dejando ALERTA.txt.
@@ -64,6 +64,8 @@ if (-not (Test-Path (Join-Path $src 'out\Default\gn.exe'))) { Paso 'build' $Jobs
 $anterior = ''
 for ($intento = 1; $intento -le $Intentos; $intento++) {
   if (Test-Path $exe) { break }
+  # la alerta es de un intento: al empezar uno nuevo se borra para que el monitor no vea un fallo viejo
+  Remove-Item $alerta -ErrorAction SilentlyContinue
   Reg "genbuild intento $intento"
   Paso 'genbuild' $Jobs | Out-Null
   $f = FirmaActual

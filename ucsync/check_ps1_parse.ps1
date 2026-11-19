@@ -1,4 +1,4 @@
-﻿# Comprueba que los .ps1 se parsean con el analizador de Windows PowerShell (AST).
+# Comprueba que los .ps1 se parsean con el analizador de Windows PowerShell (AST).
 # check_ps1.py busca patterns concretos que petan en PS 5.1; esto ademas detecta cualquier error de
 # sintaxis (llaves de mas, comillas sin cerrar, strings mal acabadas) antes de ejecutar nada.
 # Uso en Windows:  powershell -ExecutionPolicy Bypass -File .\check_ps1_parse.ps1 .\

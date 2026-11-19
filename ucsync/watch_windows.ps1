@@ -1,4 +1,4 @@
-﻿# Consola LOCAL del estado de la compilacion, para ejecutarla en la propia maquina Windows
+# Consola LOCAL del estado de la compilacion, para ejecutarla en la propia maquina Windows
 # (no hace falta SSH). En el otro equipo usa tools/watch_windows.sh.
 #
 # Uso (PowerShell, sin administrador):

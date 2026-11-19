@@ -1,4 +1,4 @@
-﻿# Diagnostico de la maquina Windows para compilar Chromper. Solo lee, no cambia nada.
+# Diagnostico de la maquina Windows para compilar Chromper. Solo lee, no cambia nada.
 #
 # Uso (PowerShell):
 #   .\diagnose_windows.ps1

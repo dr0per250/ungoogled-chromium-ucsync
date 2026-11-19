@@ -1,4 +1,4 @@
-﻿# Empaqueta Chromper (Chromium sin Google con UC-Sync integrado) para Windows x64.
+# Empaqueta Chromper (Chromium sin Google con UC-Sync integrado) para Windows x64.
 #
 # Se ejecuta DESPUES de `ninja -C out\Release chrome`: coge del directorio de salida solo lo que
 # el navegador necesita en tiempo de ejecucion, recorta idiomas y coloca la extension integrada
