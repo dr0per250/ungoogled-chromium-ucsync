@@ -30,6 +30,17 @@ if [[ "${UCSYNC_UNINSTALL:-0}" == "1" ]]; then
   rm -f "$HOME/.local/share/applications/$DESKTOP_ID" \
         "$HOME/.local/share/icons/hicolor/48x48/apps/chromper.png" \
         "$HOME/.local/share/icons/hicolor/scalable/apps/chromper.svg"
+  # el enlace del prefijo del nombre anterior apunta a un prefijo que acaba de desaparecer: se quita
+  # si es un symlink nuestro (los perfiles viejos de nombres anteriores no se borran nunca)
+  if [[ -L "$HOME/.local/share/ucsync-chromium" ]]; then
+    rm -f "$HOME/.local/share/ucsync-chromium"
+    say "Quitado el enlace .local/share/ucsync-chromium que apuntaba al prefijo borrado."
+  fi
+  # el lanzador dejaba tambien un enlace de compatibilidad 'chrome' junto a 'chromper'
+  if [[ -L "$BIN_DIR/chrome" && "$(readlink -f "$BIN_DIR/chrome")" == "$PREFIX"* ]]; then
+    rm -f "$BIN_DIR/chrome"
+    say "Quitado el enlace de compatibilidad $BIN_DIR/chrome."
+  fi
   # perfiles viejos de nombres anteriores no se borran nunca
   say "Borrado $PREFIX y $LAUNCHER (el perfil se conserva)."
   exit 0

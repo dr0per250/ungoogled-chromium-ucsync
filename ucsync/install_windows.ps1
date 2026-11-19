@@ -17,7 +17,17 @@ if ($Uninstall) {
   if (Test-Path $Prefix) { Remove-Item -Recurse -Force $Prefix }
   $lnk = "$env:PUBLIC\Desktop\Chromper.lnk"
   if (Test-Path $lnk) { Remove-Item -Force $lnk }
-  Write-Host "Borrado $Prefix (el perfil %LOCALAPPDATA%\chromper-profile se conserva)."
+  # la instalacion anade $Prefix al PATH del usuario: al desinstalar se quita (si no, queda una
+  # entrada muerta que ademas tapa el PATH cuando se instala en otra carpeta)
+  $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+  if ($userPath) {
+    $sinPrefijo = @($userPath -split ';' | Where-Object { $_ -and $_ -ne $Prefix }) -join ';'
+    if ($sinPrefijo -ne $userPath) {
+      [Environment]::SetEnvironmentVariable('Path', $sinPrefijo, 'User')
+      Write-Host "Quitado $Prefix del PATH del usuario."
+    }
+  }
+  Write-Host "Borrado $Prefix (el perfil %LOCALAPPDATA%\chromper-profile se conserva; borral tu si quieres borrar tambien tus datos)."
   return
 }
 
