@@ -93,7 +93,8 @@ $versioned = Join-Path $Out "chromper-windows-x64-$version.zip"
 # Compress-Archive no pisa un zip existente: se borran los del intento anterior.
 foreach ($z in @($stable, $versioned)) { Remove-Item $z -Force -ErrorAction SilentlyContinue }
 # se comprime en .tmp y se renombra al final: asi un lector nunca ve un zip a medias
-$tempZip = $stable + '.tmp'
+# Compress-Archive exige extension .zip: el temporal acaba en .zip y se renombra al final.
+$tempZip = Join-Path $env:TEMP ('chromper-win-' + [guid]::NewGuid().ToString('N') + '.zip')
 Compress-Archive -Path $pkg -DestinationPath $tempZip -CompressionLevel Optimal
 Move-Item -Path $tempZip -Destination $stable -Force
 Copy-Item $stable $versioned
