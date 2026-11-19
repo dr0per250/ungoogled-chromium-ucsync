@@ -84,5 +84,11 @@ if (-not (Test-Path $exe)) {
 }
 Remove-Item $alerta -ErrorAction SilentlyContinue
 Reg 'CHROMPER_COMPILADO'
-Paso 'package' $Jobs | Out-Null
-Reg 'PAQUETE_HECHO'
+$codPkg = Paso 'package' $Jobs
+if ($codPkg -eq 0 -and (Test-Path (Join-Path $Workspace 'pkg\chromper-windows-x64.zip'))) {
+  Reg 'PAQUETE_HECHO'
+} else {
+  Reg ("package fallo (codigo $codPkg): no hay pkg\chromper-windows-x64.zip")
+  Set-Content -Path $alerta -Encoding ascii -Value ("[{0}] package codigo {1}: no hay zip" -f (Get-Date -Format 'HH:mm'), $codPkg)
+  exit 1
+}

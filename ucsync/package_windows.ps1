@@ -28,7 +28,7 @@ $version = (Get-Content (Join-Path $fork 'chromium_version.txt')).Trim()
 
 $stage = Join-Path $env:TEMP ("ucsync-win-" + [guid]::NewGuid().ToString('N'))
 $pkg = Join-Path $stage 'chromper'
-New-Item -ItemType Directory -Path $pkg | Out-Null
+New-Item -ItemType Directory -Path $pkg -Force | Out-Null
 
 $files = 'chrome.exe','chrome_proxy.exe','chrome_crashpad_handler.exe','product_logo_48.png',
          'resources.pak','chrome_100_percent.pak','chrome_200_percent.pak','browser_resources.pak',
@@ -48,7 +48,7 @@ foreach ($f in 'libvk_swiftshader.dll','vk_swiftshader_icd.json') {
   if (Test-Path $p) { Copy-Item $p $pkg }
 }
 
-New-Item -ItemType Directory -Path (Join-Path $pkg 'locales') | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $pkg 'locales') -Force | Out-Null
 foreach ($loc in $Locales -split ' ') {
   $p = Join-Path $build "locales\$loc.pak"
   if (Test-Path $p) { Copy-Item $p (Join-Path $pkg 'locales') }
@@ -80,9 +80,11 @@ Set-Content -Path (Join-Path $pkg 'VERSION') -Value "chromium=$version", "ucsync
 if (Test-Path (Join-Path $pkg 'chrome.exe')) { Rename-Item (Join-Path $pkg 'chrome.exe') 'chromper.exe' }
 if (-not (Test-Path (Join-Path $pkg 'chromper.exe'))) { throw 'No hay chromper.exe en el paquete.' }
 
-New-Item -ItemType Directory -Path $Out | Out-Null
+New-Item -ItemType Directory -Path $Out -Force | Out-Null
 $stable = Join-Path $Out 'chromper-windows-x64.zip'
 $versioned = Join-Path $Out "chromper-windows-x64-$version.zip"
+# Compress-Archive no pisa un zip existente: se borran los del intento anterior.
+foreach ($z in @($stable, $versioned)) { Remove-Item $z -Force -ErrorAction SilentlyContinue }
 Compress-Archive -Path $pkg -DestinationPath $stable -CompressionLevel Optimal
 Copy-Item $stable $versioned
 Remove-Item -Recurse -Force $stage

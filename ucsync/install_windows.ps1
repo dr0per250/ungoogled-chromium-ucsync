@@ -22,7 +22,7 @@ if ($Uninstall) {
 }
 
 $tmp = Join-Path $env:TEMP ("ucsync-" + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $tmp | Out-Null
+New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 try {
   if ($Zip) {
     Copy-Item $Zip (Join-Path $tmp 'pkg.zip')
