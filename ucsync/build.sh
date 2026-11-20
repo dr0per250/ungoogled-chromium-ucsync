@@ -102,6 +102,14 @@ build() {
     # (`is_official_build=true`) esos DCHECK ni se compilan, por eso sólo petaba en Linux.
     echo 'dcheck_always_on = false'
     echo 'enable_expensive_dchecks = false'
+    # Codecs propietarios: sin esto el binario no reproduce H.264/AAC, que es lo que sirve
+    # reddit (HLS con segmentos MP4 avc1+mp4a) -> el <video> falla con
+    # DEMUXER_ERROR_NO_SUPPORTED_STREAMS y `SetError {code=4}` (MEDIA_ERR_UNSUPPORTED).
+    # YouTube si funciona porque tira de VP9, que es libre y si viene compilado.
+    # `ffmpeg_branding = "Chrome"` es la marca que habilita esos codecs en el ffmpeg de Chromium.
+    echo 'proprietary_codecs = true'
+    echo 'ffmpeg_branding = "Chrome"'
+    echo 'enable_mse_mpeg2ts_stream_parser = true'
     echo 'symbol_level = 0'
     echo 'v8_symbol_level = 0'
     [[ "$(uname -s)" == "Linux" ]] && echo 'use_sysroot = true'
