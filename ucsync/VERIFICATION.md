@@ -89,3 +89,37 @@ Comprobado sobre el binario reconstruido (52.078/52.078 acciones, 0 `FAILED:`, 2
 | `verify_runtime.sh` | `addUrl`/`addUrls` con hora real y hora futura rechazada: OK |
 | `check_local.sh` | serie de 7 parches, choices de flags, UI sin PNG, `.ps1`: OK |
 | reddit con binario nuevo, GUI, 70 s | sin `FATAL`, sin `Crashpad/completed` |
+
+## Codecs propietarios: H.264/AAC (el vídeo de reddit no reproducía)
+
+Síntoma: en reddit el `<video>` no arrancaba y el log traía
+`FFmpegDemuxer: no supported streams`, `DEMUXER_ERROR_NO_SUPPORTED_STREAMS` y
+`SetError {code=4}` (`MEDIA_ERR_UNSUPPORTED`). YouTube sí iba porque sirve VP9, libre y sí compilado.
+
+Sonda `canPlayType()` por CDP (`ucsync/probe_codecs.mjs`) sobre el asset publicado y el binario nuevo:
+
+| códec | asset publicado | binario con `proprietary_codecs` |
+| --- | --- | --- |
+| `video/mp4; codecs="avc1.42E01E"` (H.264) | `""` | `probably` |
+| `video/mp4; codecs="avc1.640033"` (H.264 alto nivel) | `""` | `probably` |
+| `video/mp4; codecs="mp4a.40.2"` (AAC) | `""` | `probably` |
+| `application/vnd.apple.mpegurl` (HLS) | `""` | `maybe` |
+| `video/webm; codecs="vp9"` | `probably` | `probably` |
+
+Reproducción real (`ucsync/probe_playback.mjs`, `<video autoplay muted>` con un MP4 H.264+AAC):
+
+| | asset anterior | binario nuevo |
+| --- | --- | --- |
+| `canPlayType('video/mp4; codecs="avc1…,mp4a…"')` | `""` | `probably` |
+| `error` | `{code: 4}` | `null` |
+| `readyState` | `0` | `4` (`HAVE_ENOUGH_DATA`) |
+| `currentTime` | `0` (no avanza) | `5,35 → 5,76` (avanza) |
+
+Causa raíz: los args de build no ponían `proprietary_codecs = true` ni `ffmpeg_branding = "Chrome"`;
+el ffmpeg de Chromium sólo incluye H.264/AAC con esa marca. El constructor de Windows ya los traía en
+`flags.windows.gn` (`proprietary_codecs=true`, `ffmpeg_branding="Chrome"`,
+`enable_mse_mpeg2ts_stream_parser=true`, `is_official_build=true`, `dcheck_always_on=false`), por eso
+en Windows el vídeo sí funcionaba y tampoco petaba por DCHECKs.
+
+El AV1 de software sigue sin anunciarse (`canPlayType('av01…')` = `""`); no bloquea reddit, que sirve
+H.264/AAC, y queda apuntado como pendiente.

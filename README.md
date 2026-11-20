@@ -24,7 +24,7 @@ que compilar el navegador, así que la extensión viaja con él.
 | Versión fijada | la de [`chromium_version.txt`](chromium_version.txt) (verificada compilando `157.0.8103.78`) |
 | ID de la extensión | `lidfhdhmbifmhikiaklbiehnhnkhoghe`, fijado por el campo `key` del manifiesto |
 | UI | `chrome://ucsync` (servida por el navegador desde los ficheros embebidos, con lista blanca) |
-| **Binarios** | Linux x64 (`chromper-linux-x64.tar.gz`, 189 MB) y Windows 11 x64 (`chromper-windows-x64.zip`, 188 MB) publicados en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases), en el tag `chromium-157.0.8103.78`. Los dos comprobados sobre el asset publicado: `--version`, `chrome://ucsync`, `addUrls` conservando la marca de tiempo y el buscador Google (`ucsync/verify_runtime.sh`, `ucsync/cdp_check_windows.ps1`). |
+| **Binarios** | Linux x64 (`chromper-linux-x64.tar.gz`, 190 MB) y Windows 11 x64 (`chromper-windows-x64.zip`, 188 MB) publicados en [Releases](https://github.com/dr0per250/ungoogled-chromium-ucsync/releases), en el tag `chromium-157.0.8103.78`. Los dos comprobados sobre el asset publicado: `--version`, `chrome://ucsync`, `addUrls` conservando la marca de tiempo, el buscador Google y los codecs H.264/AAC (`ucsync/verify_runtime.sh`, `ucsync/cdp_check_windows.ps1`). |
 | Nombre del producto | **Chromper** también por dentro: `chromper --version` y el menú/Acerca de dicen Chromper (parche `0005`), ejecutable `chromper`/`chromper.exe`, lanzador `chromper`, entrada `io.chromper.desktop` con el icono de Chromium, perfil `~/.config/chromper`, `WM_CLASS=chromper`. El motor sigue siendo Chromium y la autoría sigue nombrando a The Chromium Authors. |
 | Bóveda y servidor | [dr0per250/uc-sync](https://github.com/dr0per250/uc-sync) — [Releases](https://github.com/dr0per250/uc-sync/releases) con el zip si quieres la extensión suelta |
 | Herramientas propias | [`ucsync/`](ucsync/README.md) (`build.sh`, `bump.sh`, `verify_patch.py`, `make_ucsync_patches.sh`, `verify_runtime.sh`) |
@@ -37,7 +37,7 @@ Lo de ungoogled (objetivos, características, FAQ, construcción genérica) sigu
 
 ## Instalar el binario (CachyOS / Arch)
 
-El release `chromium-<versión>` trae `chromper-linux-x64.tar.gz` (189 MB: navegador, recursos,
+El release `chromium-<versión>` trae `chromper-linux-x64.tar.gz` (190 MB: navegador, recursos,
 idiomas recortados y las dos extensiones integradas). El repo es público: para instalar no hace
 falta `gh` ni token.
 
@@ -141,7 +141,8 @@ WORK="$HOME/ucbuild" ~/uc-fork/ucsync/build.sh --chrome
 
 `build.sh --chrome` escribe `out/Default/args.gn` con `flags.gn` más los args con los que se verificó
 la compilación (`is_debug = false`, `is_official_build = false`, `dcheck_always_on = false`,
-`enable_expensive_dchecks = false`, `symbol_level = 0`, `v8_symbol_level = 0`,
+`enable_expensive_dchecks = false`, `proprietary_codecs = true`, `ffmpeg_branding = "Chrome"`,
+`enable_mse_mpeg2ts_stream_parser = true`, `symbol_level = 0`, `v8_symbol_level = 0`,
 `use_sysroot = true`) y copia `chrome/browser/resources/ucsync/` a
 `out/Default/ucsync/`: el navegador busca la extensión en `<exe>/ucsync`
 (puedes forzarlo con `--ucsync-extension-dir=<ruta>`).
@@ -174,6 +175,7 @@ curl http://10.7.93.19:8443/v1/info                 # status online; hasVault tr
 | Dawn: `third_party/dawn/tools/golang/linux-amd64/bin/go` no existe | `bash ~/uc-fork/ucsync/fetch_dawn_go.sh ~/ucbuild/src` |
 | enlace `out of memory` | `JOBS=8` y confirma `symbol_level = 0` en `out/Default/args.gn` |
 | el renderer aborta al abrir ciertas webs (`FATAL … DCHECK failed` en `inline_node.cc`) | `dcheck_always_on = false`: con `is_official_build = false` los DCHECK de Blink se compilan y, sin field trials, son fatales |
+| el vídeo de reddit no reproduce (YouTube sí) y el log dice `DEMUXER_ERROR_NO_SUPPORTED_STREAMS` con `SetError {code=4}` | `proprietary_codecs = true` y `ffmpeg_branding = "Chrome"`: sin la marca «Chrome» el ffmpeg de Chromium no incluye H.264/AAC, que es lo que sirve reddit por MSE/HLS; VP9 (YouTube) sí venía |
 | `ninja: unknown target chrome_sandbox` | en otras plataformas: `ninja -C out/Default chrome chromedriver` |
 
 ## Compilar en Windows 11
