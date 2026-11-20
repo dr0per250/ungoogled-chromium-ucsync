@@ -59,7 +59,12 @@ try {
       'MP4 sin codecs': v.canPlayType('video/mp4'),
       'VP8 webm': v.canPlayType('video/webm; codecs="vp8,vorbis"'),
       'VP9 webm': v.canPlayType('video/webm; codecs="vp9"'),
-      'AV1 mp4': v.canPlayType('video/mp4; codecs="av01.0.1M.08"'),
+      'AV1 mp4 (av01.0.05M.08)': v.canPlayType('video/mp4; codecs="av01.0.05M.08"'),
+      'AV1 webm cadena corta': v.canPlayType('video/webm; codecs="av01"'),
+      'MSE avc1': MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E"'),
+      'MSE mp4a': MediaSource.isTypeSupported('video/mp4; codecs="mp4a.40.2"'),
+      'MSE av01': MediaSource.isTypeSupported('video/mp4; codecs="av01.0.05M.08"'),
+      'MSE vp9': MediaSource.isTypeSupported('video/webm; codecs="vp9"'),
       'HLS (m3u8)': v.canPlayType('application/vnd.apple.mpegurl'),
       'MediaSource MSE': (typeof MediaSource !== 'undefined') ? 'existe' : 'no',
     };

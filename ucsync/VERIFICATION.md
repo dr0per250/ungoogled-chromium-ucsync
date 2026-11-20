@@ -121,5 +121,17 @@ el ffmpeg de Chromium sólo incluye H.264/AAC con esa marca. El constructor de W
 `enable_mse_mpeg2ts_stream_parser=true`, `is_official_build=true`, `dcheck_always_on=false`), por eso
 en Windows el vídeo sí funcionaba y tampoco petaba por DCHECKs.
 
-El AV1 de software sigue sin anunciarse (`canPlayType('av01…')` = `""`); no bloquea reddit, que sirve
-H.264/AAC, y queda apuntado como pendiente.
+El AV1 de software sí está disponible: `enable_av1_decoder = enable_dav1d_decoder`
+(`media/media_options.gni:148`) y `out/Default/obj/third_party/dav1d` se compila. Sondeo con cadenas
+válidas (el nivel va en dos dígitos; `av01.0.1M.08` es una cadena inválida y devuelve `""`):
+
+| sonda | resultado |
+| --- | --- |
+| `video/mp4; codecs="av01.0.05M.08"` | `probably` |
+| `video/mp4; codecs="av01.0.01M.08"` | `probably` |
+| `MediaSource.isTypeSupported('video/mp4; codecs="av01.0.05M.08"')` | `true` |
+| `video/webm; codecs="av01"` (cadena corta) | `""` — Chromium exige perfil y nivel |
+
+Pendiente, y no bloqueante: la decodificación **por hardware** (VA-API en AMD con Mesa reciente) se
+comprueba en `chrome://media-internals` mirando `video_decoder_type`; sin ella todo va por dav1d en
+CPU, que funciona pero cuesta más en 4K.
