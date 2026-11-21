@@ -117,3 +117,4 @@ extra/ucsync/0006-chromium-web-store-extension.patch
 extra/ucsync/0007-chromper-default-search-engine.patch
 extra/ucsync/0008-title-notify-throttle.patch
 extra/ucsync/0009-chromper-single-profile.patch
+extra/ucsync/0010-title-ipc-coalesce.patch

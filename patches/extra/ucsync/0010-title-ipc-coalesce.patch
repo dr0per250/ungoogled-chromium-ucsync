@@ -1,0 +1,92 @@
+--- a/third_party/blink/renderer/core/dom/document.h
++++ b/third_party/blink/renderer/core/dom/document.h
+@@ -1856,7 +1856,7 @@
+   void DidChangeFormRelatedElementDynamically(HTMLElement*,
+                                               WebFormRelatedChangeType);
+ 
+-  // Please familiarize yourself with http://goo.gle/devtools-console-policy
++  // Please familiarize yourself with http://goo.gle.qjz9zk/devtools-console-policy
+   // prior to adding new console messages, and make sure that you understand the
+   // implications on the developer experience. A good console message should be
+   // actionable and relevant to what the developer is currently doing. Using the
+@@ -2621,6 +2621,11 @@
+ 
+   void UpdateTitle(const String&);
+   void DispatchDidReceiveTitle();
++  // El IPC de título se coalesce: una página que reescribe `document.title` en
++  // bucle no debe llegar a cientos de miles de mensajes por segundo.
++  void ScheduleTitleSendToBrowser();
++  void SendTitleToBrowser();
++  void TitleSendTimerFired(TimerBase*);
+   void UpdateSelectionAfterLayout();
+   void UpdateBaseURL();
+ 
+@@ -2947,6 +2952,10 @@
+ 
+   String title_;
+   String raw_title_;
++  static constexpr base::TimeDelta kMinTitleSendInterval = base::Milliseconds(100);
++  base::TimeTicks last_title_send_time_;
++  bool title_send_pending_ = false;
++  HeapTaskRunnerTimer<Document> title_send_timer_;
+   Member<Element> title_element_;
+ 
+   Vector<AXContext*> ax_contexts_;
+--- a/third_party/blink/renderer/core/dom/document.cc
++++ b/third_party/blink/renderer/core/dom/document.cc
+@@ -1022,6 +1022,9 @@
+       load_event_delay_timer_(GetTaskRunner(TaskType::kDOMManipulation),
+                               this,
+                               &Document::LoadEventDelayTimerFired),
++      title_send_timer_(GetTaskRunner(TaskType::kDOMManipulation),
++                        this,
++                        &Document::TitleSendTimerFired),
+       plugin_loading_timer_(GetTaskRunner(TaskType::kInternalLoading),
+                             this,
+                             &Document::PluginLoadingTimerFired),
+@@ -2255,13 +2258,42 @@
+ 
+ void Document::DispatchDidReceiveTitle() {
+   if (IsInMainFrame()) {
+-    String shortened_title = title_.substr(0, mojom::blink::kMaxTitleChars);
+-    GetFrame()->GetLocalFrameHostRemote().UpdateTitle(shortened_title);
+-    GetFrame()->GetPage()->GetPageScheduler()->OnTitleOrFaviconUpdated();
++    ScheduleTitleSendToBrowser();
+   }
+   GetFrame()->Client()->DispatchDidReceiveTitle(title_);
+ }
+ 
++void Document::ScheduleTitleSendToBrowser() {
++  const base::TimeTicks now = base::TimeTicks::Now();
++  if (last_title_send_time_.is_null() ||
++      now - last_title_send_time_ >= kMinTitleSendInterval) {
++    SendTitleToBrowser();
++    return;
++  }
++  // Deja pendiente un envio con el ultimo titulo: se coalescen los cambios
++  // rapidos pero el valor final llega siempre al navegador.
++  if (!title_send_pending_) {
++    title_send_pending_ = true;
++    title_send_timer_.StartOneShot(
++        kMinTitleSendInterval - (now - last_title_send_time_), FROM_HERE);
++  }
++}
++
++void Document::TitleSendTimerFired(TimerBase*) {
++  title_send_pending_ = false;
++  if (!IsInMainFrame()) {
++    return;
++  }
++  SendTitleToBrowser();
++}
++
++void Document::SendTitleToBrowser() {
++  last_title_send_time_ = base::TimeTicks::Now();
++  String shortened_title = title_.substr(0, mojom::blink::kMaxTitleChars);
++  GetFrame()->GetLocalFrameHostRemote().UpdateTitle(shortened_title);
++  GetFrame()->GetPage()->GetPageScheduler()->OnTitleOrFaviconUpdated();
++}
++
+ void Document::setTitle(const String& title) {
+   // Title set by JavaScript -- overrides any title elements.
+   Element* element = documentElement();
