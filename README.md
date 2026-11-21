@@ -296,6 +296,21 @@ blanco de pruebas; en un árbol podado como el de esta máquina no se construyen
   se vuelve a tocar. `ucsync/make_search_patch.sh` regenera el parche y `--refresh-baseline` rehace la
   base del JSON cuando el submódulo `external/search_engines_data` cambie.
 
+- **`0008-title-notify-throttle`** — **caudal de cambios de título**. El proceso navegador se quedaba
+  sin respuesta y consumía ~1 GB/s de RAM al abrir el UI web de `omp`: la página reasigna
+  `document.title` sin límite y cada cambio recorre el UI de la pestaña
+  (`WebContentsImpl::NotifyTitleUpdateForEntry` → `tabs::TabDataObserver::OnTabUIChange` →
+  `Tab::OnTabDataChanged`, con su tooltip y su nombre accesible) y reenvía un `tabs.onUpdated` a cada
+  extensión con permiso `tabs` (`extensions::ExtensionTabUtil::CreateTabObject`). Con varias
+  extensiones activas eso satura el hilo de UI (~150 % de CPU) y la contabilidad de eventos en vuelo
+  (`extensions::EventAckData::IncrementInflightEvent` → `content::ServiceWorkerVersion::
+  StartExternalRequest`, un `std::map<base::Uuid,int>` que sólo se descuenta cuando el service worker
+  confirma) crece sin techo. El parche coalesce las notificaciones de título a ~10 por segundo por
+  pestaña, entregando siempre la última (`WebContentsImpl::NotifyTitleUpdateThrottled` y
+  `FlushDeferredTitleUpdate`). Es una mitigación defensiva: cualquier página con un bucle de títulos
+  deja de poder tumbar el navegador; el bug de origen está en la app (su `MutationObserver` sobre
+  `document.head` observa su propia escritura del `<title>`).
+
 Las visitas se escriben con `SOURCE_EXTENSION`, no con `SOURCE_SYNCED`: Chrome Sync no las borra
 cuando se desactiva y `VisitItem.isLocal` sigue siendo `true` (se pueden borrar a mano).
 

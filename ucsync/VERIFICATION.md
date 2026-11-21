@@ -135,3 +135,44 @@ válidas (el nivel va en dos dígitos; `av01.0.1M.08` es una cadena inválida y 
 Pendiente, y no bloqueante: la decodificación **por hardware** (VA-API en AMD con Mesa reciente) se
 comprueba en `chrome://media-internals` mirando `video_decoder_type`; sin ella todo va por dav1d en
 CPU, que funciona pero cuesta más en 4K.
+
+## Tormenta de repintado con el UI web de `omp` (colapso del proceso navegador)
+
+Síntoma reportado: al abrir `http://<host>:30177/` y pulsar el selector de espacio de trabajo («+»),
+Chromper deja de responder y el proceso navegador consume memoria sin techo hasta morir.
+
+Medido en la máquina del usuario (CachyOS, Wayland/KDE, perfil real), con `perf` instalado:
+
+| medición | valor |
+|---|---|
+| RSS del proceso navegador | +350 MB/s, 14,3 GB en 40 s (y abortos por OOM) |
+| `Chrome_IOThread` | 305 083 faults en 4 s; el resto del proceso ~18 500 |
+| procesos hijos (red, GPU, storage, renderers) | ~0 faults: no asignan |
+| renderer de la página | 8-18 % de CPU en `PageAnimator::ServiceScriptedAnimations` → `LocalFrameView::RunPaintLifecyclePhase` → `PaintLayerPainter::Paint`, con `ContainerNode::RecalcDescendantStyles` continuo |
+| rama `WebContentsImpl::UpdateTitle → NotifyTitleUpdateForEntry → TabDataObserver::OnTabUIChange → Tab::OnTabDataChanged` | ~7 % de las muestras de CPU |
+
+Descartado con A/B (mismo perfil, misma URL, 40 s de observación):
+
+| variable | resultado |
+|---|---|
+| `--disable-gpu` | sigue explorando |
+| `--disable-features=PictureInPicture` y con `MediaSession,MediaSessionApi` | sigue explorando |
+| `NO_AT_BRIDGE=1` (puente AT-SPI) | sigue explorando |
+| `--disable-extensions` | sigue explorando (con sesión de omp activa) |
+| sin `--remote-debugging-port` (arranque idéntico al del usuario) | sigue explorando, 15 GB y aborta |
+| fugas de conexiones | 6 sockets al puerto 30177, ~100 descriptores: no hay fuga |
+| restauración de sesión | `Sessions/Tabs_*` no contienen la URL: no restaura nada |
+| perfil (bisección: History, Local Storage, Sessions, Service Worker, IndexedDB, Web Storage) | 0 MB en los seis casos cuando **no hay sesión de omp activa** en el servidor |
+
+Conclusión honesta: el disparador es el stream de eventos de una **sesión de omp en curso** (el UI
+repinta y actualiza el título en bucle); el perfil y las extensiones no son necesarios. El parche
+`0008-title-notify-throttle` coalesce las notificaciones de título (~10/s, entregando siempre la
+última) y está verificado como endurecimiento — 400 escrituras rápidas de `document.title` terminan
+con el último título en el target de DevTools — pero **no corta la fuga de memoria medida**: binario
+viejo 14,3 GB/40 s frente a 14,1 GB/40 s con el parche. El lado de la app tiene su propio bug
+confirmado en el bundle servido: el `MutationObserver` que fija el título observa `document.head`
+con `subtree` y `characterData`, o sea observa su propia escritura del `<title>`, y el handler
+`case "setTitle"` escribe el DOM al mismo tiempo; el parche aplicado al bundle (backup en
+`index-9231ff16.js.orig-titulo`) marca las escrituras propias y limita el observador a 300 ms.
+Falta cerrar el origen exacto de los ~350 MB/s del proceso navegador: siguiente paso, trazas de
+arranque de Chromium (`cc,viz,mojo,ipc`) o `massif` con una sesión de omp activa.

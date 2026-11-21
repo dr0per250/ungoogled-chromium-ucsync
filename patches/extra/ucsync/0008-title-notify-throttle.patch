@@ -1,0 +1,84 @@
+--- a/content/browser/web_contents/web_contents_impl.cc
++++ b/content/browser/web_contents/web_contents_impl.cc
+@@ -9442,7 +9442,7 @@
+       NavigationEntryImpl::FromNavigationEntry(entry);
+   bool title_changed = UpdateTitleForEntryImpl(entry_impl, title);
+   if (title_changed) {
+-    NotifyTitleUpdateForEntry(entry_impl);
++    NotifyTitleUpdateThrottled(entry_impl);
+   }
+ }
+ 
+@@ -9480,6 +9480,41 @@
+   }
+ }
+ 
++void WebContentsImpl::NotifyTitleUpdateThrottled(NavigationEntryImpl* entry) {
++  const base::TimeTicks now = base::TimeTicks::Now();
++  if (last_title_notify_time_.is_null() ||
++      now - last_title_notify_time_ >= kMinTitleNotifyInterval) {
++    last_title_notify_time_ = now;
++    deferred_title_entry_unique_id_ = -1;
++    NotifyTitleUpdateForEntry(entry);
++    return;
++  }
++
++  // Dentro de la ventana de coalescencia sólo se guarda a qué entrada hay que entregar el
++  // título; se notifica una vez al cerrarla, de forma que el título visible siempre acaba
++  // siendo el último que escribió la página.
++  deferred_title_entry_unique_id_ = entry->GetUniqueID();
++  if (!title_notify_timer_.IsRunning()) {
++    title_notify_timer_.Start(
++        FROM_HERE, kMinTitleNotifyInterval - (now - last_title_notify_time_), this,
++        &WebContentsImpl::FlushDeferredTitleUpdate);
++  }
++}
++
++void WebContentsImpl::FlushDeferredTitleUpdate() {
++  last_title_notify_time_ = base::TimeTicks::Now();
++  if (deferred_title_entry_unique_id_ == -1) {
++    return;
++  }
++  const int unique_id = deferred_title_entry_unique_id_;
++  deferred_title_entry_unique_id_ = -1;
++  NavigationEntryImpl* entry =
++      GetController().GetEntryWithUniqueIDIncludingPending(unique_id);
++  if (entry) {
++    NotifyTitleUpdateForEntry(entry);
++  }
++}
++
+ NavigationEntry* WebContentsImpl::GetNavigationEntryForTitle() {
+   // We use the title for the last committed entry rather than a pending
+   // navigation entry. For example, when the user types in a URL, we want to
+--- a/content/browser/web_contents/web_contents_impl.h
++++ b/content/browser/web_contents/web_contents_impl.h
+@@ -28,6 +28,7 @@
+ #include "base/process/kill.h"
+ #include "base/scoped_observation.h"
+ #include "base/time/time.h"
++#include "base/timer/timer.h"
+ #include "base/trace_event/trace_session_observer.h"
+ #include "base/types/pass_key.h"
+ #include "build/build_config.h"
+@@ -2330,6 +2331,20 @@
+   // of a title change if |entry| is the entry whose title is being used as the
+   // display title.
+   void NotifyTitleUpdateForEntry(NavigationEntryImpl* entry);
++  // Chromper: una página puede reasignar `document.title` en bucle. Cada notificación
++  // recorre el UI de la pestaña (tooltip, nombre accesible, repintado) y reenvía un
++  // `tabs.onUpdated` a cada extensión con permiso `tabs`, así que un bucle de títulos
++  // saturaba el hilo de UI y agotaba la memoria del proceso navegador. Se coalescen a un
++  // máximo de ~10 notificaciones por segundo; la última se entrega siempre.
++  void NotifyTitleUpdateThrottled(NavigationEntryImpl* entry);
++  // Entrega la notificación aplazada al cerrarse la ventana de coalescencia.
++  void FlushDeferredTitleUpdate();
++  static constexpr base::TimeDelta kMinTitleNotifyInterval =
++      base::Milliseconds(100);
++  base::TimeTicks last_title_notify_time_;
++  // `unique_id` de la entrada cuyo título se aplazó, -1 si no hay ninguno.
++  int deferred_title_entry_unique_id_ = -1;
++  base::OneShotTimer title_notify_timer_;
+   // Returns the navigation entry whose title is used as the display title for
+   // this WebContents (i.e. for WebContents::GetTitle()).
+   NavigationEntry* GetNavigationEntryForTitle();
