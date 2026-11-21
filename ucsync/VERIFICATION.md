@@ -215,6 +215,34 @@ el de la carga inicial (2 s, antes del flood), donde las funciones dominantes so
 `index-9231ff16.js`. Falta por tanto el nombre de la función de `omp` que genera el flujo; eso sólo
 se puede obtener grabando un perfil de rendimiento en DevTools **antes** de que empiece el flood.
 
+## Parche 0010: el renderer coalesce el IPC de `document.title` (origen del colapso)
+
+La pila del emisor, trazada en el renderer culpable (`bpftrace` + `addr2line`/`nm`):
+
+```
+blink::MutationObserverAgentData::DeliverMutations -> MutationObserver::Deliver   (callback JS)
+  -> v8_document::TitleAttributeSetCallback          (document.title = ...)
+    -> HTMLTitleElement::setText -> Document::SetTitleElement -> Document::UpdateTitle
+      -> Document::DispatchDidReceiveTitle -> GetLocalFrameHostRemote().UpdateTitle(...)
+```
+
+Cada escritura del titulo era un IPC al navegador. Prueba determinista con una pagina que reescribe
+`document.title` en bucle (300 escrituras cada 5 ms), en la maquina del usuario:
+
+| binario | `mojo::MessageDispatcher::Accept` en 5 s | RSS | CPU del navegador |
+|---|---|---|---|
+| viejo (0008, throttle solo en el navegador) | 826 050 | 1 522 -> 2 243 MB (+360 MB/5 s) | 129 % |
+| nuevo (0010) | 589 482 | **269 MB plano** | 38 % |
+
+El parche (`third_party/blink/renderer/core/dom/document.{h,cc}`) mueve el corte al lado del
+renderer: `Document::ScheduleTitleSendToBrowser()` envia como mucho 10/s y deja pendiente un
+`HeapTaskRunnerTimer` (`title_send_timer_`, `kMinTitleSendInterval = 100 ms`) que entrega siempre el
+ultimo titulo. Con `omp web` abierto y sesion activa, el proceso navegador quedo en 302 MB estables
+a los 30 s (antes 11 874 MB y muerto). Tres fallos de compilacion encadenados y sus causas:
+`MakeWeakPersistent` no existe en Chromium 157, `TimerBase` de Blink no expone `IsRunning()` y el
+flag `title_send_pending_` quedo duplicado en `document.h`. El parche se genera contra la base de
+upstream ya aplicada (`ucsync/make_one_patch.py`); `verify_patch.py` confirma los 10 parches.
+
 ## Modo genérico: un solo perfil, sin restauración ni burbuja (parche 0009)
 
 Petición del usuario: Chromper lo usa una sola persona, así que no debe tener maquinaria de perfiles
