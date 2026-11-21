@@ -176,3 +176,22 @@ con `subtree` y `characterData`, o sea observa su propia escritura del `<title>`
 `index-9231ff16.js.orig-titulo`) marca las escrituras propias y limita el observador a 300 ms.
 Falta cerrar el origen exacto de los ~350 MB/s del proceso navegador: siguiente paso, trazas de
 arranque de Chromium (`cc,viz,mojo,ipc`) o `massif` con una sesión de omp activa.
+
+## Modo genérico: un solo perfil, sin restauración ni burbuja (parche 0009)
+
+Petición del usuario: Chromper lo usa una sola persona, así que no debe tener maquinaria de perfiles
+(historial y marcadores los sincroniza la extensión UC-Sync). Nada se borra: sólo se fija el perfil y
+se elimina el estado de sesión. Verificado sobre `out/Default/chrome` (487 369 024 b, 21-11 18:47) con
+Xvfb:
+
+| prueba | resultado |
+|---|---|
+| perfil con `profile.exit_type = "Crashed"` y `session.restore_on_startup = 4` + `startup_urls` | al arrancar con `about:blank` sólo hay `about:blank` → **restauración desactivada** |
+| `ProfileInfoCache` con varios perfiles en `Local State` | se abre siempre `Default` |
+| UC-Sync con el binario nuevo (`ucsync/verify_runtime.sh`) | OK: `addUrl` con hora pasada, `addUrls` en lote y hora futura rechazada |
+| compilación | 2 acciones incrementales, 0 `FAILED`; `verify_patch.py`: los 9 parches propios aplican sobre 157.0.8103.78 |
+| `ucsync/check_local.sh` | todo correcto (serie ↔ ficheros, flags, UI sin PNG, `.ps1` de Windows 5.1) |
+
+Consecuencia práctica: tras un `kill -9` (o un cierre anormal) el navegador ya no muestra «¿Quieres
+restaurar las pestañas?» ni la burbuja de perfil bloqueado, y el `SingletonLock` residual no arrastra
+otros perfiles. Los datos del perfil se conservan intactos.

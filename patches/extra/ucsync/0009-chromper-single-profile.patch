@@ -1,0 +1,52 @@
+--- a/chrome/browser/profiles/profile_manager.cc
++++ b/chrome/browser/profiles/profile_manager.cc
+@@ -944,17 +944,10 @@
+ 
+ // static
+ base::FilePath ProfileManager::GetLastUsedProfileBaseName() {
+-  PrefService* local_state = g_browser_process->local_state();
+-  DCHECK(local_state);
+-  base::FilePath last_used_profile_base_name =
+-      local_state->GetFilePath(prefs::kProfileLastUsed);
+-  // Make sure the system profile can't be the one marked as the last one used
+-  // since it shouldn't get a browser.
+-  if (!last_used_profile_base_name.empty() &&
+-      last_used_profile_base_name.value() != chrome::kSystemProfileDir) {
+-    return last_used_profile_base_name;
+-  }
+-
++  // Chromper: un solo usuario y sin maquinaria de perfiles. Aunque `local_state` haya
++  // guardado un perfil "usado por última vez" (o el `ProfileInfoCache` liste varios por
++  // arranques antiguos), siempre se abre `Default`: nada de selector de perfil ni de
++  // perfiles secundarios. Los datos se conservan; sólo se fija cuál es el perfil.
+   return base::FilePath::FromASCII(chrome::kInitialProfile);
+ }
+ 
+--- a/chrome/browser/chrome_browser_main.cc
++++ b/chrome/browser/chrome_browser_main.cc
+@@ -72,6 +72,7 @@
+ #include "chrome/browser/startup_data.h"
+ #include "chrome/browser/translate/chrome_translate_client.h"
+ #include "chrome/browser/translate/translate_service.h"
++#include "chrome/browser/prefs/session_startup_pref.h"
+ #include "chrome/browser/ui/actions/chrome_actions.h"
+ #include "chrome/browser/ui/color/chrome_color_mixers.h"
+ #include "chrome/browser/ui/javascript_dialogs/chrome_javascript_app_modal_dialog_view_factory.h"
+@@ -1607,6 +1608,17 @@
+     TRACE_EVENT0("startup", "ChromeBrowserMainParts::PostProfileInit");
+   }
+ 
++  // Chromper: navegador genérico de un solo usuario. Cada arranque deja el estado de sesión
++  // en limpio — sin restauración de pestañas y sin la burbuja de «sesión bloqueada» que
++  // aparece cuando Chromium registró una salida anormal — porque el historial y los
++  // marcadores los sostiene la extensión UC-Sync, no el perfil. Los datos guardados (cookies,
++  // contraseñas, ajustes de la extensión) no se tocan.
++  if (PrefService* prefs = profile->GetPrefs()) {
++    prefs->SetString(prefs::kSessionExitType, "Normal");
++    SessionStartupPref::SetStartupPref(prefs,
++                                       SessionStartupPref(SessionStartupPref::DEFAULT));
++  }
++
+   for (auto& chrome_extra_part : chrome_extra_parts_) {
+     chrome_extra_part->PostProfileInit(profile, is_initial_profile);
+   }

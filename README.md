@@ -311,6 +311,16 @@ blanco de pruebas; en un árbol podado como el de esta máquina no se construyen
   deja de poder tumbar el navegador; el bug de origen está en la app (su `MutationObserver` sobre
   `document.head` observa su propia escritura del `<title>`).
 
+- **`0009-chromper-single-profile`** — **modo genérico de un solo usuario, sin maquinaria de
+  perfiles**. Chromium siempre necesita un `--user-data-dir`, así que «sin perfiles» se traduce en un
+  perfil fijo y sin estado de sesión: `ProfileManager::GetLastUsedProfileBaseName()` devuelve siempre
+  `Default` (aunque `local_state` haya guardado otro o el `ProfileInfoCache` liste varios por arranques
+  antiguos) y `ChromeBrowserMainParts::PostProfileInit()` fija `profile.exit_type = "Normal"` más
+  `SessionStartupPref::DEFAULT` en cada arranque. Desaparecen el selector de perfil, la restauración de
+  pestañas y la burbuja de «sesión bloqueada» que salía tras cada salida anormal. **No se borra nada**:
+  cookies, contraseñas y los ajustes de UC-Sync siguen en el mismo perfil; el historial y los marcadores
+  los sostiene la extensión, que es la fuente de verdad. La serie queda en 9 parches propios.
+
 Las visitas se escriben con `SOURCE_EXTENSION`, no con `SOURCE_SYNCED`: Chrome Sync no las borra
 cuando se desactiva y `VisitItem.isLocal` sigue siendo `true` (se pueden borrar a mano).
 
