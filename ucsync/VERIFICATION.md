@@ -174,8 +174,46 @@ confirmado en el bundle servido: el `MutationObserver` que fija el título obser
 con `subtree` y `characterData`, o sea observa su propia escritura del `<title>`, y el handler
 `case "setTitle"` escribe el DOM al mismo tiempo; el parche aplicado al bundle (backup en
 `index-9231ff16.js.orig-titulo`) marca las escrituras propias y limita el observador a 300 ms.
-Falta cerrar el origen exacto de los ~350 MB/s del proceso navegador: siguiente paso, trazas de
-arranque de Chromium (`cc,viz,mojo,ipc`) o `massif` con una sesión de omp activa.
+## Origen medido de la tormenta (bpftrace + traza de arranque, máquina del usuario)
+
+Con `bpftrace` enganchado al proceso navegador durante el flood (extensión instalada y también con
+`--disable-extensions`, porque el flood es el mismo):
+
+| medición | resultado |
+|---|---|
+| `mojo::MessageDispatcher::Accept` | 2 381 706 en 6 s (≈ 400 000 mensajes/s); con `--disable-extensions` 1 908 369 en 4 s (≈ 477 000/s) |
+| `IPC::ChannelAssociatedGroupController::Accept` | 2 219 586 en 6 s |
+| `PartitionBucket::SlowPathAlloc` | 854 584 en 6 s; RSS 1 048 MB → 4 982 MB |
+| `kprobe:tcp_sendmsg` desde `chromper` | **0** en 3 s; 7 sockets a `30177`, 295 `fd` → no hay red implicada |
+| `net::ResolveContext` (constructor) | 0 en 5 s → no se crean peticiones |
+| `InterfaceEndpointClient` (constructor) y `AssociateInterface` | 0 → no hay creación/cierre de endpoints |
+| hojas `perf` | `__vdso_clock_gettime`, `base::ToLowerASCII`, `PartitionRoot::Alloc`, `FreeInUnknownRoot`, `ThreadCache::FillBucket`, `WeakReference::IsValid`, `WebContentsObserverList::NotifyObservers` |
+| pila del aceptador | hilo de I/O: `Connector::ReadAllAvailableMessages → DispatchMessage → Accept` (2 356 982 en 5 s); hilo principal: `ChannelAssociatedGroupController::AcceptOnEndpointThread` (89 861 en 5 s) |
+
+Traza de arranque (`--trace-startup --trace-startup-duration=4000`, 4 s, `/tmp/chrome.pftrace`):
+
+| interfaz | llamadas en 4 s | con `--disable-extensions` |
+|---|---|---|
+| `ThemeService` | 71 342 | 9 922 (sigue habiendo ~2 500/s) |
+| `TemplateURLServiceFactory` | 51 884 | 17 422 |
+| `ExtensionRegistry` | 46 587 | **676** |
+| `ProcessManager` | 45 791 | **29** |
+| `ActivityLog` | 9 165 | **8** |
+| `ExtensionPrefs` / `ExtensionSystem` | 9 381 / 9 446 | despreciable |
+
+Lectura: las APIs de extensión multiplican el tráfico (factor ~70 en `ExtensionRegistry`, ~1 500 en
+`ProcessManager`) pero **no son necesarias** para el colapso, que persiste idéntico con
+`--disable-extensions`. El vehículo es un flujo de mensajes Mojo navegador↔renderer (~470 000/s)
+provocado por la página, y el coste de memoria viene de la deserialización
+(`ipcz::Message::DeserializeFromTransport` / `CopyDataAndValidateHeader`) más el trabajo de UI que
+esa tasa arrastra (`views`, temas, favicon, notificaciones a observers).
+
+Atribución del lado de la página, intentada y bloqueada: el agente de DevTools vive en el hilo de UI
+saturado, así que `/json` deja de responder en ~2 s y ni `Profiler.stop` (40 s de tolerancia) ni
+`--js-flags=--cpu-prof` ni `--perf-prof` llegaron a producir fichero. El único perfil JS obtenido es
+el de la carga inicial (2 s, antes del flood), donde las funciones dominantes son las del bundle
+`index-9231ff16.js`. Falta por tanto el nombre de la función de `omp` que genera el flujo; eso sólo
+se puede obtener grabando un perfil de rendimiento en DevTools **antes** de que empiece el flood.
 
 ## Modo genérico: un solo perfil, sin restauración ni burbuja (parche 0009)
 
