@@ -244,7 +244,7 @@ El binario Linux se publica con `./ucsync/make_release.sh` (crea el release del 
 tarball). Para la extensión suelta, los releases de
 [uc-sync](https://github.com/dr0per250/uc-sync/releases).
 
-## Qué cambia en el navegador (detalle de los 7 parches)
+## Qué cambia en el navegador (detalle de los 9 parches)
 
 - **`0001-history-api-visit-time`** — `chrome.history.addUrl({url, visitTime})` acepta horas pasadas
   y rechaza las futuras con el mensaje
@@ -342,6 +342,20 @@ las rutas viejas siguen apuntando a los ficheros actuales, y `UCSYNC_UNINSTALL=1
 enlace si apuntaba al prefijo borrado. No se recarga la extensión descargándola
 en caliente: quitarla y volverla a cargar en el arranque provoca un `DCHECK` en
 `toolbar_actions_model.cc` (estado de los botones fijados), por eso se resuelve en el disco.
+
+### Idioma de la UI (por qué las extensiones salían en inglés)
+
+El *locale de UI* de este build se toma del entorno (`LANG`/`LC_MESSAGES`), no de `--lang`: medido
+con `LANG=es_ES.UTF-8` + `--lang=de` el navegador carga `es.pak`, y con `LANG` ausente carga
+`en-US.pak` aunque se pase `--lang=es`. Los lanzadores gráficos y las unidades de systemd arrancan
+a veces sin `LANG`, así que el menú, los ajustes y las extensiones que usan `chrome.i18n` salían en
+inglés mientras las webs seguían en español (ellas usan `intl.accept_languages`, que vive en el
+perfil: `es-ES,es`). Por eso el lanzador que genera `ucsync/execute.sh` resuelve
+`UCSYNC_LANG -> LANG -> LC_MESSAGES -> /etc/locale.conf` y **exporta** `LANG`/`LC_MESSAGES` (sólo si
+ese idioma tiene `.pak` en la instalación: un idioma inventado volvería a caer en `en-US`).
+Verificado arrancando con `env -i` (sin `LANG`): carga `locales/es.pak` y el panel de uBlock Origin
+aparece como «Panel de control». La UI de UC-Sync está escrita en español (sin `_locales`), y la de
+`chromium-web-store` sí trae `_locales` con `es`, `es-419`, `de`, `fr`, `it`.
 
 ### Por qué el binario de Windows no se puede compilar aquí
 
