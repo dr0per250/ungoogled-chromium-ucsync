@@ -134,6 +134,27 @@ mkdir -p "$BIN_DIR"
   echo '  done'
   echo '  echo "$HOME/.config/chromper"'
   echo '}'
+  # Idioma de la UI: los lanzadores gráficos (escritorio, launchers, systemd) suelen arrancar
+  # sin LANG, y entonces Chromium cae en en-US aunque el sistema esté en español — o sea el menú,
+  # los ajustes y las extensiones que usan chrome.i18n salen en inglés (las que usan
+  # navigator.language siguen el accept_languages del perfil, por eso se ve una mezcla).
+  # En este build --lang NO cambia el locale de UI (medido: LANG=es_ES.UTF-8 + --lang=de carga
+  # es.pak), así que se exporta LANG/LC_MESSAGES en vez de pasar el flag.
+  # Se resuelve UCSYNC_LANG -> LANG -> LC_MESSAGES -> /etc/locale.conf.
+  echo 'resolve_lang() {'
+  echo '  local l="${UCSYNC_LANG:-}"'
+  echo '  [[ -n "$l" ]] && { printf "%s" "$l"; return; }'
+  echo '  l="${LANG:-${LC_MESSAGES:-}}"'
+  echo '  [[ -n "$l" ]] || l=$(sed -n "s/^LANG=//p" /etc/locale.conf 2>/dev/null | tr -d "\"")'
+  echo '  printf "%s" "$l"'
+  echo '}'
+  echo 'lang="$(resolve_lang)"'
+  # Sólo si el idioma resuelto tiene paquetes de idioma en la instalación: un LANG inventado
+  # haría caer de nuevo en en-US.
+  echo 'if [[ -n "$lang" ]]; then'
+  echo '  base="${lang%%.*}"; base="${base//_/-}"; base="${base%%-*}"'
+  echo '  [[ -f "$PREFIX/locales/$base.pak" ]] && export LANG="${lang%%.*}.UTF-8" LC_MESSAGES="${lang%%.*}.UTF-8"'
+  echo 'fi'
   echo 'exec "$PREFIX/chromper" --user-data-dir="$(resolve_profile)" --class=chromper $EXTRA_FLAGS "$@"'
 
 } > "$LAUNCHER"
