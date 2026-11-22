@@ -165,15 +165,28 @@ Descartado con A/B (mismo perfil, misma URL, 40 s de observación):
 | perfil (bisección: History, Local Storage, Sessions, Service Worker, IndexedDB, Web Storage) | 0 MB en los seis casos cuando **no hay sesión de omp activa** en el servidor |
 
 Conclusión honesta: el disparador es el stream de eventos de una **sesión de omp en curso** (el UI
-repinta y actualiza el título en bucle); el perfil y las extensiones no son necesarios. El parche
-`0008-title-notify-throttle` coalesce las notificaciones de título (~10/s, entregando siempre la
-última) y está verificado como endurecimiento — 400 escrituras rápidas de `document.title` terminan
-con el último título en el target de DevTools — pero **no corta la fuga de memoria medida**: binario
-viejo 14,3 GB/40 s frente a 14,1 GB/40 s con el parche. El lado de la app tiene su propio bug
-confirmado en el bundle servido: el `MutationObserver` que fija el título observa `document.head`
-con `subtree` y `characterData`, o sea observa su propia escritura del `<title>`, y el handler
-`case "setTitle"` escribe el DOM al mismo tiempo; el parche aplicado al bundle (backup en
-`index-9231ff16.js.orig-titulo`) marca las escrituras propias y limita el observador a 300 ms.
+repinta y reasigna el título en bucle); el perfil y las extensiones no son necesarios.
+
+Sobre los parches de título, en orden cronológico y con números:
+
+- `0008-title-notify-throttle` (coalescencia en el navegador, `WebContentsImpl`) estaba verificado
+  como endurecimiento — 400 escrituras rápidas de `document.title` terminan con el último título en
+  el target de DevTools — pero **no cortaba la fuga medida**: 14,3 GB/40 s sin él frente a
+  14,1 GB/40 s con él. **Se revirtió** (`1f52d7c9`), porque `0010` resuelve el mismo síntoma sin
+  desviación extra en el navegador. El fichero revertido queda en `/tmp/0008-revertido.patch`.
+- `0010-title-ipc-coalesce` (coalescencia del IPC `LocalFrameHost::UpdateTitle` en el renderer,
+  `blink::Document`) sí corta el caudal. Con una página que reescribe el título en bucle
+  (`/tmp/title_burst.html`, 300 escrituras cada 5 ms): con sólo `0008` 826 050 mensajes en 5 s y
+  RSS 1 522 → 2 243 MB con CPU 129 %; con `0010` 589 482 mensajes en 5 s, RSS plano en 269 MB y
+  CPU 38 %. Con el URL real de `omp` y sesión de streaming: 297–298 MB planos en 90 s, CPU del
+  navegador 2 %, ~1 500 mensajes cada 3 s.
+
+Y el bug de origen, resuelto en su propio repo (`github.com/ompweb-dev/ompweb`, v0.7.4):
+el efecto de `components/AppShell.tsx` observaba `document.head` con `subtree` y `characterData`, o
+sea su propia escritura del `<title>`, y `hooks/useAgentSession.ts` escribía el título sin
+compararlo. Reconstruido con `bun run build` e instalado, el navegador queda estable sin depender
+de los apaños del bundle minificado (backups en `index-9231ff16.js.orig-titulo`,
+`index-9231ff16.js.orig-setTitle` y `~/ompweb-dist-0.7.4.orig`).
 ## Origen medido de la tormenta (bpftrace + traza de arranque, máquina del usuario)
 
 Con `bpftrace` enganchado al proceso navegador durante el flood (extensión instalada y también con

@@ -296,20 +296,28 @@ blanco de pruebas; en un árbol podado como el de esta máquina no se construyen
   se vuelve a tocar. `ucsync/make_search_patch.sh` regenera el parche y `--refresh-baseline` rehace la
   base del JSON cuando el submódulo `external/search_engines_data` cambie.
 
-- **`0008-title-notify-throttle`** — **caudal de cambios de título**. El proceso navegador se quedaba
+- **`0010-title-ipc-coalesce`** — **caudal de cambios de título**. El proceso navegador se quedaba
   sin respuesta y consumía ~1 GB/s de RAM al abrir el UI web de `omp`: la página reasigna
-  `document.title` sin límite y cada cambio recorre el UI de la pestaña
-  (`WebContentsImpl::NotifyTitleUpdateForEntry` → `tabs::TabDataObserver::OnTabUIChange` →
-  `Tab::OnTabDataChanged`, con su tooltip y su nombre accesible) y reenvía un `tabs.onUpdated` a cada
-  extensión con permiso `tabs` (`extensions::ExtensionTabUtil::CreateTabObject`). Con varias
-  extensiones activas eso satura el hilo de UI (~150 % de CPU) y la contabilidad de eventos en vuelo
-  (`extensions::EventAckData::IncrementInflightEvent` → `content::ServiceWorkerVersion::
-  StartExternalRequest`, un `std::map<base::Uuid,int>` que sólo se descuenta cuando el service worker
-  confirma) crece sin techo. El parche coalesce las notificaciones de título a ~10 por segundo por
-  pestaña, entregando siempre la última (`WebContentsImpl::NotifyTitleUpdateThrottled` y
-  `FlushDeferredTitleUpdate`). Es una mitigación defensiva: cualquier página con un bucle de títulos
-  deja de poder tumbar el navegador; el bug de origen está en la app (su `MutationObserver` sobre
-  `document.head` observa su propia escritura del `<title>`).
+  `document.title` sin límite y cada reasignación envía un `LocalFrameHost::UpdateTitle` desde el
+  renderer al navegador (`blink::Document::DispatchDidReceiveTitle`). Con el stream de una sesión de
+  `omp` en curso se midieron ~120 000 escrituras de título por segundo y ≈400 000 mensajes Mojo
+  aceptados por segundo en el proceso navegador (`mojo::MessageDispatcher::Accept`,
+  `IPC::ChannelAssociatedGroupController::Accept`), con `PartitionBucket::SlowPathAlloc` a 850 000
+  por segundo y el RSS subiendo de 1 GB a 5 GB en 6 s hasta el abort por OOM.
+  El parche coalesce ese IPC en el renderer, a ~10/envío con timer (`HeapTaskRunnerTimer`) y
+  entregando siempre el último título (`Document::ScheduleTitleSendToBrowser`,
+  `Document::SendTitleToBrowser`). Medido con una página que reescribe el título en bucle: sin el
+  parche 826 050 mensajes en 5 s y +360 MB cada 5 s; con él, RSS plano y CPU 38 % frente a 129 %.
+  Es endurecimiento defensivo: cualquier página con un bucle de títulos deja de poder tumbar el
+  navegador. El bug de origen era de la app, y se arregló en su fuente (ver `docs/omp-title-loop.md`
+  en el repo UC-Sync): su `MutationObserver` sobre `document.head` observaba su propia escritura del
+  `<title>`.
+
+  Hubo un intento previo, **`0008-title-notify-throttle`**, que coalescía la notificación en el
+  navegador (`WebContentsImpl::NotifyTitleUpdateThrottled`). Se **revirtió**: no cambiaba el resultado
+  medido (14,3 GB/40 s sin él frente a 14,1 GB/40 s con él) y `0010` corta el caudal más cerca del
+  origen, así que sólo añadía desviación de Chromium. El parche revertido queda guardado en
+  `/tmp/0008-revertido.patch` para quien lo quiera.
 
 - **`0009-chromper-single-profile`** — **modo genérico de un solo usuario, sin maquinaria de
   perfiles**. Chromium siempre necesita un `--user-data-dir`, así que «sin perfiles» se traduce en un
