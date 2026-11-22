@@ -215,6 +215,26 @@ el de la carga inicial (2 s, antes del flood), donde las funciones dominantes so
 `index-9231ff16.js`. Falta por tanto el nombre de la función de `omp` que genera el flujo; eso sólo
 se puede obtener grabando un perfil de rendimiento en DevTools **antes** de que empiece el flood.
 
+## Perfil nuevo y datos de navegacion borrados: el disparador estaba en los datos del sitio
+
+Comprobacion en la maquina del usuario, en orden cronologico:
+
+| estado | resultado |
+|---|---|
+| perfil real (450 MB) + sesion de omp activa | navegador 11 874 MB en 30 s y muerto; renderer ~160 % CPU |
+| perfil nuevo (sin extensiones) + omp | navegador **plano** (265-267 MB), pero renderer subiendo a 100 % CPU |
+| perfil nuevo + `setTitle` limitado a 200 ms en el bundle de `omp` | con sesion activa seguia a 1 386 927 mensajes/s y renderer 180 % |
+| perfil nuevo tras borrar cache, cookies y todos los datos de navegacion, sesion de omp abierta y "+" pulsado | **sin parpadeo de titulo, sin colgarse**: 285 MB, CPU 2 %, 4 renderers |
+
+Lectura: el disparador vive en los **datos del sitio del origen de `omp`** (localStorage/IndexedDB/
+service worker del perfil viejo), no en Chromium ni en las extensiones. Con los datos limpios el UI
+de `omp` no entra en bucle y Chromper se queda plano. El parche 0010 sigue siendo necesario: sin el
+coalesce, cualquier bucle de titulo de cualquier pagina vuelve a explorar la memoria del navegador.
+
+Backup del perfil real conservado en `~/.config/ucsync-chromium.backup-real` (450 MB). El limitador
+de `setTitle` (200 ms) se aplico sobre el bundle servido por el servidor de `omp` de la maquina
+`10.7.93.10`, con backup en `dist/assets/index-9231ff16.js.orig-setTitle`.
+
 ## Parche 0010: el renderer coalesce el IPC de `document.title` (origen del colapso)
 
 La pila del emisor, trazada en el renderer culpable (`bpftrace` + `addr2line`/`nm`):
