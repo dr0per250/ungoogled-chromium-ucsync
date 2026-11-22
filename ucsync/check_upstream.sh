@@ -40,10 +40,13 @@ else
 fi
 
 echo "== UC-Sync =="
-if command -v npm >/dev/null 2>&1 && [[ -f "$HOME/uc-sync/extension/manifest.json" ]]; then
-  fijado="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['version'])" "$HOME/uc-sync/extension/manifest.json" 2>/dev/null)"
-  echo "  en el repositorio de la extensión: $fijado"
-  echo "  recopilar y regenerar parches:     cd ~/uc-sync && npm test --prefix extension && ~/uc-sync/uc-chromium/fork/ucsync/make_ucsync_patches.sh --src <chromium/src> --extension ~/uc-sync/extension"
+# La extensión vive en su propio proyecto, separado de este fork.
+UC_SYNC_DIR="${UC_SYNC_DIR:-/IA/uc-sync}"
+[[ -d "$UC_SYNC_DIR" ]] || UC_SYNC_DIR="$HOME/uc-sync"
+if command -v npm >/dev/null 2>&1 && [[ -f "$UC_SYNC_DIR/extension/manifest.json" ]]; then
+  fijado="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['version'])" "$UC_SYNC_DIR/extension/manifest.json" 2>/dev/null)"
+  echo "  en el repositorio de la extensión ($UC_SYNC_DIR): $fijado"
+  echo "  recopilar y regenerar parches:     cd $UC_SYNC_DIR && npm test --prefix extension && $FORK/ucsync/make_ucsync_patches.sh --src <chromium/src> --extension $UC_SYNC_DIR/extension"
 fi
 
 echo

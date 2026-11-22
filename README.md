@@ -11,6 +11,27 @@ Por qué está integrado y no se instala: `chrome.history.addUrl()` sólo sabe c
 que la fecha real de cada visita exige parchear la API de historial de Chromium. Y para eso ya hay
 que compilar el navegador, así que la extensión viaja con él.
 
+## Proyecto separado de la extensión
+
+Esto es **sólo el navegador**. La extensión y el servidor de sincronización están en otro proyecto y
+otro repo, y se actualizan de forma independiente:
+
+| Proyecto | Dónde | Repo |
+| --- | --- | --- |
+| **Chromper** (este repo) | `/IA/chromper` | `dr0per250/ungoogled-chromium-ucsync` |
+| Extensión UC-Sync + servidor | `/IA/uc-sync` | `dr0per250/uc-sync` |
+
+No hay submódulos ni enlaces: el código de la extensión se **copia** desde `/IA/uc-sync/extension`
+hacia el árbol de Chromium al generar los parches `0003`/`0004`
+(`ucsync/make_ucsync_patches.sh --src <chromium/src> --extension /IA/uc-sync/extension`). Cuando la
+extensión cambia de versión, aquí se regenera el parche, se verifica (`ucsync/verify_patch.py`,
+`ucsync/check_local.sh`), se recompila y se publica el binario; el servidor de UC-Sync se actualiza
+por su cuenta desde su repo.
+
+Dos carpetas locales que **no** se publican: `_scratch/` (espacios de trabajo de los parches de la
+API de historial) y `_vestigios/` (parches y ficheros sueltos de aquellas pruebas, incluida la clave
+`ucsync-extension-key.pem`, que de ningún modo puede acabarse en un commit).
+
 ```
    parches propios (patches/extra/ucsync/)
    0001  chrome.history.addUrl({url, visitTime})      hora real en chrome://history

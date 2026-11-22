@@ -14,3 +14,7 @@ __pycache__/
 
 # Espacio de trabajo del parche (ficheros de Chromium descargados)
 ucsync/work/
+
+# Espacios de trabajo locales y restos: nunca se publican (incluida la clave de la extensión)
+_scratch/
+_vestigios/
