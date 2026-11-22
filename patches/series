@@ -1,5 +1,4 @@
 upstream-fixes/missing-dependencies.patch
-
 core/inox-patchset/0001-fix-building-without-safebrowsing.patch
 core/inox-patchset/0003-disable-autofill-download-manager.patch
 core/inox-patchset/0005-disable-default-extensions.patch
@@ -35,7 +34,6 @@ core/ungoogled-chromium/remove-f1-shortcut.patch
 core/ungoogled-chromium/move-js-optimizer-unfamiliar-sites.patch
 core/ungoogled-chromium/remove-navigation-source-param.patch
 core/bromite/disable-fetching-field-trials.patch
-
 extra/ungoogled-chromium/add-ungoogled-flag-headers.patch
 extra/inox-patchset/0006-modify-default-prefs.patch
 extra/inox-patchset/0008-restore-classic-ntp.patch
@@ -115,6 +113,5 @@ extra/ucsync/0004-ucsync-browser-registration.patch
 extra/ucsync/0005-chromper-branding.patch
 extra/ucsync/0006-chromium-web-store-extension.patch
 extra/ucsync/0007-chromper-default-search-engine.patch
-extra/ucsync/0008-title-notify-throttle.patch
 extra/ucsync/0009-chromper-single-profile.patch
 extra/ucsync/0010-title-ipc-coalesce.patch
