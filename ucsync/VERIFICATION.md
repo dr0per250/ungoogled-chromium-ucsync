@@ -181,6 +181,16 @@ Sobre los parches de título, en orden cronológico y con números:
   CPU 38 %. Con el URL real de `omp` y sesión de streaming: 297–298 MB planos en 90 s, CPU del
   navegador 2 %, ~1 500 mensajes cada 3 s.
 
+Resultado del revert de `0008` (build `94/94`, `rc=0`, `fallos=0`; binario 487 369 240 bytes,
+104 menos que el anterior): `nm -C` sobre el binario instalado en la máquina del usuario encuentra
+`Document::ScheduleTitleSendToBrowser` y `Document::SendTitleToBrowser` (0010 sigue dentro) y **0**
+símbolos de `WebContentsImpl::NotifyTitleUpdateThrottled`/`FlushDeferredTitleUpdate` (0008 fuera).
+Activo: paquete `chromper-linux-x64-157.0.8103.78.tar.gz`, 199 384 004 bytes,
+SHA-256 `76d67359438d5fbf4864ff8a9351dc9d1bfcf35c43db7206255a657d5f231ef8`, instalado con
+`ucsync/execute.sh` y medido con el URL real de `omp`: 414 MB planos en 25 s, CPU del navegador
+5-11 %, IPC ~0-3 mensajes cada 3 s. Con el perfil real abierto: 388 MB.
+
+
 Y el bug de origen, resuelto en su propio repo (`github.com/ompweb-dev/ompweb`, v0.7.4):
 el efecto de `components/AppShell.tsx` observaba `document.head` con `subtree` y `characterData`, o
 sea su propia escritura del `<title>`, y `hooks/useAgentSession.ts` escribía el título sin
