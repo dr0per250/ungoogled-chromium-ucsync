@@ -343,6 +343,22 @@ enlace si apuntaba al prefijo borrado. No se recarga la extensión descargándol
 en caliente: quitarla y volverla a cargar en el arranque provoca un `DCHECK` en
 `toolbar_actions_model.cc` (estado de los botones fijados), por eso se resuelve en el disco.
 
+### Por qué el binario de Windows no se puede compilar aquí
+
+Chromper para Windows **no** se puede cruzar desde Linux con este árbol:
+`build/toolchain/win/BUILD.gn:8` hace `assert(is_win, "Should only be running on Windows")`, y el
+montaje de la toolchain (`build/toolchain/win/setup_toolchain.py`) necesita binarios de Visual Studio
+que se ejecutan en el host — `clang-cl.exe`, `lib.exe`, `rc.exe` para los recursos y `midl.exe` para
+el IDL; `llvm-rc`/`lld-link` sustituyen dos de ellos, pero `midl.exe` no tiene equivalente en Linux.
+Así que hace falta una máquina Windows (física o una VM local con KVM, con VS Build Tools + SDK +
+ATL) y los scripts `ucsync/bootstrap_windows.ps1`, `ucsync/runner_windows.ps1` y
+`ucsync/package_windows.ps1`, que ya funcionan por SSH con `tools/winsh.sh` (credenciales en
+`~/.config/chromper/win.env`; ojo: `WIN_HOST` apunta ahora a la caja Linux, hay que actualizarlo
+cuando vuelva a haber una Windows). Mientras no se recompille, el `chromper-windows-x64.zip`
+publicado **no** incluye `0009-chromper-single-profile` ni `0010-title-ipc-coalesce`: ese binario
+puede colapsar con páginas que reasignen `document.title` en bucle, y sí mantiene Google como
+buscador, UC-Sync y la tienda integrada.
+
 ## Comprobaciones y actualización: todo en local
 GitHub no ejecuta nada de esto (el fork no tiene workflows). Sólo guarda los parches y publica los
 binarios ya compilados aquí; compilar Chromium siempre se hace en tu máquina (`ucsync/build.sh`).
